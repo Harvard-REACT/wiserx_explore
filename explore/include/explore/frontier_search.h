@@ -13,6 +13,7 @@ struct Frontier {
   std::uint32_t size;
   double min_distance;
   double cost;
+  double coordination_cost; //Will be calculated based on the relative positions of neighbors obtained from wireless signal sensors.
   geometry_msgs::Point initial;
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
@@ -43,6 +44,8 @@ public:
    * @return List of frontiers, if any
    */
   std::vector<Frontier> searchFrom(geometry_msgs::Point position);
+  std::vector<Frontier> searchFromWithNeighorInfo(geometry_msgs::Point position,
+                                                  std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots);
 
 protected:
   /**
@@ -76,6 +79,8 @@ protected:
    * @return cost of the frontier
    */
   double frontierCost(const Frontier& frontier);
+  double coordinationCost(const Frontier& frontier,
+                          std::vector<geometry_msgs::Point> rel_positions);
 
 private:
   costmap_2d::Costmap2D* costmap_;

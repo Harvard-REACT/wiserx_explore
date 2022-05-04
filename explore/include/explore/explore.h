@@ -47,9 +47,13 @@
 #include <move_base_msgs/MoveBaseAction.h>
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
-
+#include <geometry_msgs/Pose.h>
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
+#include <gazebo_msgs/ModelStates.h>
+#include <regex>
+#include <iterator>
+
 
 namespace explore
 {
@@ -85,9 +89,12 @@ private:
 
   bool goalOnBlacklist(const geometry_msgs::Point& goal);
 
+  void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_;
+  ros::Subscriber modelStateSub_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -108,6 +115,10 @@ private:
   double potential_scale_, orientation_scale_, gain_scale_;
   ros::Duration progress_timeout_;
   bool visualize_;
+  std::string robot_name_;
+  std::vector<int>neighbor_id_;
+  std::vector<geometry_msgs::Point> neighbor_pose_vec_;
+  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false;
 };
 }
 
