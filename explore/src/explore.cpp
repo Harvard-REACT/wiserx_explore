@@ -71,7 +71,7 @@ namespace explore
         if (IsMatch(val) && val!=robot_name_) 
         {
           // std::cout << val << std::endl;
-          neighbor_id_.push_back(n_count);
+          neighbor_id_.push_back(n_count); 
         }
         // else
         // {
