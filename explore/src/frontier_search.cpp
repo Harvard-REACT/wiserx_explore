@@ -88,14 +88,15 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
   // set travel and information gain costs of frontiers
   for (auto& frontier : frontier_list) {
     frontier.cost = frontierCost(frontier);
-    f_cost_min = f_cost_min <= frontier.cost ? f_cost_min : frontier.cost;
-    f_cost_max = f_cost_max > frontier.cost ? f_cost_max : frontier.cost;
+    // f_cost_min = f_cost_min <= frontier.cost ? f_cost_min : frontier.cost;
+    // f_cost_max = f_cost_max > frontier.cost ? f_cost_max : frontier.cost;
   }
-  //Normalize
-  for (auto& frontier : frontier_list) 
-  {
-    frontier.cost = (frontier.cost - f_cost_min) / (f_cost_max - f_cost_min);
-  }
+  
+  // //Normalize -> No need for this since it is the default cost calculation
+  // for (auto& frontier : frontier_list) 
+  // {
+  //   frontier.cost = (frontier.cost - f_cost_min) / (f_cost_max - f_cost_min);
+  // }
 
   //Sort the total calculated cost
   std::sort(
@@ -256,7 +257,7 @@ Frontier FrontierSearch::buildNewFrontier(unsigned int initial_cell,
         geometry_msgs::Point point;
         point.x = wx;
         point.y = wy;
-        output.points.push_back(point);
+        output.points.push_back(point);// This stores all the positions of the points/cells within a frontier.
 
         // update frontier size
         output.size++;
@@ -308,11 +309,11 @@ bool FrontierSearch::isNewFrontierCell(unsigned int idx,
 
 double FrontierSearch::frontierCost(const Frontier& frontier)
 {
-  return (potential_scale_ * frontier.min_distance *
-          costmap_->getResolution()) -
+  return (potential_scale_ * frontier.min_distance * costmap_->getResolution()) -
          (gain_scale_ * frontier.size * costmap_->getResolution());
 }
 
+//Greedy method.
 double FrontierSearch::coordinationCost(const Frontier& frontier,
                                         std::vector<geometry_msgs::Point> rel_positions)
 {

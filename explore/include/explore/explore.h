@@ -53,7 +53,7 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <regex>
 #include <iterator>
-
+#include <unistd.h>
 
 namespace explore
 {
