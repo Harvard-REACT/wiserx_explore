@@ -115,7 +115,8 @@ namespace explore
     private_nh_.param("potential_scale", potential_scale_, 1e-3);
     private_nh_.param("orientation_scale", orientation_scale_, 0.0);
     private_nh_.param("gain_scale", gain_scale_, 1.0);
-    private_nh_.param("min_frontier_size", min_frontier_size, 0.5); 
+    private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
+    private_nh_.param("sensor_range", sensor_range_, 1.0); 
 
     
     //Subscribe to the gazebo state to get the position of the other robot
@@ -123,7 +124,7 @@ namespace explore
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
-                                                  min_frontier_size);
+                                                  min_frontier_size, sensor_range_);
 
     if (visualize_) {
       marker_array_publisher_ =
@@ -184,7 +185,9 @@ namespace explore
 
     // weighted frontiers are always sorted
     // double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
-    double min_cost = frontiers.empty() ? 0. : 1 - frontiers.front().cost; //For normalized cost to utilize the visualization.
+    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost;
+    double max_cost = frontiers.empty() ? 0. : frontiers.front().cost;
+    // double min_cost = frontiers.empty() ? 0. : 1 - frontiers.front().cost; //For normalized cost to utilize the visualization.
 
     m.action = visualization_msgs::Marker::ADD;
     size_t id = 0;
@@ -208,7 +211,8 @@ namespace explore
       m.pose.position = frontier.initial;
       // scale frontier according to its cost (costier frontiers will be smaller)
       // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
-      double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
+      double scale = std::min(std::abs((frontier.cost - min_cost) / (max_cost - min_cost)), 0.2); //For new info gain formulation
+      // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
       m.scale.x = scale;
       m.scale.y = scale;
       m.scale.z = scale;
@@ -254,7 +258,7 @@ namespace explore
       for (size_t i = 0; i < frontier_temp.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].initial.x, frontier_temp[i].initial.y);
+        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
       }
       
       frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
@@ -262,7 +266,7 @@ namespace explore
       for (size_t i = 0; i < frontiers.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].initial.x, frontiers[i].initial.y);
+        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
       }
     }
     else
@@ -272,7 +276,7 @@ namespace explore
       for (size_t i = 0; i < frontiers.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].initial.x, frontiers[i].initial.y);
+        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
       }
     }
     

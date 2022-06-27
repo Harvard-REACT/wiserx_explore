@@ -12,6 +12,7 @@ namespace frontier_exploration
 struct Frontier {
   std::uint32_t size;
   double min_distance;
+  double centroid_distance;
   double cost;
   double coordination_cost; //Will be calculated based on the relative positions of neighbors obtained from wireless signal sensors.
   geometry_msgs::Point initial;
@@ -36,7 +37,7 @@ public:
    * @param costmap Reference to costmap data to search.
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
-                 double gain_scale, double min_frontier_size);
+                 double gain_scale, double min_frontier_size, double range);
 
   /**
    * @brief Runs search implementation, outward from the start position
@@ -79,6 +80,16 @@ protected:
    * @return cost of the frontier
    */
   double frontierCost(const Frontier& frontier);
+  
+  /**
+   * @brief computes frontier cost as information gain (expected number of unexplored cells) per unit of navigation effort.
+   *
+   * @param frontier frontier for which compute the cost
+   * @return cost of the frontier
+   */
+  double frontierInfoGain(const Frontier& frontier,
+                              int& unexplored_cells);
+  
   double coordinationCost(const Frontier& frontier,
                           std::vector<geometry_msgs::Point> rel_positions);
 
@@ -86,7 +97,7 @@ private:
   costmap_2d::Costmap2D* costmap_;
   unsigned char* map_;
   unsigned int size_x_, size_y_;
-  double potential_scale_, gain_scale_;
+  double potential_scale_, gain_scale_, sensor_range_;
   double min_frontier_size_;
 };
 }

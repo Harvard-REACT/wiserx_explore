@@ -129,5 +129,83 @@ bool nearestCell(unsigned int& result, unsigned int start, unsigned char val,
 
   return false;
 }
+
+/**
+ * @brief Find all the cells of some value within a range of some cell
+ * @param result Count of such cells
+ * @param start Index initial cell to search from
+ * @param val Specified value to search for
+ * @param costmap Reference to map data
+ * @param range Range to search within
+ * @return True if a cell with the requested value was found
+ */
+bool nearestCellsWithinRange(int& result, unsigned int start, unsigned char val,
+                            unsigned char val2, unsigned char val3, 
+                            const costmap_2d::Costmap2D& costmap, double& range)
+{
+  const unsigned char* map = costmap.getCharMap();
+  const unsigned int size_x = costmap.getSizeInCellsX(),
+                     size_y = costmap.getSizeInCellsY();
+
+  int free_cells =0, occupied_cells = 0;
+
+  // ROS_INFO("Costmap resolution: %f", costmap.getResolution());
+  // ROS_INFO("Range: %f", range);
+  // ROS_INFO("range/resolution = %f ", range/costmap.getResolution());
+  if (start >= size_x * size_y) {
+    return false;
+  }
+
+  // initialize breadth first search
+  std::queue<unsigned int> bfs;
+  std::vector<bool> visited_flag(size_x * size_y, false);
+
+  // push initial cell
+  bfs.push(start);
+  visited_flag[start] = true;
+  unsigned int sx, sy, nx, ny;
+  costmap.indexToCells(start, sx, sy);
+
+  // search for neighbouring cell matching value
+  while (!bfs.empty()) {
+    unsigned int idx = bfs.front();
+    bfs.pop();
+
+    // return if cell of correct value is found
+    if (map[idx] == val) {
+      result += 1;
+    }
+    else if (map[idx] == val2)
+    {
+      free_cells += 1;
+    }
+    else if(map[idx] == val3)
+    {
+      occupied_cells +=1;
+    }
+
+    // iterate over all adjacent unvisited cells
+    for (unsigned nbr : nhood8(idx, costmap)) {
+      if (!visited_flag[nbr]) {
+        costmap.indexToCells(nbr, nx, ny);
+        float dist = sqrt(pow((sx-nx),2) + pow((sy-ny),2));
+        if(dist*costmap.getResolution() <= range) 
+        {
+            bfs.push(nbr);
+            // ROS_INFO("dist (map coord): %f", dist);
+        }
+        visited_flag[nbr] = true;
+      }
+    }
+  }
+
+  // ROS_INFO("Free = %d", free_cells);
+  // ROS_INFO("Occupied = %d", occupied_cells);
+  // ROS_INFO("Unknown = %d", result);
+  // ROS_INFO("Total = %d", result + free_cells + occupied_cells);
+
+  return true;
+}
+
 }
 #endif
