@@ -48,16 +48,14 @@ inline static bool operator==(const geometry_msgs::Point& one,
   return dist < 0.01;
 }
 
-bool IsMatch(std::string& val)
-{
-  std::string s1 = "tb3_";
-  return (val.find(s1) != std::string::npos);
-}
-
-
 namespace explore
 {
-  
+
+  bool  Explore::IsMatch(std::string& val)
+  {
+    return (val.find(neighbor_name_) != std::string::npos);
+  }
+
   void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
   {
     int itr = 0, n_count = 0;
@@ -111,12 +109,14 @@ namespace explore
     progress_timeout_ = ros::Duration(timeout);
     private_nh_.param("visualize", visualize_, false);
     private_nh_.param("use_WSR", FLAG_WSR_, true);
-    private_nh_.param("robot_name", robot_name_, std::string("tb3"));
+    private_nh_.param("robot_name", robot_name_, std::string("tb3_0"));
+    private_nh_.param("neighbor_name", neighbor_name_, std::string("tb3_"));
     private_nh_.param("potential_scale", potential_scale_, 1e-3);
     private_nh_.param("orientation_scale", orientation_scale_, 0.0);
     private_nh_.param("gain_scale", gain_scale_, 1.0);
     private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
+    private_nh_.param("decay_rate", decay_rate_, 0.25); 
 
     
     //Subscribe to the gazebo state to get the position of the other robot
@@ -124,7 +124,7 @@ namespace explore
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
-                                                  min_frontier_size, sensor_range_);
+                                                  min_frontier_size, sensor_range_,decay_rate_);
 
     if (visualize_) {
       marker_array_publisher_ =
@@ -211,7 +211,7 @@ namespace explore
       m.pose.position = frontier.initial;
       // scale frontier according to its cost (costier frontiers will be smaller)
       // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
-      double scale = std::min(std::abs((frontier.cost - min_cost) / (max_cost - min_cost)), 0.2); //For new info gain formulation
+      double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
       // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
       m.scale.x = scale;
       m.scale.y = scale;

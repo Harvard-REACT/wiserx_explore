@@ -2,6 +2,7 @@
 #define FRONTIER_SEARCH_H_
 
 #include <costmap_2d/costmap_2d.h>
+#include <unordered_map>
 
 namespace frontier_exploration
 {
@@ -37,7 +38,8 @@ public:
    * @param costmap Reference to costmap data to search.
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
-                 double gain_scale, double min_frontier_size, double range);
+                 double gain_scale, double min_frontier_size, double range, 
+                 float decay_rate_);
 
   /**
    * @brief Runs search implementation, outward from the start position
@@ -87,8 +89,12 @@ protected:
    * @param frontier frontier for which compute the cost
    * @return cost of the frontier
    */
-  double frontierInfoGain(const Frontier& frontier,
-                              int& unexplored_cells);
+  double frontierUtility(const Frontier& frontier,
+                        int& unexplored_cells);
+  
+  double frontierUtility(const Frontier& frontier,
+                        float& information_gain,
+                        std::vector<geometry_msgs::Point> rel_positions);
   
   double coordinationCost(const Frontier& frontier,
                           std::vector<geometry_msgs::Point> rel_positions);
@@ -99,6 +105,8 @@ private:
   unsigned int size_x_, size_y_;
   double potential_scale_, gain_scale_, sensor_range_;
   double min_frontier_size_;
+  float decay_rate_, eta_=1;
+  std::unordered_map<int, int> total_overlap_g_c_;
 };
 }
 #endif

@@ -91,6 +91,8 @@ private:
 
   void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
+  bool IsMatch(std::string& val);
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_;
@@ -112,10 +114,10 @@ private:
 
   // parameters
   double planner_frequency_;
-  double potential_scale_, orientation_scale_, gain_scale_, sensor_range_;
+  double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_;
   ros::Duration progress_timeout_;
   bool visualize_;
-  std::string robot_name_;
+  std::string robot_name_, neighbor_name_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> neighbor_pose_vec_;
   bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false;
