@@ -1,10 +1,13 @@
 #ifndef COSTMAP_TOOLS_H_
 #define COSTMAP_TOOLS_H_
 
+#define _USE_MATH_DEFINES
+
 #include <costmap_2d/costmap_2d.h>
 #include <geometry_msgs/PointStamped.h>
 #include <geometry_msgs/PolygonStamped.h>
 #include <ros/ros.h>
+#include <cmath>
 
 namespace frontier_exploration
 {
@@ -267,7 +270,7 @@ void informationGain(float& result, unsigned int start, unsigned char val,
 
       //Information value of the cell based on number of overlaps
       a = g_c[idx]>0 ? 0 : 1;  
-      result += a + (1-a)*exp(-decay_rate*g_c[idx]) ;
+      result += a + (1-a)*pow(M_E,(-decay_rate*g_c[idx])) ;
     }
 
     // iterate over all adjacent unvisited cells
@@ -297,6 +300,8 @@ void informationGain(float& result, unsigned int start, unsigned char val,
   }
 
   beta = log10(eta*total_dist_j);
+  ROS_INFO("Total distance = %f", total_dist_j);
+  ROS_INFO("beta = %f", beta);
   result *= beta;
 }
 
