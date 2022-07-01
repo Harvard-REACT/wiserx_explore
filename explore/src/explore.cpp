@@ -406,10 +406,11 @@ namespace explore
   {
 
     for(int i=0; i<default_frontiers.size(); i++)
-    {
+    { 
       std::vector<float> temp {float(default_frontiers[i].pos_id), default_frontiers[i].information_gain, 
-                          default_frontiers[i].effort, default_frontiers[i].neighbor_distance, 
-                          float(default_frontiers[i].neighbors)};
+                              default_frontiers[i].effort, default_frontiers[i].neighbor_distance, 
+                              float(default_frontiers[i].neighbors), float(i+1)}; 
+
       default_frontier_stats_.push_back(temp);
     }
 
@@ -419,7 +420,7 @@ namespace explore
       {
         std::vector<float> temp{ float(wsr_frontiers[i].pos_id), wsr_frontiers[i].information_gain, 
                             wsr_frontiers[i].effort, wsr_frontiers[i].neighbor_distance, 
-                            float(wsr_frontiers[i].neighbors)};
+                            float(wsr_frontiers[i].neighbors), float(i+1)};
         wsr_frontiers_stats_.push_back(temp);
       }
     }
@@ -428,12 +429,13 @@ namespace explore
     {
       std::cout.precision(10);
       const auto p1 = std::chrono::system_clock::now();
-      std::string fn1 = fn+"_def_frontiers_stats_"+std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count())+".csv";
-      std::string fn2 = fn+"_wsr_frontiers_stats_"+std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count())+".csv";
+      std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
+      std::string fn1 = fn+"def_frontiers_stats_"+ts+".csv";
+      std::string fn2 = fn+"wsr_frontiers_stats_"+ts+".csv";
       std::ofstream myfile_def (fn1);
       std::ofstream myfile_wsr (fn2);
       std::vector<double> temp;
-      std::vector<std::string> details {"pos_id", "info_gain", "effort", "j_dist", "j_count"};
+      std::vector<std::string> details {"pos_id", "info_gain", "effort", "j_dist", "j_count", "index"}; //index 1 means the top most frontier at each iteration which will then be selected
 
       if (myfile_def.is_open())
       {
