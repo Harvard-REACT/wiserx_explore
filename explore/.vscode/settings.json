@@ -53,6 +53,7 @@
         "bitset": "cpp",
         "cstring": "cpp",
         "map": "cpp",
-        "shared_mutex": "cpp"
+        "shared_mutex": "cpp",
+        "iostream": "cpp"
     }
 }

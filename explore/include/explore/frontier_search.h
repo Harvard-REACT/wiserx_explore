@@ -20,6 +20,11 @@ struct Frontier {
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
   std::vector<geometry_msgs::Point> points;
+  float information_gain;
+  float effort;
+  int pos_id;
+  float neighbor_distance;
+  int neighbors;
 };
 
 /**
@@ -49,6 +54,8 @@ public:
   std::vector<Frontier> searchFrom(geometry_msgs::Point position);
   std::vector<Frontier> searchFromWithNeighorInfo(geometry_msgs::Point position,
                                                   std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots);
+  std::vector<Frontier> searchFromNew(geometry_msgs::Point position,
+                                      std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots);
 
 protected:
   /**
@@ -94,10 +101,14 @@ protected:
   
   double frontierUtility(const Frontier& frontier,
                         float& information_gain,
-                        std::vector<geometry_msgs::Point> rel_positions);
+                        std::vector<geometry_msgs::Point> rel_positions,
+                        float& effort);
   
   double coordinationCost(const Frontier& frontier,
                           std::vector<geometry_msgs::Point> rel_positions);
+
+  float neighborhoodDistance(unsigned int start,
+                            std::vector<geometry_msgs::Point> rel_positions);
 
 private:
   costmap_2d::Costmap2D* costmap_;

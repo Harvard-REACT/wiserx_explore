@@ -38,6 +38,7 @@
 #include <explore/explore.h>
 
 #include <thread>
+#include <chrono>
 
 inline static bool operator==(const geometry_msgs::Point& one,
                               const geometry_msgs::Point& two)
@@ -47,6 +48,8 @@ inline static bool operator==(const geometry_msgs::Point& one,
   double dist = sqrt(dx * dx + dy * dy);
   return dist < 0.01;
 }
+
+std::string fn = "/home/jadhav/catkin_ws/src/wsr_exploration/data/mexplore_data/";
 
 namespace explore
 {
@@ -253,7 +256,7 @@ namespace explore
 
     if(FLAG_WSR_)
     {
-      frontier_temp = search_.searchFrom(pose.position);
+      frontier_temp = search_.searchFromNew(pose.position, neighbor_pose_vec_);
       ROS_DEBUG("Original cost");
       for (size_t i = 0; i < frontier_temp.size(); ++i) 
       {
@@ -268,21 +271,30 @@ namespace explore
         ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
         ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
       }
+
+      writeToFile(frontier_temp, frontiers, fn);
     }
     else
     {
-      frontiers = search_.searchFrom(pose.position);
+      // frontiers = search_.searchFrom(pose.position); //original code.
+      
+      // using neighrbor info just to collect stats and not for utility calculation
+      frontiers = search_.searchFromNew(pose.position, neighbor_pose_vec_); 
+      
       ROS_DEBUG("Original cost");
       for (size_t i = 0; i < frontiers.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
         ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
       }
+
+      writeToFile(frontiers,frontier_temp,fn);
     }
     
     
     if (frontiers.empty()) {
       stop();
+      writeToFile(frontier_temp,frontiers, fn);
       return;
     }
 
@@ -297,7 +309,8 @@ namespace explore
                         [this](const frontier_exploration::Frontier& f) {
                           return goalOnBlacklist(f.centroid);
                         });
-    if (frontier == frontiers.end()) {
+    if (frontier == frontiers.end()) 
+    {
       stop();
       return;
     }
@@ -383,8 +396,91 @@ namespace explore
   {
     move_base_client_.cancelAllGoals();
     exploring_timer_.stop();
+    exploration_completed_ = true;
     ROS_INFO("Exploration stopped.");
   }
+
+  void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_frontiers, 
+                            std::vector<frontier_exploration::Frontier>&wsr_frontiers,
+                            std::string& fn)
+  {
+
+    for(int i=0; i<default_frontiers.size(); i++)
+    {
+      std::vector<float> temp {float(default_frontiers[i].pos_id), default_frontiers[i].information_gain, 
+                          default_frontiers[i].effort, default_frontiers[i].neighbor_distance, 
+                          float(default_frontiers[i].neighbors)};
+      default_frontier_stats_.push_back(temp);
+    }
+
+    if(FLAG_WSR_)
+    { 
+      for(int i=0; i<wsr_frontiers.size(); i++)
+      {
+        std::vector<float> temp{ float(wsr_frontiers[i].pos_id), wsr_frontiers[i].information_gain, 
+                            wsr_frontiers[i].effort, wsr_frontiers[i].neighbor_distance, 
+                            float(wsr_frontiers[i].neighbors)};
+        wsr_frontiers_stats_.push_back(temp);
+      }
+    }
+
+    if(exploration_completed_)
+    {
+      std::cout.precision(10);
+      const auto p1 = std::chrono::system_clock::now();
+      std::string fn1 = fn+"_def_frontiers_stats_"+std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count())+".csv";
+      std::string fn2 = fn+"_wsr_frontiers_stats_"+std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count())+".csv";
+      std::ofstream myfile_def (fn1);
+      std::ofstream myfile_wsr (fn2);
+      std::vector<double> temp;
+      std::vector<std::string> details {"pos_id", "info_gain", "effort", "j_dist", "j_count"};
+
+      if (myfile_def.is_open())
+      {
+          for(int j=0; j< details.size(); j++)
+          {
+              myfile_def << std::fixed << details[j] << ",";
+          }
+          myfile_def << "\n";
+
+
+          for(size_t i = 0; i < default_frontier_stats_.size(); i++)
+          {
+              for(int j=0; j< default_frontier_stats_[i].size(); j++)
+              {
+                  myfile_def << std::fixed << default_frontier_stats_[i][j] << ",";
+              }
+              myfile_def << "\n";
+          }
+          
+      }
+      myfile_def.close();
+
+      if(FLAG_WSR_)
+      {
+        if (myfile_wsr.is_open())
+        {
+            for(int j=0; j< details.size(); j++)
+            {
+                myfile_def << std::fixed << details[j] << ",";
+            }
+            myfile_def << "\n";
+            
+            for(size_t i = 0; i < wsr_frontiers_stats_.size(); i++)
+            {
+                for(int j=0; j< wsr_frontiers_stats_[i].size(); j++)
+                {
+                    myfile_wsr << std::fixed << wsr_frontiers_stats_[i][j] << ",";
+                }
+                myfile_wsr << "\n";
+            }
+          
+        }
+        myfile_wsr.close();
+      }
+    }
+  }
+
 
 }  // namespace explore
 

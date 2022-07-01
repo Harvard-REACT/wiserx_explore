@@ -300,12 +300,10 @@ void informationGain(float& result, unsigned int start, unsigned char val,
   }
 
   beta = log10(eta*total_dist_j);
-  ROS_INFO("Total distance = %f", total_dist_j);
-  ROS_INFO("beta = %f", beta);
+  // ROS_INFO("Total distance = %f", total_dist_j);
+  // ROS_INFO("beta = %f", beta);
   result *= beta;
 }
-
-
 
 }
 #endif
