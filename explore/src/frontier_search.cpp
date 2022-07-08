@@ -233,6 +233,7 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
   float f_cost_min = 100000, f_cost_max = 0;
   float information_gain=0, effort = 0;
   unsigned fmx, fmy;
+  int uexp_cell_count = 0;
 
   // Sanity check that robot is inside costmap bounds before searching
   unsigned int mx, my;
@@ -301,7 +302,9 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
   // set travel and information gain costs of frontiers
   for (auto& frontier : frontier_list) 
   {
-    information_gain = 0, effort = 0;
+    information_gain = 0;
+    effort = 0;
+    uexp_cell_count = 0;
     costmap_->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
     unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
     
@@ -309,8 +312,13 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
     ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
     ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
     ROS_INFO("Frontier centroid index= %d", frontier_pos);
-    
-    
+
+    /*Added here only for testing*/    
+    // bool val = nearestCellsWithinRange(uexp_cell_count, frontier_pos, NO_INFORMATION, FREE_SPACE,
+    //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
+    // information_gain = uexp_cell_count;
+    /*******/
+
     informationGain(information_gain, frontier_pos, NO_INFORMATION,
                     *costmap_, sensor_range_, total_overlap_g_c_, decay_rate_,
                     relative_position_of_neighboring_robots, eta_);
@@ -591,6 +599,8 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
   int gamma_1 = 1;
   float gamma_2 =  min_dist_j_all <= frontier.centroid_distance ? (1/(1+min_dist_j_all)) : 0;
   effort = gamma_1 * frontier.centroid_distance * (1 + gamma_2);
+  
+  // effort = frontier.centroid_distance; //Added only for testing;
 
   return information_gain / effort;
 }

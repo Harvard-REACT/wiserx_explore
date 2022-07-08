@@ -51,6 +51,7 @@
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
 #include <gazebo_msgs/ModelStates.h>
+#include <std_msgs/Bool.h>
 #include <regex>
 #include <iterator>
 #include <unistd.h>
@@ -100,10 +101,12 @@ private:
                             std::vector<frontier_exploration::Frontier>&wsr_frontiers,
                             std::string& fn);
 
+  void explorationStatusCB(const std_msgs::Bool::ConstPtr& msg);
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_;
-  ros::Subscriber modelStateSub_;
+  ros::Subscriber modelStateSub_, exploration_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -127,7 +130,7 @@ private:
   std::string robot_name_, neighbor_name_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> neighbor_pose_vec_;
-  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false;
+  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
 };
 }

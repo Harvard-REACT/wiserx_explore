@@ -299,7 +299,7 @@ void informationGain(float& result, unsigned int start, unsigned char val,
     total_dist_j += sqrt(pow((rel_pos_neighbors[j].x-wx),2) + pow((rel_pos_neighbors[j].y-wy),2));
   }
 
-  beta = log10(eta*total_dist_j);
+  beta = log10(eta*total_dist_j);  // no need to take average distance as the assumption is that all robots can be sensed at all times.
   // ROS_INFO("Total distance = %f", total_dist_j);
   // ROS_INFO("beta = %f", beta);
   result *= beta;

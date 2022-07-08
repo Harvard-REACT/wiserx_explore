@@ -96,6 +96,10 @@ namespace explore
     }
   }
 
+  void Explore::explorationStatusCB(const std_msgs::Bool::ConstPtr& msg)
+  {
+    exploration_done_ = msg->data;
+  }
 
   Explore::Explore()
     : private_nh_("~")
@@ -124,6 +128,7 @@ namespace explore
     
     //Subscribe to the gazebo state to get the position of the other robot
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
@@ -211,7 +216,7 @@ namespace explore
       ++id;
       m.type = visualization_msgs::Marker::SPHERE;
       m.id = int(id);
-      m.pose.position = frontier.initial;
+      m.pose.position = frontier.centroid;
       // scale frontier according to its cost (costier frontiers will be smaller)
       // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
       double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
@@ -292,7 +297,8 @@ namespace explore
     }
     
     
-    if (frontiers.empty()) {
+    if (frontiers.empty() || exploration_done_) 
+    {
       stop();
       writeToFile(frontier_temp,frontiers, fn);
       return;
@@ -302,6 +308,7 @@ namespace explore
     if (visualize_) {
       visualizeFrontiers(frontiers);
     }
+
 
     // find non blacklisted frontier
     auto frontier =
@@ -427,6 +434,7 @@ namespace explore
 
     if(exploration_completed_)
     {
+      ROS_INFO("Saving exploration stats to file.");
       std::cout.precision(10);
       const auto p1 = std::chrono::system_clock::now();
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
@@ -464,9 +472,9 @@ namespace explore
         {
             for(int j=0; j< details.size(); j++)
             {
-                myfile_def << std::fixed << details[j] << ",";
+                myfile_wsr << std::fixed << details[j] << ",";
             }
-            myfile_def << "\n";
+            myfile_wsr << "\n";
             
             for(size_t i = 0; i < wsr_frontiers_stats_.size(); i++)
             {
