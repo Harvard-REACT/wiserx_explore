@@ -19,6 +19,7 @@ struct Frontier {
   geometry_msgs::Point initial;
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
+  geometry_msgs::Point furthest;
   std::vector<geometry_msgs::Point> points;
   float information_gain;
   float effort;
@@ -70,6 +71,13 @@ protected:
   Frontier buildNewFrontier(unsigned int initial_cell, unsigned int reference,
                             std::vector<bool>& frontier_flag);
 
+
+  Frontier buildNewFrontier(unsigned int initial_cell,
+                            unsigned int reference,
+                            std::vector<bool>& frontier_flag,
+                            std::vector<geometry_msgs::Point> rel_positions);
+
+
   /**
    * @brief isNewFrontierCell Evaluate if candidate cell is a valid candidate
    * for a new frontier.
@@ -110,6 +118,9 @@ protected:
   float neighborhoodDistance(unsigned int start,
                             std::vector<geometry_msgs::Point> rel_positions);
 
+  std::vector<Frontier> splitFrontier(const Frontier& frontier,
+                                      unsigned int reference);
+
 private:
   costmap_2d::Costmap2D* costmap_;
   unsigned char* map_;
@@ -118,6 +129,7 @@ private:
   double min_frontier_size_;
   float decay_rate_, eta_=1;
   std::unordered_map<int, int> total_overlap_g_c_;
+  int max_frontier_size_ = 0;
 };
 }
 #endif

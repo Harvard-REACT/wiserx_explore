@@ -309,18 +309,26 @@ namespace explore
       visualizeFrontiers(frontiers);
     }
 
-
     // find non blacklisted frontier
     auto frontier =
         std::find_if_not(frontiers.begin(), frontiers.end(),
                         [this](const frontier_exploration::Frontier& f) {
                           return goalOnBlacklist(f.centroid);
                         });
+    
+    
     if (frontier == frontiers.end()) 
     {
       stop();
       return;
     }
+    
+    // if(frontiers.size() == 1)
+    // {
+    //   frontier->centroid = frontier->furthest;
+    //   frontier->centroid_distance = frontier->min_distance; //just a heuristic
+    // }
+
     geometry_msgs::Point target_position = frontier->centroid;
 
     // time out if we are not making any progress
@@ -438,8 +446,8 @@ namespace explore
       std::cout.precision(10);
       const auto p1 = std::chrono::system_clock::now();
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
-      std::string fn1 = fn+"def_frontiers_stats_"+ts+".csv";
-      std::string fn2 = fn+"wsr_frontiers_stats_"+ts+".csv";
+      std::string fn1 = fn+"def_frontiers_stats_"+robot_name_+"_"+ts+".csv";
+      std::string fn2 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
       std::ofstream myfile_def (fn1);
       std::ofstream myfile_wsr (fn2);
       std::vector<double> temp;
