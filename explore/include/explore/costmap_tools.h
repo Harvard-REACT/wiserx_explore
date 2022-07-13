@@ -239,7 +239,8 @@ void informationGain(float& result, unsigned int start, unsigned char val,
   costmap.indexToCells(start, sx, sy);
 
   // search for neighbouring cell matching value
-  while (!bfs.empty()) {
+  while (!bfs.empty()) 
+  {
     unsigned int idx = bfs.front();
     bfs.pop();
 
@@ -274,8 +275,10 @@ void informationGain(float& result, unsigned int start, unsigned char val,
     }
 
     // iterate over all adjacent unvisited cells
-    for (unsigned nbr : nhood8(idx, costmap)) {
-      if (!visited_flag[nbr]) {
+    for (unsigned nbr : nhood8(idx, costmap)) 
+    {
+      if (!visited_flag[nbr]) 
+      {
         costmap.indexToCells(nbr, nx, ny);
         float dist_f = sqrt(pow((sx-nx),2) + pow((sy-ny),2));
         if(dist_f*costmap.getResolution() <= range) 

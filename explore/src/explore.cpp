@@ -193,7 +193,7 @@ namespace explore
 
     // weighted frontiers are always sorted
     // double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
-    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost;
+    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost + 1; //If its 0 if the frontier cal freq is less
     double max_cost = frontiers.empty() ? 0. : frontiers.front().cost;
     // double min_cost = frontiers.empty() ? 0. : 1 - frontiers.front().cost; //For normalized cost to utilize the visualization.
 
@@ -211,6 +211,9 @@ namespace explore
         m.color = red;
       } else {
         m.color = blue;
+        m.color.r =  ((double) rand() / (RAND_MAX));
+        m.color.g =  ((double) rand() / (RAND_MAX));
+        m.color.b =  ((double) rand() / (RAND_MAX));
       }
       markers.push_back(m);
       ++id;

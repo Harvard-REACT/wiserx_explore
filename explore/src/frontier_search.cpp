@@ -25,7 +25,7 @@ FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
   , decay_rate_(decay_rate)
 {
   //Calculate max size permissible for any frontier. Frontiers larger than this will be broken down
-  max_frontier_size_ = (2*M_PI*sensor_range_) / (costmap_->getResolution() * 2);
+  max_frontier_size_ = (2*M_PI*sensor_range_) / (costmap_->getResolution() * 4);
   ROS_INFO("Max Frontier size = %d", max_frontier_size_);
 }
 
@@ -120,7 +120,7 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point position,
                                                     std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots)
 {
-  std::vector<Frontier> frontier_list;
+  std::vector<Frontier> frontier_list, final_frontier_list;
   float f_cost_min = 100000, f_cost_max = 0;
 
   // Sanity check that robot is inside costmap bounds before searching
@@ -185,11 +185,52 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     }
   }
   
+
+  //Break large frontiers into smaller frontiers
+  ROS_INFO("Total Frontiers = %d", frontier_list.size());
+  std::queue<Frontier> fq;
+
+  for (int i=0; i<frontier_list.size(); i++)
+  {
+    fq.push(frontier_list[i]);
+  }
+  frontier_list.clear();
+
+
+  while(fq.size() > 0)
+  {
+    Frontier frontier = fq.front();
+    // ROS_INFO("Frontier list size = %d", fq.size()); 
+    // ROS_INFO("Current Frontier size = %d", frontier.size);
+    // ROS_INFO("Max Frontier size = %d", max_frontier_size_);
+    if (frontier.size > max_frontier_size_)
+    {
+      //Split into two
+      std::vector<Frontier> temp;
+      temp = splitFrontier(frontier, pos);
+      // ROS_INFO("temp[0] = %d, temp[1] = %d", temp[0].points.size(), temp[1].points.size());
+      fq.push(temp[0]);
+      fq.push(temp[1]);
+    }
+    else
+    {
+      final_frontier_list.push_back(frontier);
+    }
+    
+    // ROS_INFO("Frontier list size after splitting = %d", fq.size());
+    fq.pop();
+    // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
+    
+  }
+  ROS_INFO("Total Frontiers after splitting = %d", final_frontier_list.size());
+
+
+
   int uexp_cell_count = 0, information_gain=0;
   unsigned fmx, fmy;
 
   // set travel and information gain costs of frontiers
-  for (auto& frontier : frontier_list) 
+  for (auto& frontier : final_frontier_list) 
   {
     uexp_cell_count = 0;
     costmap_->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
@@ -221,7 +262,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     frontier_list.begin(), frontier_list.end(),
     [](const Frontier& f1, const Frontier& f2) { return f1.cost > f2.cost; });
 
-  return frontier_list;
+  return final_frontier_list;
 }
 
 
@@ -301,9 +342,6 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
       }
     }
   }
-
-
-
 
 
   //Break large frontiers into smaller frontiers
@@ -820,11 +858,16 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
   int start = 0;
   int middle = int(frontier.size/2);
   std::vector<Frontier> temp;
+  unsigned fmx, fmy;
   
   unsigned int rx, ry;
   double reference_x, reference_y;
   costmap_->indexToCells(reference, rx, ry);
   costmap_->mapToWorld(rx, ry, reference_x, reference_y);
+
+  unsigned int size_x_ = costmap_->getSizeInCellsX(),
+               size_y_ = costmap_->getSizeInCellsY(),
+               map_size = size_x_ * size_y_;
 
   for(int i=0; i<2; i++)
   {
@@ -832,9 +875,9 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
     current.centroid.x = 0;
     current.centroid.y = 0;
     double wx, wy;
-    current.size = 0;
+    current.size = 1;
     current.min_distance = std::numeric_limits<double>::infinity();
-    ROS_INFO("start = %d, end = %d", start, middle);
+    // ROS_INFO("start = %d, end = %d", start, middle);
     for(int j=start; j<middle; j++)
     {
       current.points.push_back(frontier.points[j]);// This stores all the positions of the points/cells within a frontier.
@@ -845,35 +888,41 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
       current.size++;
 
       // update centroid of frontier
-      current.centroid.x += wx;
-      current.centroid.y += wy;
+      costmap_->worldToMap(wx, wy, fmx, fmy);
+      unsigned int clear, f_point_idx  = costmap_->getIndex(fmx,fmy); 
+      if(f_point_idx < map_size-1 ) //Check added to handle incorrect coordinate bug
+      {
+        current.centroid.x += wx;
+        current.centroid.y += wy;
 
-      // determine frontier's distance from robot, going by closest gridcell
-      // to robot
-      double distance = sqrt(pow((double(reference_x) - double(wx)), 2.0) +
-                              pow((double(reference_y) - double(wy)), 2.0));
-      if (distance < current.min_distance) {
-        current.min_distance = distance;
-        current.middle.x = wx;
-        current.middle.y = wy;
-      }
+        // determine frontier's distance from robot, going by closest gridcell
+        // to robot
+        double distance = sqrt(pow((double(reference_x) - double(wx)), 2.0) +
+                                pow((double(reference_y) - double(wy)), 2.0));
+        if (distance < current.min_distance) {
+          current.min_distance = distance;
+          current.middle.x = wx;
+          current.middle.y = wy;
+        }
+        }
 
     }
 
     // average out frontier centroid
-    // current.centroid.x /= current.size;
-    // current.centroid.y /= current.size;
+    current.centroid.x /= current.size;
+    current.centroid.y /= current.size;
+
 
     //centroid == middle point of the frontier
-    current.centroid.x = current.points[int(current.size/2)].x;
-    current.centroid.y = current.points[int(current.size/2)].y;
+    // current.centroid.x = current.points[int(current.size/2)].x;
+    // current.centroid.y = current.points[int(current.size/2)].y;
 
     //This distance is already in world coordinates.
     current.centroid_distance = sqrt(pow((double(reference_x) - double(current.centroid.x)), 2.0) +
                                     pow((double(reference_y) - double(current.centroid.y)), 2.0));
 
     temp.push_back(current);
-    start = middle;
+    start = middle+1;
     middle = int(frontier.size);
   }
 
