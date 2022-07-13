@@ -193,13 +193,14 @@ namespace explore
 
     // weighted frontiers are always sorted
     // double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
-    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost + 1; //If its 0 if the frontier cal freq is less
+    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost; //If its 0 if the frontier cal freq is less
     double max_cost = frontiers.empty() ? 0. : frontiers.front().cost;
     // double min_cost = frontiers.empty() ? 0. : 1 - frontiers.front().cost; //For normalized cost to utilize the visualization.
 
     m.action = visualization_msgs::Marker::ADD;
     size_t id = 0;
-    for (auto& frontier : frontiers) {
+    for (auto& frontier : frontiers) 
+    {
       m.type = visualization_msgs::Marker::POINTS;
       m.id = int(id);
       m.pose.position = {};
@@ -210,27 +211,25 @@ namespace explore
       if (goalOnBlacklist(frontier.centroid)) {
         m.color = red;
       } else {
-        m.color = blue;
-        m.color.r =  ((double) rand() / (RAND_MAX));
-        m.color.g =  ((double) rand() / (RAND_MAX));
-        m.color.b =  ((double) rand() / (RAND_MAX));
+        m.color = green;
       }
       markers.push_back(m);
       ++id;
-      m.type = visualization_msgs::Marker::SPHERE;
-      m.id = int(id);
-      m.pose.position = frontier.centroid;
-      // scale frontier according to its cost (costier frontiers will be smaller)
-      // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
-      double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
-      // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
-      m.scale.x = scale;
-      m.scale.y = scale;
-      m.scale.z = scale;
-      m.points = {};
-      m.color = green;
-      markers.push_back(m);
-      ++id;
+      break;
+      // m.type = visualization_msgs::Marker::SPHERE;
+      // m.id = int(id);
+      // m.pose.position = frontier.centroid;
+      // // scale frontier according to its cost (costier frontiers will be smaller)
+      // // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
+      // double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
+      // // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
+      // m.scale.x = scale;
+      // m.scale.y = scale;
+      // m.scale.z = scale;
+      // m.points = {};
+      // m.color = green;
+      // markers.push_back(m);
+      // ++id;
     }
     size_t current_markers_count = markers.size();
 
@@ -451,6 +450,11 @@ namespace explore
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
       std::string fn1 = fn+"def_frontiers_stats_"+robot_name_+"_"+ts+".csv";
       std::string fn2 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
+      if(FLAG_WSR_)
+      {
+        fn1 = fn+"def_frontiers_stats_wsr_"+robot_name_+"_"+ts+".csv";
+        fn2 = fn+"wsr_frontiers_stats_wsr_"+robot_name_+"_"+ts+".csv";
+      }
       std::ofstream myfile_def (fn1);
       std::ofstream myfile_wsr (fn2);
       std::vector<double> temp;
