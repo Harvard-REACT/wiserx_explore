@@ -50,6 +50,8 @@ inline static bool operator==(const geometry_msgs::Point& one,
 }
 
 std::string fn = "/home/jadhav/catkin_ws/src/wsr_exploration/data/mexplore_data/";
+std::default_random_engine generator;
+bool FLAG_noise = false;
 
 namespace explore
 {
@@ -90,7 +92,14 @@ namespace explore
         // std::cout << robot_name_ << std::endl;
         // std::cout << neighbor_id_[itr] << std::endl;
         // std::cout << pose_vec[neighbor_id_[itr]].position << std::endl;
-        neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position);
+        
+        if(FLAG_noise)
+        {
+          static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
+          pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
+          pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
+        }
+        neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
       }
       
     }
@@ -116,6 +125,7 @@ namespace explore
     progress_timeout_ = ros::Duration(timeout);
     private_nh_.param("visualize", visualize_, false);
     private_nh_.param("use_WSR", FLAG_WSR_, true);
+    private_nh_.param("noise_WSR", FLAG_noise, false);
     private_nh_.param("robot_name", robot_name_, std::string("tb3_0"));
     private_nh_.param("neighbor_name", neighbor_name_, std::string("tb3_"));
     private_nh_.param("potential_scale", potential_scale_, 1e-3);
@@ -123,9 +133,10 @@ namespace explore
     private_nh_.param("gain_scale", gain_scale_, 1.0);
     private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
-    private_nh_.param("decay_rate", decay_rate_, 0.25); 
+    private_nh_.param("decay_rate", decay_rate_, 0.25);
+    private_nh_.param("WSR_noise_mean", noise_mean_, 0.0);
+    private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
 
-    
     //Subscribe to the gazebo state to get the position of the other robot
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);

@@ -58,6 +58,7 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
+#include <random>
 
 namespace explore
 {
@@ -123,7 +124,7 @@ private:
   size_t last_markers_count_;
 
   // parameters
-  double planner_frequency_;
+  double planner_frequency_, noise_mean_=0, noise_std_=0;
   double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_;
   ros::Duration progress_timeout_;
   bool visualize_;
