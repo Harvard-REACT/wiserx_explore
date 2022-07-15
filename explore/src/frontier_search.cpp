@@ -188,7 +188,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
 
   //Break large frontiers into smaller frontiers
   ROS_INFO("Total Frontiers = %d", frontier_list.size());
-  std::queue<Frontier> fq;
+  std::queue<Frontier> fq, new_fq;
 
   for (int i=0; i<frontier_list.size(); i++)
   {
@@ -214,7 +214,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     }
     else
     {
-      final_frontier_list.push_back(frontier);
+      new_fq.push(frontier);
     }
     
     // ROS_INFO("Frontier list size after splitting = %d", fq.size());
@@ -222,7 +222,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
     
   }
-  ROS_INFO("Total Frontiers after splitting = %d", final_frontier_list.size());
+  ROS_INFO("Total Frontiers after splitting = %d", new_fq.size());
 
 
 
@@ -230,8 +230,11 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
   unsigned fmx, fmy;
 
   // set travel and information gain costs of frontiers
-  for (auto& frontier : final_frontier_list) 
+  while(!new_fq.empty())
+  // for (auto& frontier : final_frontier_list) 
   {
+    Frontier frontier = new_fq.front();
+    new_fq.pop();
     uexp_cell_count = 0;
     costmap_->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
     unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
@@ -250,11 +253,15 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
 
     // frontier.cost = frontierCost(frontier); //Default cost function
     frontier.cost = frontierUtility(frontier, uexp_cell_count); //New cost function, single robot
+    
+    if(uexp_cell_count == 0) continue;
+
     frontier.information_gain = uexp_cell_count;
     frontier.effort = frontier.centroid_distance;
     frontier.pos_id = frontier_pos;
     frontier.neighbor_distance = neighborhoodDistance(frontier_pos, relative_position_of_neighboring_robots);
     frontier.neighbors = relative_position_of_neighboring_robots.size();
+    final_frontier_list.push_back(frontier);
   }
 
   // For frontier Utility, the frontier with highest utility should be the first
@@ -346,7 +353,7 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
 
   //Break large frontiers into smaller frontiers
   ROS_INFO("Total Frontiers = %d", frontier_list.size());
-  std::queue<Frontier> fq;
+  std::queue<Frontier> fq, new_fq;
 
   for (int i=0; i<frontier_list.size(); i++)
   {
@@ -372,7 +379,7 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
     }
     else
     {
-      final_frontier_list.push_back(frontier);
+      new_fq.push(frontier);
     }
     
     // ROS_INFO("Frontier list size after splitting = %d", fq.size());
@@ -380,14 +387,17 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
     // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
     
   }
-  ROS_INFO("Total Frontiers after splitting = %d", final_frontier_list.size());
+  ROS_INFO("Total Frontiers after splitting = %d", new_fq.size());
   
 
 
 
   // set travel and information gain costs of frontiers
-  for (auto& frontier : final_frontier_list) 
+  while(!new_fq.empty())
+  // for (auto& frontier : final_frontier_list) 
   {
+    Frontier frontier = new_fq.front();
+    new_fq.pop();
     information_gain = 0;
     effort = 0;
     uexp_cell_count = 0;
@@ -415,11 +425,15 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
     ROS_INFO("Size of frontier: %d ", frontier.size);
 
     frontier.cost = frontierUtility(frontier, information_gain, relative_position_of_neighboring_robots, effort);
+    
+    if(information_gain == 0) continue;
+    
     frontier.information_gain = information_gain;
     frontier.effort = effort;
     frontier.pos_id = frontier_pos;
     frontier.neighbor_distance = neighborhoodDistance(frontier_pos, relative_position_of_neighboring_robots);
     frontier.neighbors = relative_position_of_neighboring_robots.size();
+    final_frontier_list.push_back(frontier);
   }
 
 
