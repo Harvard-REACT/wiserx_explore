@@ -52,6 +52,7 @@
 #include <explore/frontier_search.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
+#include <natnet_pkg/PoseArrayID.h>
 #include <regex>
 #include <iterator>
 #include <unistd.h>
@@ -96,6 +97,8 @@ private:
 
   void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
+  void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
+
   bool IsMatch(std::string& val);
 
   void writeToFile(std::vector<frontier_exploration::Frontier>& default_frontiers, 
@@ -107,7 +110,7 @@ private:
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_;
-  ros::Subscriber modelStateSub_, exploration_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -133,6 +136,7 @@ private:
   std::vector<geometry_msgs::Point> neighbor_pose_vec_;
   bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
+  int robot_id_ = -1;
 };
 }
 

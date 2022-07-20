@@ -97,13 +97,39 @@ namespace explore
         {
           static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
           pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
-          pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
+          pose_vec[neighbor_id_[itr]].position.y = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
         }
         neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
       }
       
     }
   }
+
+
+  void Explore::optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg)
+  {
+      for (int i=0; i<msg->poses.size(); i++) 
+      {
+        //std::cout << "Streaming ID: " << msg->poses[i].ID << std::endl;
+        //std::cout << "Position: " << msg->poses[i].position << std::endl;
+        //std::cout << "Orientation: " << msg->poses[i].orientation << std::endl;
+        //std::cout << "\n" << std::endl;
+        neighbor_pose_vec_.clear();
+        if(msg->poses[i].ID != robot_id_)
+        {
+            geometry_msgs::Point temp = msg->poses[i].position;
+            if(FLAG_noise)
+            {
+              static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
+              temp.x = temp.x + gaussian_noise_(generator);
+              temp.y = temp.y + gaussian_noise_(generator);
+            }
+            neighbor_pose_vec_.push_back(temp);
+        }
+
+    }
+  }
+
 
   void Explore::explorationStatusCB(const std_msgs::Bool::ConstPtr& msg)
   {
@@ -127,6 +153,7 @@ namespace explore
     private_nh_.param("use_WSR", FLAG_WSR_, true);
     private_nh_.param("noise_WSR", FLAG_noise, false);
     private_nh_.param("robot_name", robot_name_, std::string("tb3_0"));
+    private_nh_.param("robot_id", robot_id_, 0);
     private_nh_.param("neighbor_name", neighbor_name_, std::string("tb3_"));
     private_nh_.param("potential_scale", potential_scale_, 1e-3);
     private_nh_.param("orientation_scale", orientation_scale_, 0.0);
@@ -139,6 +166,7 @@ namespace explore
 
     //Subscribe to the gazebo state to get the position of the other robot
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
