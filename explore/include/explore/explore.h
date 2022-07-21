@@ -134,7 +134,7 @@ private:
   std::string robot_name_, neighbor_name_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> neighbor_pose_vec_;
-  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false;
+  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1;
 };

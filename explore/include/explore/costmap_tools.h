@@ -222,10 +222,11 @@ void informationGain(float& result, unsigned int start, unsigned char val,
   int free_cells =0, occupied_cells = 0, k_j=0;
   int rel_pos_size = rel_pos_neighbors.size();
   float dist_f=0, dist_j=0, a=0, beta=0, total_dist_j=0;
-
-  // ROS_INFO("Costmap resolution: %f", costmap.getResolution());
-  // ROS_INFO("Range: %f", range);
-  // ROS_INFO("range/resolution = %f ", range/costmap.getResolution());
+  
+  ROS_INFO("Costmap resolution: %f", costmap.getResolution());
+  ROS_INFO("Range: %f", range);
+  ROS_INFO("range/resolution = %f ", range/costmap.getResolution());
+  ROS_INFO("neighbors count = %d ", rel_pos_size);
 
   // initialize breadth first search
   std::queue<unsigned int> bfs;
@@ -284,17 +285,15 @@ void informationGain(float& result, unsigned int start, unsigned char val,
         if(dist_f*costmap.getResolution() <= range) 
         {
             bfs.push(nbr);
-            // ROS_INFO("dist (map coord): %f", dist);
+            //ROS_INFO("dist (map coord): %f", dist_f);
         }
         visited_flag[nbr] = true;
       }
     }
   }
 
-  // ROS_INFO("Free = %d", free_cells);
-  // ROS_INFO("Occupied = %d", occupied_cells);
-  // ROS_INFO("Unknown = %d", result);
-  // ROS_INFO("Total = %d", result + free_cells + occupied_cells);
+   ROS_INFO("Unknown = %f", result);
+   ROS_INFO("Total = %f", result + free_cells + occupied_cells);
 
   costmap.mapToWorld(sx, sy, wx, wy); //World coordinates of the frontier centroid
   for(int j=0; j<rel_pos_size; j++)
@@ -304,8 +303,8 @@ void informationGain(float& result, unsigned int start, unsigned char val,
 
   // beta = log10(eta*total_dist_j);  // no need to take average distance as the assumption is that all robots can be sensed at all times.
   beta = eta*total_dist_j/rel_pos_size; //Actually avg works better than the log since the impact of log is very small.
-  // ROS_INFO("Total distance = %f", total_dist_j);
-  // ROS_INFO("beta = %f", beta);
+  ROS_INFO("Total distance = %f", total_dist_j);
+  ROS_INFO("beta = %f", beta);
   result *= beta;
 }
 

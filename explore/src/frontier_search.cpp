@@ -26,7 +26,6 @@ FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
 {
   //Calculate max size permissible for any frontier. Frontiers larger than this will be broken down
   max_frontier_size_ = (2*M_PI*sensor_range_) / (costmap_->getResolution() * 4);
-  ROS_INFO("Max Frontier size = %d", max_frontier_size_);
 }
 
 std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
@@ -200,9 +199,9 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
   while(fq.size() > 0)
   {
     Frontier frontier = fq.front();
-    // ROS_INFO("Frontier list size = %d", fq.size()); 
-    // ROS_INFO("Current Frontier size = %d", frontier.size);
-    // ROS_INFO("Max Frontier size = %d", max_frontier_size_);
+    //ROS_INFO("Frontier list size = %d", fq.size()); 
+    //ROS_INFO("Current Frontier size = %d", frontier.size);
+    //ROS_INFO("Max Frontier size = %d", max_frontier_size_);
     if (frontier.size > max_frontier_size_)
     {
       //Split into two
@@ -366,8 +365,8 @@ std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::P
   {
     Frontier frontier = fq.front();
     // ROS_INFO("Frontier list size = %d", fq.size()); 
-    // ROS_INFO("Current Frontier size = %d", frontier.size);
-    // ROS_INFO("Max Frontier size = %d", max_frontier_size_);
+    ROS_INFO("Current Frontier size = %d", frontier.size);
+    ROS_INFO("Max Frontier size = %d", max_frontier_size_);
     if (frontier.size > max_frontier_size_)
     {
       //Split into two
@@ -906,7 +905,7 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
       unsigned int clear, f_point_idx  = costmap_->getIndex(fmx,fmy); 
       if(f_point_idx < map_size-1 ) //Check added to handle incorrect coordinate bug
       {
-        current.centroid.x += wx;
+	current.centroid.x += wx;
         current.centroid.y += wy;
 
         // determine frontier's distance from robot, going by closest gridcell
@@ -918,7 +917,10 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
           current.middle.x = wx;
           current.middle.y = wy;
         }
-        }
+      }
+      else{
+	ROS_INFO("Out of bounds detected and thrown away");	
+      };
 
     }
 

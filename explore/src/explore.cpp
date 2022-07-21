@@ -108,16 +108,20 @@ namespace explore
 
   void Explore::optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg)
   {
-      for (int i=0; i<msg->poses.size(); i++) 
+    if(FLAG_GET_POS)
+    {  
+    for (int i=0; i<msg->poses.size(); i++) 
       {
         //std::cout << "Streaming ID: " << msg->poses[i].ID << std::endl;
         //std::cout << "Position: " << msg->poses[i].position << std::endl;
         //std::cout << "Orientation: " << msg->poses[i].orientation << std::endl;
         //std::cout << "\n" << std::endl;
-        neighbor_pose_vec_.clear();
+        //neighbor_pose_vec_.clear();
         if(msg->poses[i].ID != robot_id_)
         {
-            geometry_msgs::Point temp = msg->poses[i].position;
+            //ROS_INFO("Got neighbor");
+	    geometry_msgs::Point temp = msg->poses[i].position;
+            //std::cout << "Position: " << temp << std::endl;
             if(FLAG_noise)
             {
               static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
@@ -125,8 +129,13 @@ namespace explore
               temp.y = temp.y + gaussian_noise_(generator);
             }
             neighbor_pose_vec_.push_back(temp);
+	    for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
+    	    {   
+      		ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
+    	    }
         }
-
+      }
+     FLAG_GET_POS = false;
     }
   }
 
@@ -168,6 +177,9 @@ namespace explore
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
+
+    ROS_INFO("Sensor range = %f", sensor_range_);
+    ROS_INFO("min_frontier_size = %f", min_frontier_size);
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
@@ -287,7 +299,7 @@ namespace explore
   {
     // find frontiers
     auto pose = costmap_client_.getRobotPose();
-
+    ROS_INFO("Neighbors count = %d", neighbor_pose_vec_.size());
     for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
     {
       ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
@@ -307,17 +319,19 @@ namespace explore
       for (size_t i = 0; i < frontier_temp.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
+	ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
         ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
       }
-      
       frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
       ROS_DEBUG("New frontier frontier cost");
       for (size_t i = 0; i < frontiers.size(); ++i) 
       {
         ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
+        ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
         ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
       }
-
+      FLAG_GET_POS = true;
+      neighbor_pose_vec_.clear();
       writeToFile(frontier_temp, frontiers, fn);
     }
     else
