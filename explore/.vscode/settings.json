@@ -54,6 +54,11 @@
         "cstring": "cpp",
         "map": "cpp",
         "shared_mutex": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "list": "cpp",
+        "forward_list": "cpp",
+        "complex": "cpp",
+        "set": "cpp",
+        "valarray": "cpp"
     }
 }

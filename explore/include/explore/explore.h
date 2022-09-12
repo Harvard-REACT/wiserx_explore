@@ -52,6 +52,7 @@
 #include <explore/frontier_search.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
+#include <std_msgs/Float64MultiArray.h>
 #include <natnet_pkg/PoseArrayID.h>
 #include <regex>
 #include <iterator>
@@ -60,6 +61,7 @@
 #include <sstream>
 #include <fstream>
 #include <random>
+#include <pwd.h>
 
 namespace explore
 {
@@ -106,10 +108,15 @@ private:
                             std::string& fn);
 
   void explorationStatusCB(const std_msgs::Bool::ConstPtr& msg);
+  void uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg);
+  std::vector<std::vector<double>> generate_range();
+  std::pair<std::vector<std::string>, std::vector<std::vector<double>>> generate_aoa();
+
+  double wrap0to360(double val);
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
-  ros::Publisher marker_array_publisher_;
+  ros::Publisher marker_array_publisher_, velocityPub_;
   ros::Subscriber modelStateSub_, exploration_, optitrackSub_;
   tf::TransformListener tf_listener_;
 
@@ -131,12 +138,16 @@ private:
   double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_;
   ros::Duration progress_timeout_;
   bool visualize_;
-  std::string robot_name_, neighbor_name_;
+  std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
+              robot_csi_,robot_displacement_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> neighbor_pose_vec_;
-  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true;
+  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
+      ,Flag_get_range_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1;
+  geometry_msgs::Twist velocity_cmd_;
+  std::vector<std::vector<double>> range_vector_;
 };
 }
 
