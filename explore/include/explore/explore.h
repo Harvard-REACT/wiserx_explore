@@ -138,13 +138,14 @@ private:
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
-  double prev_distance_,antenna_orientation_;
   ros::Time last_progress_;
   size_t last_markers_count_;
 
   // parameters
-  double planner_frequency_, noise_mean_=0, noise_std_=0;
-  double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_,robot_orientation_,robot_position_x_,robot_position_y_;
+  double planner_frequency_=0, noise_mean_=0, noise_std_=0,
+         potential_scale_, orientation_scale_=0, gain_scale_=0, sensor_range_=0, 
+         decay_rate_=0,robot_orientation_=0,robot_position_x_=0,robot_position_y_=0,
+         prev_distance_=0,antenna_angular_offset_=0,robot_orientation_before_=0;
   ros::Duration progress_timeout_;
   bool visualize_;
   std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
@@ -158,13 +159,15 @@ private:
   geometry_msgs::Twist velocity_cmd_;
   std::vector<std::vector<double>> range_vector_;
   int neighbor_count_=1;
+  void writePosToFile(std::vector<std::pair<double,double>>& pos_file,
+                      std::string fn);
 
   //Particle filter parameters
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_init_pos_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_est_pos_;
   int particle_threshold_ = 540, init_angle_samples_ = 180;
   std::vector<int> aoa_init_;
-  std::vector<std::vector<std::pair<double, double>>> neighbor_best_position_esimtate_;
+  std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
 
 };
 }

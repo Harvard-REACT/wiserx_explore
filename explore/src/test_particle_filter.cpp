@@ -147,9 +147,10 @@ namespace explore
     private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
     private_nh_.param("decay_rate", decay_rate_, 0.25);
-    private_nh_.param("antenna_orientation", antenna_orientation_, 0.0);
+    private_nh_.param("antenna_angular_offset", antenna_angular_offset_, 0.0);
 
-    std::cout << antenna_orientation_ << std::endl;    
+    std::cout << antenna_angular_offset_ << std::endl;
+     std::cout << sensor_range_ << std::endl;    
     //Subscribe to the gazebo state to get the position of the other robot
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     // optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
@@ -190,7 +191,8 @@ namespace explore
     // Initial position estimates for the particle filter
     for(int i=0;i<neighbor_count_;i++)
     {
-      std::vector<std::pair<double,double>> init_pos;
+      std::vector<std::pair<double,double>> init_pos, temp;
+      neighbor_best_position_esimtate_.push_back(temp);
       std::vector<double> range_samples;
       auto first = range_vector_[i].begin();
       
@@ -247,24 +249,26 @@ namespace explore
     Flag_get_range_ = true;
 
     //Start CSI
-    // std::string csi_start_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/start_csi.sh rx &";  
+    // ros_pub(Boolean)
+    // std::string csi_start_remote_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/start_csi.sh rx &";  
     // system(csi_start_cmd.c_str());
 
     //Start motion
     ROS_INFO("Starting motion");
+    robot_orientation_before_ = robot_orientation_; //Get robot orientation before data collection starts
     int duration_val = 8;//seconds
     auto starttime = std::chrono::high_resolution_clock::now();
     auto endtime = std::chrono::high_resolution_clock::now();
     float exp_duration;
 
-    // while(true)
-    // {
-    //   velocity_cmd_.angular.z = 2.2;
-    //   velocityPub_.publish(velocity_cmd_);
-    //   exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
-    //   if(exp_duration > duration_val) break;
-    //   endtime = std::chrono::high_resolution_clock::now(); 
-    // }
+    velocity_cmd_.angular.z = 2.2;
+    velocityPub_.publish(velocity_cmd_);
+    while(true)
+    {
+      exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
+      if(exp_duration > duration_val) break;
+      endtime = std::chrono::high_resolution_clock::now(); 
+    }
 
     //Stop motion
     ROS_INFO("Stopping motion");
@@ -274,14 +278,17 @@ namespace explore
     {
       velocityPub_.publish(geometry_msgs::Twist());
     }
-    ROS_INFO("MOtion should be stopped");
-    //Stop CSI
+    ROS_INFO("Fetching data");
+    
+    // Stop range collection and CSI and fetch data
+    
+    Flag_get_range_=false;
+    //Wait for msg that data is collected
+    
+    //Fetch CSI data from Remote
     // std::string csi_stop_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/stop_csi.sh rx";
     // system(csi_stop_cmd.c_str()); //TODO: Check correct command from robot
-    
-    //Stop range
-    Flag_get_range_=false;
-
+    sleep(5);
     //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
 
     //======Start: Compute AOA and then initial position estimates ==========================
@@ -297,39 +304,44 @@ namespace explore
       range_vector_[i].clear();
     
     ROS_INFO("Generating position observations");
+    
+    neighbor_robot_est_pos_.clear(); //Clear previous observations
     for(int k=0;k<neighbor_count_;k++)
     {
-    std::vector<std::pair<double,double>> est_pos;
-    double angle, dist;
-    
-    // std::cout << robot_orientation_ << ", " << robot_position_x_ << "," << robot_position_y_<<  std::endl;
-    // std::cout << "-----------------------" << std::endl;
+      std::vector<std::pair<double,double>> est_pos;
+      double angle, dist;
+      
+      // std::cout << robot_orientation_ << ", " << robot_position_x_ << "," << robot_position_y_<<  std::endl;
+      // std::cout << "-----------------------" << std::endl;
 
-    for(int i=0;i<range_val[k].size();i++)
-    {
-        for(int j=0;j<aoa_val[k].size();j++)
-        {
-          dist = range_val[k][i];
-          angle = wrap0to360(wrap0to360(aoa_val[k][j]) + wrap0to360(robot_orientation_)); //position with respect to 0 degrees 
-          double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x_;
-          double position_y = (sin(angle*M_PI/180) * dist) + robot_position_y_;
-          // std::cout << position_x <<", " << position_y << std::endl;
-          est_pos.push_back(std::make_pair(position_x,position_y));
-        }
-    }
-    neighbor_robot_est_pos_.push_back(est_pos);
+      for(int i=0;i<range_val[k].size();i++)
+      {
+          for(int j=0;j<aoa_val[k].size();j++)
+          {
+            dist = range_val[k][i];
+            angle = aoa_val[k][j]; //position with respect to 0 degrees 
+            // std::cout << dist <<", " << angle << std::endl;
+            double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x_;
+            double position_y = (sin(angle*M_PI/180) * dist) + robot_position_y_;
+            // std::cout << position_x <<", " << position_y << std::endl;
+            // std::cout << "-----------------------------" << std::endl;
+            est_pos.push_back(std::make_pair(position_x,position_y));
+          }
+      }
+      neighbor_robot_est_pos_.push_back(est_pos);
     }
     //======Finished: Compute AOA and then initial position estimates ==========================
 
     //Particle filter to genererate new state estimates
     ROS_INFO("Running particle filter");
+    
+    neighbor_pose_vec_.clear();
     particle_filter();
-
     for(int i=0; i<neighbor_pose_vec_.size(); i++)
     {
-      std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << std::endl;
+      std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
     }
-    exit(1);
+    sleep(5);
   }
 
   /**
@@ -555,10 +567,15 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         }
       }
       std::vector<double> temp_angles;
+      std::cout << "Offset " << antenna_angular_offset_ << std::endl;
+      std::cout << "Robot orientation" << robot_orientation_before_ << std::endl;
       for(auto& aoa_angle: filtered_angles)
       {
-        temp_angles.push_back(aoa_angle+antenna_orientation_);
-        std::cout << "Angle (with antenna_orientation) = " << aoa_angle+antenna_orientation_ << std::endl; 
+        double aoa_antennta_offset = wrap0to360(wrap0to360(aoa_angle)+wrap0to360(antenna_angular_offset_));
+        double aoa_antenna_offset_robot_orientation = wrap0to360(wrap0to360(aoa_angle)+wrap0to360(antenna_angular_offset_)+ wrap0to360(robot_orientation_before_));
+        std::cout << "Angle (considering antenna_angular_offset) = " << aoa_antennta_offset << std::endl; 
+        std::cout << "Angle (considering antenna_angular_offset and robot_orientation) = " << aoa_antenna_offset_robot_orientation << std::endl; 
+        temp_angles.push_back(aoa_antenna_offset_robot_orientation);
       }
       tx_filtered_top_aoa_peak.push_back(temp_angles);
     }
@@ -588,6 +605,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     {
       for(int i=0; i<neighbor_count_; i++)
       {
+        // std::cout << "Range Sample:" << range_vector_[i][distr(gen)] << std::endl;
         op[i].push_back(range_vector_[i][distr(gen)]);// randomly sample uwb range value
       } 
     }
@@ -605,8 +623,14 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         
         std::vector<std::pair<double,double>> init_pos = neighbor_robot_init_pos_[k];
         std::vector<std::pair<double,double>> est_pos = neighbor_robot_est_pos_[k];
+        std::string fn1 = "/home/react-ws-1/init_pose";
+        std::string fn2 = "/home/react-ws-1/est_pose";
+
+        // writePosToFile(init_pos,fn1);
+        // writePosToFile(est_pos,fn2);
+        
         std::vector<double> sample_weight;
-        int p_z = 0;
+        double p_z = 0;
         
         //Weights
         ROS_INFO("Generating Weights");
@@ -616,13 +640,14 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
           {
             auto state = init_pos[i];
             auto observation = est_pos[j];
-            auto euc_dist = sqrt(pow((state.first - observation.first),2) + pow((state.second - observation.second),2)); 
-            p_z += exp(euc_dist/2);
+            double euc_dist = sqrt(pow((state.first - observation.first),2) + pow((state.second - observation.second),2)); 
+            p_z += exp(-euc_dist/2);
           }
           p_z = p_z / est_pos.size();
+          // std::cout << p_z << std::endl;
           sample_weight.push_back(p_z);
         }
-        
+
         //Resample
         ROS_INFO("Resampling");
         std::vector<std::pair<double,double>> new_samples;
@@ -632,6 +657,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         while(true)
         {
           threshold = (float)rand()/RAND_MAX;
+          // std::cout << threshold << std::endl;
           for(int i=0;i<sample_weight.size();i++)
           {
             if(sample_weight[i] > threshold) //TODO: Improve sampling strategy later
@@ -645,16 +671,30 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
               
             }
           }
+          // std::cout << new_samples.size() << std::endl;
           if(new_samples.size() >= particle_threshold_) break; //Keep the number of samples constant.
         }
 
-        ROS_INFO("New States");
-        //Based on control, predict next states of the neighboring robot using the new samples
-        neighbor_robot_est_pos_[k].clear();
-        neighbor_robot_init_pos_[k].clear();//The new samples will be state etimates for the next iteration
-        for(int i=0;i<new_samples.size();i++)
+        ROS_INFO("Subsampling from the new states");
+        std::cout << "Initial Sample size: " << new_samples.size() << std::endl;
+        std::random_device rd; // obtain a random number from hardware
+        std::mt19937 gen(rd()); // seed the generator
+        std::uniform_int_distribution<> distr(0, int(new_samples.size())); // define the range
+        
+        std::vector<std::pair<double, double>> new_samples_sub;
+        for(int n=0; n<particle_threshold_; n++) //Get 20 random samples from UWB node
         {
-          auto val = new_samples[i];
+          new_samples_sub.push_back(new_samples[distr(gen)]);// randomly sample uwb range value
+        }
+        std::cout << "Sub Sampled state: " << new_samples_sub.size() << std::endl;
+
+        ROS_INFO("Generating next control states");
+        //Based on control, predict next states of the neighboring robot using the new samples
+        //Control is assumed to be 1 meter displacement of the robot
+        neighbor_robot_init_pos_[k].clear();//The new samples will be state etimates for the next iteration
+        for(int i=0;i<new_samples_sub.size();i++)
+        {
+          auto val = new_samples_sub[i];
           neighbor_robot_init_pos_[k].push_back(val);
           neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first+1, val.second));
           neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first-1, val.second));
@@ -666,10 +706,16 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         neighbor_best_position_esimtate_[k].push_back(best_sample);
         
         geometry_msgs::Point current_val;
-        current_val.x = best_sample.first;
-        current_val.y = best_sample.second;
+        current_val.x = (float) best_sample.first;
+        current_val.y = (float) best_sample.second;
+        current_val.z = (float) best_sample_weight;
+
+        ROS_INFO("Assigned");
+
         neighbor_pose_vec_.push_back(current_val);
       }
+      
+      ROS_INFO("Particle filter iteration Done");
 
   }
 
@@ -700,6 +746,38 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
   bool Explore::validateQuaternion(const tf::Quaternion& quat) 
   {
     return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
+  }
+
+  /**
+   * 
+   * */
+  void Explore::writePosToFile(std::vector<std::pair<double,double>>& pos_file,
+                               std::string fn)
+  { 
+    std::cout.precision(4);
+    const auto p1 = std::chrono::system_clock::now();
+    std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
+    std::string fn1 = fn+"_"+ts+".csv";
+    std::ofstream myfile_def (fn1);
+    std::cout << fn1 << std::endl;
+    std::vector<std::string> details {"x", "y"}; //index 1 means the top most frontier at each iteration which will then be selected
+
+    if (myfile_def.is_open())
+    {
+        for(int j=0; j< details.size(); j++)
+        {
+            myfile_def << std::fixed << details[j] << ",";
+        }
+        myfile_def << "\n";
+
+
+        for(size_t i = 0; i < pos_file.size(); i++)
+        {
+          myfile_def << std::fixed << pos_file[i].first << "," << pos_file[i].second;
+          myfile_def << "\n";
+        }    
+    }
+    myfile_def.close();
   }
 
 }  // namespace explore

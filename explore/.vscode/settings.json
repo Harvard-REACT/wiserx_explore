@@ -59,6 +59,8 @@
         "forward_list": "cpp",
         "complex": "cpp",
         "set": "cpp",
-        "valarray": "cpp"
+        "valarray": "cpp",
+        "iomanip": "cpp",
+        "cinttypes": "cpp"
     }
 }
