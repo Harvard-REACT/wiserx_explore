@@ -49,10 +49,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   include
-  /home/jadhav/WSR_Project/WSR-Toolbox-cpp/include
+  /home/react-ws-1/WSR_Project/WSR-Toolbox-cpp/include
 )
 
-link_directories(/home/jadhav/WSR_Project/WSR-Toolbox-cpp/wsr_build)
+link_directories(/home/react-ws-1/WSR_Project/WSR-Toolbox-cpp/wsr_build)
 
 
 add_executable(explore
@@ -63,14 +63,14 @@ add_executable(explore
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(explore ${catkin_LIBRARIES})
 
-add_executable(explore_uwb_wsr
+add_executable(test_particle_filter
   src/costmap_client.cpp
-  src/explore_uwb_wsr.cpp
+  src/test_particle_filter.cpp
   src/frontier_search.cpp
 )
-add_dependencies(explore_uwb_wsr ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+add_dependencies(test_particle_filter ${${PROJECT_NAME}_EXPORTED_TARGETS} 
                 ${catkin_EXPORTED_TARGETS})
-target_link_libraries(explore_uwb_wsr ${catkin_LIBRARIES} 
+target_link_libraries(test_particle_filter ${catkin_LIBRARIES} 
                       lib_wsr_1.0.1_parallel.so 
                       OpenMP::OpenMP_CXX)
 

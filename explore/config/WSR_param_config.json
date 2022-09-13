@@ -41,7 +41,7 @@
     },
     "scnum_end":{
         "desc":"end subcarrier number for forward-reverse music/bartlett. Total subcarriers 30",
-        "value":17
+        "value":18
     },
     "multiple_sub_carriers":{
         "desc":"Use multiple sub-carriers. Used when using relative channel",
@@ -53,7 +53,7 @@
     },
     "ntheta":{
         "desc":"resolution of theta angle",
-        "value":180
+        "value":5
     },
     "phi_min":{
         "desc":"Minimum azimuth angle",
@@ -69,7 +69,7 @@
     },
     "theta_max":{
         "desc":"Maximum elevation angle",
-        "value":180
+        "value":1
     },
     "tau_min":{
         "desc":"N/A",
@@ -176,19 +176,26 @@
         "value":false
     },
     "input_TX_channel_csi_fn":{
-        "desc":"Forward channel csi file for each of the neighboring TX robots (files not necessary for two antenna approach)",
+        "desc":"Forward channel csi File for each of the neighboring TX robots",
         "value":{
             "tx1":{
-                "mac_id":"00:21:6A:3F:17:3"
+                "mac_id":"00:21:6A:3F:17:3",
+                "csi_fn":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx2_2021-06-27_174307.dat"
             },
             "tx2":{
-                "mac_id":"00:21:6A:30:D2:3C"
+                "mac_id":"00:21:6A:30:D2:3C",
+                "csi_fn":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx2_2021-06-27_174307.dat"
             },
             "tx3":{
-                "mac_id":"00:21:6A:3E:F5:7E"
+                "mac_id_sample":"00:21:6A:3F:17:5A",
+                "mac_id":"00:21:6A:3E:F5:7E",
+                "csi_fn_def":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx3_2021-06-27_174307.dat",
+                "csi_fn":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx3.dat"
             },
             "tx4":{
-                "mac_id":"00:21:6A:AC:9C:6A"
+                "mac_id":"00:21:6A:AC:9C:6A",
+                "csi_fn_def":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx4_2021-06-27_174307.dat",
+                "csi_fn":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_tx4.dat"
             }
         }
     },
@@ -196,23 +203,20 @@
         "desc":"Reverse channel csi File stored on the RX robot which is performing 3D SAR",
         "value":{           
             "mac_id":"00:21:6A:53:89:D2",
-            "csi_fn_def":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/csi_rx_2021-06-27_174307.dat",
-            "csi_fn":"/WSR_Project/WSR-Toolbox-cpp/data/online_data/8_23_2022_shelled_space/pos1_moving_tx/csi_rx_2022-08-23_201449.dat"
+            "csi_fn":"/catkin_ws/src/wsr_exploration/data/WSR_data/csi_rx_2022-09-12_203759.dat"
         }
     },
     "input_trajectory_csv_fn_rx":{
         "desc":"Trajectory fiile",
-        "value_def":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/rx_trajectory_2021-06-27_174307_.csv",
-        "value":"/WSR_Project/WSR-Toolbox-cpp/data/online_data/8_23_2022_shelled_space/pos1_moving_tx/rx_trajectory_2022-08-23_201449.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/WSR_data/rx_trajectory_2022-09-12_203759.csv"
     },
     "input_trajectory_csv_fn_rx_t265":{
         "desc":"Trajectory fiile",
-        "value":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/t265_rx_trajectory_2021-06-27_174307_.csv"
+        "value":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/t265_rx_trajectory.csv"
     },
     "input_trajectory_csv_fn_rx_odom":{
         "desc":"Trajectory fiile",
-        "value_def":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/odom_rx_trajectory_2021-06-27_174307.csv",
-        "value":"/WSR_Project/WSR-Toolbox-cpp/data/online_data/8_23_2022_shelled_space/pos1_moving_tx/odom_rx_trajectory_2022-08-23_201449.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/WSR_data/odom_rx_trajectory_2022-09-12_203759.csv"
     },
     "input_trajectory_csv_fn_tx":{
         "desc":"Trajectory file of TX_Neighbor_robot (WIP)",
@@ -272,7 +276,7 @@
     },
     "peak_radius": {
         "desc" : "radius of patch to ignore neighbor peak in degree",
-        "value": 4
+        "value": 6
     },
     "trajectory_type": {
         "desc" : "Trajectory of robots (2D or 3D). Impacts AOA error calculation",
@@ -298,7 +302,7 @@
     },
     "top_N_magnitude":{
         "desc": "Minumum magnitude of a peak with respect to the top peak (in precentage) in order to be considered in top N peaks",
-        "value": 25
+        "value": 10
     },
     "offboard_computation":{
         "desc":"Perform computation offboard with high number of CPU cores",
@@ -310,11 +314,26 @@
     },
     "antenna_separation":{
         "desc": "(meters) Used with complex conjugate channel formulation",
-        "value": 0.28
+        "value": 0.24
     },
     "use_two_antennas":
     {
         "desc":"Use 2 antenna SAR formulation",
         "value":true
+    },
+    "slice_displacement":
+    {
+        "desc":"Slice the the diplacement into components",
+        "value":true
+    },
+    "slice_displacement_first":
+    {
+        "desc":"Slice the first diplacement component",
+        "value":true
+    },
+    "slice_displacement_second":
+    {
+        "desc":"Slice the second diplacement component",
+        "value":false
     }
 }

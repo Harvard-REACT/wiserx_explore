@@ -74,83 +74,6 @@ namespace explore
     return (val.find(neighbor_name_) != std::string::npos);
   }
 
-  // void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
-  // {
-  //   int itr = 0, n_count = 0;
-  //   // std::cout << FLAG_getting_next_frontier_ << std::endl;
-  //   if(FLAG_getting_next_frontier_) //Control the update rate, but does not work
-  //   {
-  //     std::vector<std::string> name = msg->name;
-  //     neighbor_id_.clear();
-  //     for(std::string& val : name)
-  //     {
-  //       if (IsMatch(val) && val!=robot_name_) 
-  //       {
-  //         // std::cout << val << std::endl;
-  //         neighbor_id_.push_back(n_count); 
-  //       }
-  //       // else
-  //       // {
-  //         // std::cout << "not found" << std::endl;
-  //       // }
-  //       n_count+=1;
-  //     }
-
-  //     std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
-  //     neighbor_pose_vec_.clear();
-      
-  //     //Store the positions of the neighboring robot
-  //     for (itr=0; itr<neighbor_id_.size(); itr++)
-  //     {
-  //       // std::cout << robot_name_ << std::endl;
-  //       // std::cout << neighbor_id_[itr] << std::endl;
-  //       // std::cout << pose_vec[neighbor_id_[itr]].position << std::endl;
-        
-  //       if(FLAG_noise)
-  //       {
-  //         static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
-  //         pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
-  //         pose_vec[neighbor_id_[itr]].position.y = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
-  //       }
-  //       neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
-  //     }
-      
-  //   }
-  // }
-
-
-  // void Explore::optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg)
-  // {
-  //   if(FLAG_GET_POS)
-  //   {  
-  //   for (int i=0; i<msg->poses.size(); i++) 
-  //     {
-  //       //std::cout << "Streaming ID: " << msg->poses[i].ID << std::endl;
-  //       //std::cout << "Position: " << msg->poses[i].position << std::endl;
-  //       //std::cout << "Orientation: " << msg->poses[i].orientation << std::endl;
-  //       //std::cout << "\n" << std::endl;
-  //       //neighbor_pose_vec_.clear();
-  //       if(msg->poses[i].ID != robot_id_)
-  //       {
-  //           //ROS_INFO("Got neighbor");
-	//     geometry_msgs::Point temp = msg->poses[i].position;
-  //           //std::cout << "Position: " << temp << std::endl;
-  //           if(FLAG_noise)
-  //           {
-  //             static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
-  //             temp.x = temp.x + gaussian_noise_(generator);
-  //             temp.y = temp.y + gaussian_noise_(generator);
-  //           }
-  //           neighbor_pose_vec_.push_back(temp);
-	//     for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
-  //   	    {   
-  //     		ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
-  //   	    }
-  //       }
-  //     }
-  //    FLAG_GET_POS = false;
-  //   }
-  // }
 
   void Explore::uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg)
   {
@@ -176,7 +99,7 @@ namespace explore
               t265_msg->pose.pose.orientation.w
       );
 
-      robot_orientation_ = utils.quaternionToYaw(q);
+      robot_orientation_ = quaternionToYaw(q);
       robot_position_x_ = t265_msg->pose.pose.position.x;
       robot_position_y_ = t265_msg->pose.pose.position.y;
   }
@@ -216,7 +139,7 @@ namespace explore
     private_nh_.param("neighbor_count", neighbor_count_, 1);
 
     //WSR related parameters:
-    private_nh_.param("WSR_config_file", config_file_); 
+    private_nh_.param("WSR_config_file", config_file_, std::string("/home/react-ws-1/catkin_ws/src/m-explore/explore/config/WSR_param_config.json")); 
     private_nh_.param("WSR_robot_displacement", displacement_type_, std::string("odom")); 
     private_nh_.param("use_WSR", FLAG_WSR_, true);
     private_nh_.param("noise_WSR", FLAG_noise, false);
@@ -224,16 +147,20 @@ namespace explore
     private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
     private_nh_.param("decay_rate", decay_rate_, 0.25);
+    private_nh_.param("antenna_orientation", antenna_orientation_, 0.0);
 
-    
+    std::cout << antenna_orientation_ << std::endl;    
     //Subscribe to the gazebo state to get the position of the other robot
-    modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
-    optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
+    // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    // optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
+    neighbor_distance_ = private_nh_.subscribe<std_msgs::Float64MultiArray> ("/"+robot_name_+"/uwb_neighbors", 10, &Explore::uwbCB, this);
+    t265_position_ = private_nh_.subscribe<nav_msgs::Odometry> ("/"+robot_name_+"/camera/odom/sample", 10, &Explore::positionCallbackT265, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     velocityPub_ = private_nh_.advertise<geometry_msgs::Twist> ("/"+robot_name_+"/cmd_vel", 10);
+    
 
     //initialize UWB data structure based on number of neighbors
-    for(int i=0;i<neighbor_count;i++)
+    for(int i=0;i<neighbor_count_;i++)
     {
       std::vector<double> temp;
       range_vector_.push_back(temp);
@@ -250,6 +177,7 @@ namespace explore
     }
 
     //Range samples from UWB
+    ROS_INFO("Generating initial states");
     ros::Rate r(10); //match the frequency of UWB
     Flag_get_range_ = true;
     for(int i=0;i<20;i++)
@@ -265,22 +193,28 @@ namespace explore
       std::vector<std::pair<double,double>> init_pos;
       std::vector<double> range_samples;
       auto first = range_vector_[i].begin();
+      
+      ROS_INFO("Subsampling range data");
       for(int j=0;j<range_vector_[i].size();)
       {
         auto last = first + 10;
         std::vector<double> temp(first,last);
         std::sort(temp.begin(), temp.end(),sort_func);
-        range_samples.push_back(temp[4]+temp[5]/2) //Get median range value
+        range_samples.push_back((temp[4]+temp[5])/2); //Get median range value
         j=j+10;
         first =  range_vector_[i].begin() + j;
       }
 
-      for(int k=0;k<range_sample.size();k++)
+      ROS_INFO("Generating state");
+      for(int k=0;k<range_samples.size();k++)
       {
-        for(int l=0;k<aoa_init_.size();l++)
+        for(int l=0;l<aoa_init_.size();l++)
         {
-          double init_pos_x = (cos(aoa_init_[l]*M_PI/180) * range_sample[k]) + robot_position_x_;
-          double init_pos_y = (cos(aoa_init_[l]*M_PI/180) * range_sample[k]) + robot_position_x_;
+          // std::cout << aoa_init_[l] <<", " << range_samples[k] << std::endl;
+          double init_pos_x = (cos(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_x_;
+          double init_pos_y = (sin(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_y_;
+          // std::cout << init_pos_x <<", " << init_pos_y << std::endl;
+          // std::cout << "--------------------------------------" << std::endl;
           init_pos.push_back(std::make_pair(init_pos_x, init_pos_y));
         }
       }
@@ -288,23 +222,7 @@ namespace explore
       neighbor_robot_init_pos_.push_back(init_pos);
     }
 
-
-    //Initialize exploration
-    ROS_INFO("Sensor range = %f", sensor_range_);
-    ROS_INFO("min_frontier_size = %f", min_frontier_size);
-    search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
-                                                  potential_scale_, gain_scale_,
-                                                  min_frontier_size, sensor_range_,decay_rate_);
-
-    if (visualize_) {
-      marker_array_publisher_ =
-          private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
-    }
-
-    ROS_INFO("Waiting to connect to move_base server");
-    move_base_client_.waitForServer();
-    ROS_INFO("Connected to move_base server");
-
+    ROS_INFO("Got initial state estimates");
     exploring_timer_ =
         relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                 [this](const ros::TimerEvent&) { makePlan();});
@@ -315,101 +233,6 @@ namespace explore
     stop();
   }
 
-/**
- * @brief Visualize the frontiers in rviz 
- * 
- * @param frontiers 
- */
-  void Explore::visualizeFrontiers(
-      const std::vector<frontier_exploration::Frontier>& frontiers)
-  {
-    std_msgs::ColorRGBA blue;
-    blue.r = 0;
-    blue.g = 0;
-    blue.b = 1.0;
-    blue.a = 1.0;
-    std_msgs::ColorRGBA red;
-    red.r = 1.0;
-    red.g = 0;
-    red.b = 0;
-    red.a = 1.0;
-    std_msgs::ColorRGBA green;
-    green.r = 0;
-    green.g = 1.0;
-    green.b = 0;
-    green.a = 1.0;
-
-    ROS_DEBUG("visualising %lu frontiers", frontiers.size());
-    visualization_msgs::MarkerArray markers_msg;
-    std::vector<visualization_msgs::Marker>& markers = markers_msg.markers;
-    visualization_msgs::Marker m;
-
-    m.header.frame_id = costmap_client_.getGlobalFrameID();
-    m.header.stamp = ros::Time::now();
-    m.ns = "frontiers";
-    m.scale.x = 1.0;
-    m.scale.y = 1.0;
-    m.scale.z = 1.0;
-    m.color.r = 0;
-    m.color.g = 0;
-    m.color.b = 255;
-    m.color.a = 255;
-    // lives forever
-    m.lifetime = ros::Duration(0);
-    m.frame_locked = true;
-
-    // weighted frontiers are always sorted
-    // double min_cost = frontiers.empty() ? 0. : frontiers.front().cost;
-    double min_cost = frontiers.empty() ? 0. : frontiers.back().cost; //If its 0 if the frontier cal freq is less
-    double max_cost = frontiers.empty() ? 0. : frontiers.front().cost;
-    // double min_cost = frontiers.empty() ? 0. : 1 - frontiers.front().cost; //For normalized cost to utilize the visualization.
-
-    m.action = visualization_msgs::Marker::ADD;
-    size_t id = 0;
-    for (auto& frontier : frontiers) 
-    {
-      m.type = visualization_msgs::Marker::POINTS;
-      m.id = int(id);
-      m.pose.position = {};
-      m.scale.x = 0.1;
-      m.scale.y = 0.1;
-      m.scale.z = 0.1;
-      m.points = frontier.points;
-      if (goalOnBlacklist(frontier.centroid)) {
-        m.color = red;
-      } else {
-        m.color = green;
-      }
-      markers.push_back(m);
-      ++id;
-      break;
-      // m.type = visualization_msgs::Marker::SPHERE;
-      // m.id = int(id);
-      // m.pose.position = frontier.centroid;
-      // // scale frontier according to its cost (costier frontiers will be smaller)
-      // // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
-      // double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
-      // // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
-      // m.scale.x = scale;
-      // m.scale.y = scale;
-      // m.scale.z = scale;
-      // m.points = {};
-      // m.color = green;
-      // markers.push_back(m);
-      // ++id;
-    }
-    size_t current_markers_count = markers.size();
-
-    // delete previous markers, which are now unused
-    m.action = visualization_msgs::Marker::DELETE;
-    for (; id < last_markers_count_; ++id) {
-      m.id = int(id);
-      markers.push_back(m);
-    }
-
-    last_markers_count_ = current_markers_count;
-    marker_array_publisher_.publish(markers_msg);
-  }
 
 /**
  * @brief Generate the exploration plan for the current timestep
@@ -417,260 +240,101 @@ namespace explore
  */
   void Explore::makePlan()
   {
-    // find frontiers
-    auto pose = costmap_client_.getRobotPose();
 
-    // get frontiers sorted according to cost
-    std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
-    ROS_DEBUG("found %lu frontiers", frontiers.size());
-
-    if(FLAG_WSR_)
-    {
-      
-      //===== Start: Getting WiFi CSI data and UWB Range measurements as robot rotates in place =====
-      
-      //Save range data
-      Flag_get_range_ = true;
-
-      //Start CSI
-      std::string csi_start_local_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/pipeline_scripts/start_csi.sh rx &";  
-      system(csi_start_local_cmd.c_str());
-
-      //Start motion
-      int duration_val = 8;//seconds
-      auto starttime = std::chrono::high_resolution_clock::now();
-      auto endtime = std::chrono::high_resolution_clock::now();
-      float exp_duration;
-
-      while(true)
-      {
-        velocity_cmd_.angular.z = 2.2;
-        velocityPub_.publish(velocity_cmd_);
-        exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
-        if(exp_duration < duration_val) break; 
-      }
-
-      //Stop motion
-      velocity_cmd_.linear.x = 0.0;
-      velocity_cmd_.angular.z = 0.0;
-      velocityPub_.publish(velocity_cmd_);
-
-      //Stop CSI
-      std::string csi_stop_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/pipeline_scripts/stop_csi.sh";
-      system(csi_stop_cmd.c_str()); //TODO: Check correct command from robot
-      
-      //Stop range
-      Flag_get_range_=false;
-
-      //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
-
-      //======Start: Compute AOA and then initial position estimates ==========================
-      std::pair<std::vector<std::string>, std::vector<std::vector<double>>> WSR_val = generate_aoa();
-      std::vector<std::vector<double>> aoa_val = WSR_val.second;
-      std::vector<std::vector<double>> range_val = generate_range();    
-      
-      for(int i=0;i<neighbor_count_;i++)
-        range_vector_[i].clear();
-      
-
-      std::vector<std::vector<std::pair<double,double>>> neighbor_robot_est_pos;
-      for(int k=0;k<num_neighbors_;k++)
-      {
-        std::vector<std::pair<double,double>> est_pos;
-        double angle, dist;
-        for(int i=0;i<range_val[k].size();i++)
-        {
-          for(int j=0;j<aoa_val[k].size();j++)
-          {
-            dist = range_val[k][i];
-            angle = wrap0to360(wrap0to360(aoa_val[k][j]) + wrap0to360(robot_orientation_)); //position with respect to 0 degrees 
-            double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x;
-            double position_y = (cos(angle*M_PI/180) * dist) + robot_position_y;
-            est_pos.push_back(std::make_pair(position_x,position_y));
-          }
-        }
-        neighbor_robot_est_pos.push_back(est_pos);
-      }
-      //======Finished: Compute AOA and then initial position estimates ==========================
-
-
-      //Particle filter to genererate new state estimates
-        particle_filter();
-
-      /**
-       * @brief Update neighbor_pose_vec_ with the latest position estimates of the neighboring robots
-       * 
-       */
-      frontier_temp = search_.searchFromNew(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontier_temp.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
-	      ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
-      }
-
-
-      ROS_INFO("Neighbors count = %d", neighbor_pose_vec_.size());
-      for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
-      {
-        ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
-      }
-      
-      frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("New frontier frontier cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
-      }
-      FLAG_GET_POS = true;
-      neighbor_pose_vec_.clear();
-      writeToFile(frontier_temp, frontiers, fn);
-    }
-    else
-    {
-      // frontiers = search_.searchFrom(pose.position); //original code.
-      
-      // using neighrbor info just to collect stats and not for utility calculation
-      frontiers = search_.searchFromNew(pose.position, neighbor_pose_vec_); 
-      
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
-      }
-
-      writeToFile(frontiers,frontier_temp,fn);
-    }
+    //===== Start: Getting WiFi CSI data and UWB Range measurements as robot rotates in place =====
     
-    
-    if (frontiers.empty() || exploration_done_) 
-    {
-      stop();
-      writeToFile(frontier_temp,frontiers, fn);
-      return;
-    }
+    //Save range data
+    Flag_get_range_ = true;
 
-    // publish frontiers as visualization markers
-    if (visualize_) {
-      visualizeFrontiers(frontiers);
-    }
+    //Start CSI
+    // std::string csi_start_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/start_csi.sh rx &";  
+    // system(csi_start_cmd.c_str());
 
-    // find non blacklisted frontier
-    auto frontier =
-        std::find_if_not(frontiers.begin(), frontiers.end(),
-                        [this](const frontier_exploration::Frontier& f) {
-                          return goalOnBlacklist(f.centroid);
-                        });
-    
-    
-    if (frontier == frontiers.end()) 
-    {
-      stop();
-      return;
-    }
-    
-    // if(frontiers.size() == 1)
+    //Start motion
+    ROS_INFO("Starting motion");
+    int duration_val = 8;//seconds
+    auto starttime = std::chrono::high_resolution_clock::now();
+    auto endtime = std::chrono::high_resolution_clock::now();
+    float exp_duration;
+
+    // while(true)
     // {
-    //   frontier->centroid = frontier->furthest;
-    //   frontier->centroid_distance = frontier->min_distance; //just a heuristic
+    //   velocity_cmd_.angular.z = 2.2;
+    //   velocityPub_.publish(velocity_cmd_);
+    //   exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
+    //   if(exp_duration > duration_val) break;
+    //   endtime = std::chrono::high_resolution_clock::now(); 
     // }
 
-    geometry_msgs::Point target_position = frontier->centroid;
-
-    // time out if we are not making any progress
-    bool same_goal = prev_goal_ == target_position;
-    prev_goal_ = target_position;
-    if (!same_goal || prev_distance_ > frontier->min_distance) {
-      // we have different goal or we made some progress
-      last_progress_ = ros::Time::now();
-      prev_distance_ = frontier->min_distance;
+    //Stop motion
+    ROS_INFO("Stopping motion");
+    velocity_cmd_.linear.x = 0.0;
+    velocity_cmd_.angular.z = 0.0;
+    for(int i=0; i<100; i++)
+    {
+      velocityPub_.publish(geometry_msgs::Twist());
     }
-    // black list if we've made no progress for a long time
-    if (ros::Time::now() - last_progress_ > progress_timeout_) {
-      frontier_blacklist_.push_back(target_position);
-      ROS_DEBUG("Adding current goal to black list");
-      makePlan();
-      return;
-    }
+    ROS_INFO("MOtion should be stopped");
+    //Stop CSI
+    // std::string csi_stop_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/stop_csi.sh rx";
+    // system(csi_stop_cmd.c_str()); //TODO: Check correct command from robot
+    
+    //Stop range
+    Flag_get_range_=false;
 
-    // we don't need to do anything if we still pursuing the same goal
-    if (same_goal) {
-      return;
-    }
+    //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
 
-    // send goal to move_base if we have something new to pursue
-    move_base_msgs::MoveBaseGoal goal;
-    goal.target_pose.pose.position = target_position;
-    goal.target_pose.pose.orientation.w = 1.;
-    goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
-    goal.target_pose.header.stamp = ros::Time::now();
-    move_base_client_.sendGoal(
-        goal, [this, target_position](
-                  const actionlib::SimpleClientGoalState& status,
-                  const move_base_msgs::MoveBaseResultConstPtr& result) {
-          reachedGoal(status, result, target_position);
-        });
+    //======Start: Compute AOA and then initial position estimates ==========================
+    ROS_INFO("Getting AOA");
+    std::pair<std::vector<std::string>, std::vector<std::vector<double>>> WSR_val = generate_aoa();
+    std::vector<std::vector<double>> aoa_val = WSR_val.second;
+    
+    ROS_INFO("Getting Range");
+    std::vector<std::vector<double>> range_val = generate_range();    
+    
+    //Remove old range estimates
+    for(int i=0;i<neighbor_count_;i++)
+      range_vector_[i].clear();
+    
+    ROS_INFO("Generating position observations");
+    for(int k=0;k<neighbor_count_;k++)
+    {
+    std::vector<std::pair<double,double>> est_pos;
+    double angle, dist;
+    
+    // std::cout << robot_orientation_ << ", " << robot_position_x_ << "," << robot_position_y_<<  std::endl;
+    // std::cout << "-----------------------" << std::endl;
+
+    for(int i=0;i<range_val[k].size();i++)
+    {
+        for(int j=0;j<aoa_val[k].size();j++)
+        {
+          dist = range_val[k][i];
+          angle = wrap0to360(wrap0to360(aoa_val[k][j]) + wrap0to360(robot_orientation_)); //position with respect to 0 degrees 
+          double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x_;
+          double position_y = (sin(angle*M_PI/180) * dist) + robot_position_y_;
+          // std::cout << position_x <<", " << position_y << std::endl;
+          est_pos.push_back(std::make_pair(position_x,position_y));
+        }
+    }
+    neighbor_robot_est_pos_.push_back(est_pos);
+    }
+    //======Finished: Compute AOA and then initial position estimates ==========================
+
+    //Particle filter to genererate new state estimates
+    ROS_INFO("Running particle filter");
+    particle_filter();
+
+    for(int i=0; i<neighbor_pose_vec_.size(); i++)
+    {
+      std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << std::endl;
+    }
+    exit(1);
   }
 
   /**
-   * @brief Add a non-reachable frontier to backlist
    * 
-   * @param goal 
-   * @return true 
-   * @return false 
-   */
-
-  bool Explore::goalOnBlacklist(const geometry_msgs::Point& goal)
-  {
-    constexpr static size_t tolerace = 5;
-    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
-
-    // check if a goal is on the blacklist for goals that we're pursuing
-    for (auto& frontier_goal : frontier_blacklist_) {
-      double x_diff = fabs(goal.x - frontier_goal.x);
-      double y_diff = fabs(goal.y - frontier_goal.y);
-
-      if (x_diff < tolerace * costmap2d->getResolution() &&
-          y_diff < tolerace * costmap2d->getResolution())
-        return true;
-    }
-    return false;
-  }
-
-/**
- * @brief Check if robot has reached a frontier
- * 
- * @param status 
- * @param frontier_goal 
- */
-  void Explore::reachedGoal(const actionlib::SimpleClientGoalState& status,
-                            const move_base_msgs::MoveBaseResultConstPtr&,
-                            const geometry_msgs::Point& frontier_goal)
-  {
-    ROS_DEBUG("Reached goal with status: %s", status.toString().c_str());
-    if (status == actionlib::SimpleClientGoalState::ABORTED) {
-      frontier_blacklist_.push_back(frontier_goal);
-      ROS_DEBUG("Adding current goal to black list");
-    }
-
-    // find new goal immediatelly regardless of planning frequency.
-    // execute via timer to prevent dead lock in move_base_client (this is
-    // callback for sendGoal, which is called in makePlan). the timer must live
-    // until callback is executed.
-    oneshot_ = relative_nh_.createTimer(
-        ros::Duration(0, 0), [this](const ros::TimerEvent&) { makePlan(); },
-        true);
-  }
-
-  void Explore::start()
-  {
-    exploring_timer_.start();
-  }
-
+   * */
   void Explore::stop()
   {
     move_base_client_.cancelAllGoals();
@@ -811,7 +475,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         run_module.tx_name_list[tx_mac_id] = tx_name;
     }
 
-    std::vector<std::vector<double>> robot_displacement_data = utils.loadTrajFromCSV(displacement_file_);
+    std::vector<std::vector<double>> robot_displacement_data = utils.loadTrajFromCSV(robot_displacement_);
     nc::NdArray<double> displacement;
     nc::NdArray<double> displacement_timestamp;
     std::vector<double> antenna_offset, antenna_offset_true;
@@ -862,6 +526,18 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     
     std::cout << "log [Get_AOA]: Completed getting raw AOA" << std::endl;
     
+    std::cout << std::fixed;
+    std::cout << std::setprecision(2);
+    for(int val=0; val<tx_top_aoa_peak.size(); val++)
+    {
+      std::cout << "[";
+      for(int val2 =0; val2<tx_top_aoa_peak[val].size();val2++)
+        std::cout << tx_top_aoa_peak[val][val2] <<",";
+
+      std::cout << "]"<< std::endl;
+      std::cout << "-----------------------------" << std::endl;
+    }
+
     std::cout << "log [Get_AOA]: Filter out potential multipath angles" << std::endl;
     std::vector<vector<double>> tx_filtered_top_aoa_peak;    
     for(int val=0; val<tx_top_aoa_peak.size(); val++)
@@ -881,7 +557,8 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
       std::vector<double> temp_angles;
       for(auto& aoa_angle: filtered_angles)
       {
-        temp_angles.push_back(aoa_angle);
+        temp_angles.push_back(aoa_angle+antenna_orientation_);
+        std::cout << "Angle (with antenna_orientation) = " << aoa_angle+antenna_orientation_ << std::endl; 
       }
       tx_filtered_top_aoa_peak.push_back(temp_angles);
     }
@@ -900,15 +577,19 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     std::mt19937 gen(rd()); // seed the generator
     std::uniform_int_distribution<> distr(0, int(range_vector_[0].size())); // define the range
     
-    std::vector<double> range1, range2;
     std::vector<std::vector<double>> op;
-    op.push_back(range1);
-    op.push_back(range2);
+    for(int i=0; i<neighbor_count_; i++)
+    {
+      std::vector<double> range;
+      op.push_back(range);
+    }
 
     for(int n=0; n<20; n++) //Get 20 random samples from UWB node
     {
-      op[0].push_back(range_vector_[0][distr(gen)]); // randomly sample uwb range value
-      op[1].push_back(range_vector_[1][distr(gen)]); // 
+      for(int i=0; i<neighbor_count_; i++)
+      {
+        op[i].push_back(range_vector_[i][distr(gen)]);// randomly sample uwb range value
+      } 
     }
 
     return op;   
@@ -922,12 +603,13 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
       for(int k=0;k<neighbor_count_;k++)
       {
         
-        std::vector<std::pair<double,double>> init_pos = neighbor_robot_init_pos_[i];
-        std::vector<std::pair<double,double>> est_pos = neighbor_robot_est_pos_[i];
+        std::vector<std::pair<double,double>> init_pos = neighbor_robot_init_pos_[k];
+        std::vector<std::pair<double,double>> est_pos = neighbor_robot_est_pos_[k];
         std::vector<double> sample_weight;
         int p_z = 0;
         
         //Weights
+        ROS_INFO("Generating Weights");
         for(int i=0;i<init_pos.size();i++)
         {
           for(int j=0; j<est_pos.size();j++)
@@ -942,6 +624,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         }
         
         //Resample
+        ROS_INFO("Resampling");
         std::vector<std::pair<double,double>> new_samples;
         float threshold = 0, best_sample_weight=0;
         std::pair<double, double> best_sample;
@@ -961,29 +644,33 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
               }
               
             }
-            if(new_samples.size() >= particle_threshold_) break; //Keep the number of samples constant.
           }
+          if(new_samples.size() >= particle_threshold_) break; //Keep the number of samples constant.
         }
 
-
+        ROS_INFO("New States");
         //Based on control, predict next states of the neighboring robot using the new samples
-        std::vector<std::pair<double,double>> init_pos_new;
+        neighbor_robot_est_pos_[k].clear();
+        neighbor_robot_init_pos_[k].clear();//The new samples will be state etimates for the next iteration
         for(int i=0;i<new_samples.size();i++)
         {
           auto val = new_samples[i];
-          init_pos_new.push_back(val);
-          init_pos_new.push_back(std::make_pair(val.first+1, val.second));
-          init_pos_new.push_back(std::make_pair(val.first-1, val.second));
-          init_pos_new.push_back(std::make_pair(val.first, val.second+1));
-          init_pos_new.push_back(std::make_pair(val.first, val.second-1));
+          neighbor_robot_init_pos_[k].push_back(val);
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first+1, val.second));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first-1, val.second));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second+1));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second-1));
         }
 
+        ROS_INFO("Best estimated position = %f, %f", best_sample.first, best_sample.second);
         neighbor_best_position_esimtate_[k].push_back(best_sample);
+        
         geometry_msgs::Point current_val;
         current_val.x = best_sample.first;
-        current_val.x = best_sample.second;
+        current_val.y = best_sample.second;
         neighbor_pose_vec_.push_back(current_val);
       }
+
   }
 
   double Explore::wrap0to360(double val) 
@@ -996,8 +683,24 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     return val;
   }
 
+  double Explore::quaternionToYaw(const tf::Quaternion& q) 
+  {
+    double yaw = 0.0;
 
+    if (validateQuaternion(q)) {
+        tf::Matrix3x3 m(q);
 
+        double roll, pitch;
+        m.getRPY(roll, pitch, yaw);
+    }
+
+    return yaw;
+  }
+
+  bool Explore::validateQuaternion(const tf::Quaternion& quat) 
+  {
+    return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
+  }
 
 }  // namespace explore
 

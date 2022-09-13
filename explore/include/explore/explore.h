@@ -44,6 +44,7 @@
 
 #include <actionlib/client/simple_action_client.h>
 #include <geometry_msgs/PoseStamped.h>
+#include <nav_msgs/Odometry.h>
 #include <move_base_msgs/MoveBaseAction.h>
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -53,7 +54,9 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
+#include "tf/tf.h"
 #include <natnet_pkg/PoseArrayID.h>
+
 #include <regex>
 #include <iterator>
 #include <unistd.h>
@@ -62,6 +65,7 @@
 #include <fstream>
 #include <random>
 #include <pwd.h>
+#include <time.h>
 
 namespace explore
 {
@@ -111,13 +115,18 @@ private:
   void uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg);
   std::vector<std::vector<double>> generate_range();
   std::pair<std::vector<std::string>, std::vector<std::vector<double>>> generate_aoa();
+  void positionCallbackT265(const nav_msgs::Odometry::ConstPtr& t265_msg);
+  double quaternionToYaw(const tf::Quaternion& q);
+  bool validateQuaternion(const tf::Quaternion& quat);
+
 
   double wrap0to360(double val);
+  void particle_filter();
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_, velocityPub_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -129,13 +138,13 @@ private:
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
-  double prev_distance_;
+  double prev_distance_,antenna_orientation_;
   ros::Time last_progress_;
   size_t last_markers_count_;
 
   // parameters
   double planner_frequency_, noise_mean_=0, noise_std_=0;
-  double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_;
+  double potential_scale_, orientation_scale_, gain_scale_, sensor_range_, decay_rate_,robot_orientation_,robot_position_x_,robot_position_y_;
   ros::Duration progress_timeout_;
   bool visualize_;
   std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
@@ -148,6 +157,15 @@ private:
   int robot_id_ = -1;
   geometry_msgs::Twist velocity_cmd_;
   std::vector<std::vector<double>> range_vector_;
+  int neighbor_count_=1;
+
+  //Particle filter parameters
+  std::vector<std::vector<std::pair<double,double>>> neighbor_robot_init_pos_;
+  std::vector<std::vector<std::pair<double,double>>> neighbor_robot_est_pos_;
+  int particle_threshold_ = 540, init_angle_samples_ = 180;
+  std::vector<int> aoa_init_;
+  std::vector<std::vector<std::pair<double, double>>> neighbor_best_position_esimtate_;
+
 };
 }
 
