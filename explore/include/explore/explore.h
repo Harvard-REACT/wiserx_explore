@@ -125,7 +125,7 @@ private:
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
-  ros::Publisher marker_array_publisher_, velocityPub_;
+  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_;
   ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
   tf::TransformListener tf_listener_;
 
@@ -138,6 +138,7 @@ private:
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
+  std_msgs::Bool get_csi_data_;
   ros::Time last_progress_;
   size_t last_markers_count_;
 
@@ -155,7 +156,7 @@ private:
   bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
       ,Flag_get_range_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
-  int robot_id_ = -1;
+  int robot_id_ = -1, iterations__=0;
   geometry_msgs::Twist velocity_cmd_;
   std::vector<std::vector<double>> range_vector_;
   int neighbor_count_=1;

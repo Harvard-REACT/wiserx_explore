@@ -75,6 +75,18 @@ target_link_libraries(test_particle_filter ${catkin_LIBRARIES}
                       OpenMP::OpenMP_CXX)
 
 
+add_executable(explore_uwb_wsr
+  src/costmap_client.cpp
+  src/explore_uwb_wsr.cpp
+  src/frontier_search.cpp
+)
+add_dependencies(explore_uwb_wsr ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+                ${catkin_EXPORTED_TARGETS})
+target_link_libraries(explore_uwb_wsr ${catkin_LIBRARIES} 
+                      lib_wsr_1.0.1_parallel.so 
+                      OpenMP::OpenMP_CXX)
+
+
 # add_executable(test_wsr
 #   src/test_wsr_library.cpp
 # )

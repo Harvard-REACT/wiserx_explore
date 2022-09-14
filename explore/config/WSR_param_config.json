@@ -203,12 +203,12 @@
         "desc":"Reverse channel csi File stored on the RX robot which is performing 3D SAR",
         "value":{           
             "mac_id":"00:21:6A:53:89:D2",
-            "csi_fn":"/catkin_ws/src/wsr_exploration/data/WSR_data/csi_rx_2022-09-12_203759.dat"
+            "csi_fn":"/catkin_ws/src/wsr_exploration/data/csi_rx.dat"
         }
     },
     "input_trajectory_csv_fn_rx":{
         "desc":"Trajectory fiile",
-        "value":"/catkin_ws/src/wsr_exploration/data/WSR_data/rx_trajectory_2022-09-12_203759.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/rx_trajectory.csv"
     },
     "input_trajectory_csv_fn_rx_t265":{
         "desc":"Trajectory fiile",
@@ -216,7 +216,7 @@
     },
     "input_trajectory_csv_fn_rx_odom":{
         "desc":"Trajectory fiile",
-        "value":"/catkin_ws/src/wsr_exploration/data/WSR_data/odom_rx_trajectory_2022-09-12_203759.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/odom_rx_trajectory.csv"
     },
     "input_trajectory_csv_fn_tx":{
         "desc":"Trajectory file of TX_Neighbor_robot (WIP)",

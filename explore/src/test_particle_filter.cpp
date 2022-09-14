@@ -158,7 +158,8 @@ namespace explore
     t265_position_ = private_nh_.subscribe<nav_msgs::Odometry> ("/"+robot_name_+"/camera/odom/sample", 10, &Explore::positionCallbackT265, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     velocityPub_ = private_nh_.advertise<geometry_msgs::Twist> ("/"+robot_name_+"/cmd_vel", 10);
-    
+    get_csi_Pub_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/collect_csi_data", 2);
+    get_csi_data_.data = true;
 
     //initialize UWB data structure based on number of neighbors
     for(int i=0;i<neighbor_count_;i++)
@@ -249,13 +250,16 @@ namespace explore
     Flag_get_range_ = true;
 
     //Start CSI
-    // ros_pub(Boolean)
-    // std::string csi_start_remote_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/start_csi.sh rx &";  
-    // system(csi_start_cmd.c_str());
-
+    ROS_INFO("Starting CSI data collection");
+    for(int i=0; i<2; i++)
+    {
+      get_csi_Pub_.publish(get_csi_data_);
+    }
+    sleep(0.5);
     //Start motion
     ROS_INFO("Starting motion");
-    robot_orientation_before_ = robot_orientation_; //Get robot orientation before data collection starts
+    robot_orientation_before_ = robot_orientation_ * 180/M_PI ; //Get robot orientation before data collection starts
+    ROS_INFO("Robot orientation: %f degrees", robot_orientation_before_);
     int duration_val = 8;//seconds
     auto starttime = std::chrono::high_resolution_clock::now();
     auto endtime = std::chrono::high_resolution_clock::now();
@@ -278,17 +282,15 @@ namespace explore
     {
       velocityPub_.publish(geometry_msgs::Twist());
     }
-    ROS_INFO("Fetching data");
-    
+  
     // Stop range collection and CSI and fetch data
-    
-    Flag_get_range_=false;
-    //Wait for msg that data is collected
-    
-    //Fetch CSI data from Remote
-    // std::string csi_stop_cmd = homedir+"/catkin_ws/src/adaptive_navigation_using_aoa/control_scripts/stop_csi.sh rx";
-    // system(csi_stop_cmd.c_str()); //TODO: Check correct command from robot
-    sleep(5);
+    Flag_get_range_=false;    
+    std::string fetch_data = homedir+"/catkin_ws/src/wsr_exploration/scripts/fetch_csi.sh up-board-10 192.168.1.27";
+    sleep(2);
+    ROS_INFO("Fetching data");
+    system(fetch_data.c_str()); //TODO: Check correct command from robot
+    sleep(4);
+
     //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
 
     //======Start: Compute AOA and then initial position estimates ==========================
@@ -341,7 +343,14 @@ namespace explore
     {
       std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
     }
-    sleep(5);
+    
+    // exit(1);
+    sleep(3);
+    if(iterations__ == 5)
+    {
+      stop();
+    }
+    iterations__+=1;
   }
 
   /**
@@ -353,6 +362,13 @@ namespace explore
     exploring_timer_.stop();
     exploration_completed_ = true;
     ROS_INFO("Exploration stopped.");
+
+    for(int k=0;k<neighbor_count_;k++)
+    {
+      std::vector<std::pair<double,double>> fina_est_posList = neighbor_best_position_esimtate_[k];
+      std::string fn1 = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/init_pose_robot_"+std::to_string(k);
+      writePosToFile(fina_est_posList,fn1);
+    }
   }
 
 /**
@@ -552,6 +568,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
 
     std::cout << "log [Get_AOA]: Filter out potential multipath angles" << std::endl;
     std::vector<vector<double>> tx_filtered_top_aoa_peak;    
+    
     for(int val=0; val<tx_top_aoa_peak.size(); val++)
     {
       std::set<double> filtered_angles;
@@ -566,15 +583,18 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
           }
         }
       }
+
       std::vector<double> temp_angles;
-      std::cout << "Offset " << antenna_angular_offset_ << std::endl;
-      std::cout << "Robot orientation" << robot_orientation_before_ << std::endl;
+      std::cout << "Offset: " << antenna_angular_offset_ << std::endl;
+      std::cout << "Robot orientation: " << robot_orientation_before_ << std::endl;
       for(auto& aoa_angle: filtered_angles)
       {
         double aoa_antennta_offset = wrap0to360(wrap0to360(aoa_angle)+wrap0to360(antenna_angular_offset_));
         double aoa_antenna_offset_robot_orientation = wrap0to360(wrap0to360(aoa_angle)+wrap0to360(antenna_angular_offset_)+ wrap0to360(robot_orientation_before_));
+        std::cout << "Angle  = " << aoa_angle << std::endl;
+        std::cout << "Angle (wrap)  = " << wrap0to360(aoa_angle) << std::endl; 
         std::cout << "Angle (considering antenna_angular_offset) = " << aoa_antennta_offset << std::endl; 
-        std::cout << "Angle (considering antenna_angular_offset and robot_orientation) = " << aoa_antenna_offset_robot_orientation << std::endl; 
+        std::cout << "Angle (w.r.t 0 degrees after including robot orientation) = " << aoa_antenna_offset_robot_orientation << std::endl; 
         temp_angles.push_back(aoa_antenna_offset_robot_orientation);
       }
       tx_filtered_top_aoa_peak.push_back(temp_angles);
@@ -623,8 +643,8 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         
         std::vector<std::pair<double,double>> init_pos = neighbor_robot_init_pos_[k];
         std::vector<std::pair<double,double>> est_pos = neighbor_robot_est_pos_[k];
-        std::string fn1 = "/home/react-ws-1/init_pose";
-        std::string fn2 = "/home/react-ws-1/est_pose";
+        std::string fn1 = "/home/react-ws-1/init_pose_robot_"+std::to_string(k);
+        std::string fn2 = "/home/react-ws-1/est_pose_"+std::to_string(k);
 
         // writePosToFile(init_pos,fn1);
         // writePosToFile(est_pos,fn2);
