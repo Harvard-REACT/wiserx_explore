@@ -99,6 +99,7 @@ namespace explore
               t265_msg->pose.pose.orientation.w
       );
 
+      // robot_orientation_ = quaternionToYaw(q) + M_PI;
       robot_orientation_ = quaternionToYaw(q);
       robot_position_x_ = t265_msg->pose.pose.position.x;
       robot_position_y_ = t265_msg->pose.pose.position.y;
@@ -255,17 +256,17 @@ namespace explore
     {
       get_csi_Pub_.publish(get_csi_data_);
     }
-    sleep(0.5);
+    sleep(2);
     //Start motion
     ROS_INFO("Starting motion");
     robot_orientation_before_ = robot_orientation_ * 180/M_PI ; //Get robot orientation before data collection starts
     ROS_INFO("Robot orientation: %f degrees", robot_orientation_before_);
-    int duration_val = 8;//seconds
+    int duration_val = 9;//seconds
     auto starttime = std::chrono::high_resolution_clock::now();
     auto endtime = std::chrono::high_resolution_clock::now();
     float exp_duration;
 
-    velocity_cmd_.angular.z = 2.2;
+    velocity_cmd_.angular.z = 2.0;
     velocityPub_.publish(velocity_cmd_);
     while(true)
     {
@@ -286,10 +287,10 @@ namespace explore
     // Stop range collection and CSI and fetch data
     Flag_get_range_=false;    
     std::string fetch_data = homedir+"/catkin_ws/src/wsr_exploration/scripts/fetch_csi.sh up-board-10 192.168.1.27";
-    sleep(2);
+    sleep(3);
     ROS_INFO("Fetching data");
     system(fetch_data.c_str()); //TODO: Check correct command from robot
-    sleep(4);
+    sleep(5);
 
     //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
 
@@ -344,9 +345,9 @@ namespace explore
       std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
     }
     
-    // exit(1);
+    exit(1);
     sleep(3);
-    if(iterations__ == 5)
+    if(iterations__ == 2)
     {
       stop();
     }
@@ -369,6 +370,7 @@ namespace explore
       std::string fn1 = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/init_pose_robot_"+std::to_string(k);
       writePosToFile(fina_est_posList,fn1);
     }
+    exit(1);
   }
 
 /**
@@ -576,7 +578,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
       {
         for(int jj=ii+1; jj<tx_top_aoa_peak[val].size(); jj++)
         {
-          if(abs(tx_top_aoa_peak[val][ii]-tx_top_aoa_peak[val][jj]) < 15)
+          if(abs(tx_top_aoa_peak[val][ii]-tx_top_aoa_peak[val][jj]) < 15) //Heuristic value
           {
             filtered_angles.insert(tx_top_aoa_peak[val][ii]);
             filtered_angles.insert(tx_top_aoa_peak[val][jj]);

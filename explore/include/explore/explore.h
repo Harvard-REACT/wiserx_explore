@@ -169,7 +169,10 @@ private:
   int particle_threshold_ = 540, init_angle_samples_ = 180;
   std::vector<int> aoa_init_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
-
+  bool same_goal__ = false, reached_goal__=true,__checked_for_new_frontiers=false;
+  double robot_position_x_before_=0.0, robot_position_y_before_=0.0;
+  std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
+  std::vector<frontier_exploration::Frontier>::iterator frontier;
 };
 }
 

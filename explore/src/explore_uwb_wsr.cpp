@@ -320,9 +320,11 @@ namespace explore
     move_base_client_.waitForServer();
     ROS_INFO("Connected to move_base server");
 
+    ROS_INFO("DUration");
+    std::cout << ros::Duration(1. / planner_frequency_) << std::endl;
     exploring_timer_ =
-        relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
-                                [this](const ros::TimerEvent&) { makePlan();});
+    relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
+                            [this](const ros::TimerEvent&) { makePlan();});
   }
 
   Explore::~Explore()
@@ -405,9 +407,9 @@ namespace explore
       // // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
       // double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
       // // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
-      // m.scale.x = scale;
-      // m.scale.y = scale;
-      // m.scale.z = scale;
+      // m.scale.x = 0.2;//scale;
+      // m.scale.y = 0.2;
+      // m.scale.z = 0.2;
       // m.points = {};
       // m.color = green;
       // markers.push_back(m);
@@ -436,175 +438,266 @@ namespace explore
     auto pose = costmap_client_.getRobotPose();
 
     // get frontiers sorted according to cost
-    std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
     ROS_DEBUG("found %lu frontiers", frontiers.size());
 
+    
     if(FLAG_WSR_)
     {
-      //===== Start: Getting WiFi CSI data and UWB Range measurements as robot rotates in place =====
+
       //Save range data
       Flag_get_range_ = true;
-
-      //Start CSI
-      ROS_INFO("Starting CSI data collection");
-      for(int i=0; i<2; i++)
-      {
-        get_csi_Pub_.publish(get_csi_data_);
-      }
-      sleep(0.5);
-      //Start motion
-      ROS_INFO("Starting motion");
       robot_orientation_before_ = robot_orientation_ * 180/M_PI ; //Get robot orientation before data collection starts
-      ROS_INFO("Robot orientation: %f degrees", robot_orientation_before_);
-      int duration_val = 8;//seconds
-      auto starttime = std::chrono::high_resolution_clock::now();
-      auto endtime = std::chrono::high_resolution_clock::now();
-      float exp_duration;
-
-      velocity_cmd_.angular.z = 2.2;
-      velocityPub_.publish(velocity_cmd_);
-      while(true)
-      {
-        exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
-        if(exp_duration > duration_val) break;
-        endtime = std::chrono::high_resolution_clock::now(); 
-      }
-
-      //Stop motion
-      ROS_INFO("Stopping motion");
-      velocity_cmd_.linear.x = 0.0;
-      velocity_cmd_.angular.z = 0.0;
-      for(int i=0; i<100; i++)
-      {
-        velocityPub_.publish(geometry_msgs::Twist());
-      }
-    
-      // Stop range collection and CSI and fetch data
-      Flag_get_range_=false;    
-      std::string fetch_data = homedir+"/catkin_ws/src/wsr_exploration/scripts/fetch_csi.sh up-board-10 192.168.1.27";
-      sleep(2);
-      ROS_INFO("Fetching data");
-      system(fetch_data.c_str()); //TODO: Check correct command from robot
-      sleep(4);
-
-      //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
-
-      //======Start: Compute AOA and then initial position estimates ==========================
-      ROS_INFO("Getting AOA");
-      std::pair<std::vector<std::string>, std::vector<std::vector<double>>> WSR_val = generate_aoa();
-      std::vector<std::vector<double>> aoa_val = WSR_val.second;
-      
-      ROS_INFO("Getting Range");
-      std::vector<std::vector<double>> range_val = generate_range();    
-      
-      //Remove old range estimates
-      for(int i=0;i<neighbor_count_;i++)
-        range_vector_[i].clear();
-      
-      ROS_INFO("Generating position observations");
-      
-      neighbor_robot_est_pos_.clear(); //Clear previous observations
-      for(int k=0;k<neighbor_count_;k++)
-      {
-        std::vector<std::pair<double,double>> est_pos;
-        double angle, dist;
-        
-        // std::cout << robot_orientation_ << ", " << robot_position_x_ << "," << robot_position_y_<<  std::endl;
-        // std::cout << "-----------------------" << std::endl;
-
-        for(int i=0;i<range_val[k].size();i++)
+      robot_position_x_before_ = robot_position_x_;
+      robot_position_y_before_ = robot_position_y_;
+      if (reached_goal__)
+      { 
+        frontiers.clear();  //Generate new frontiers when only using AOA
+        frontier_temp.clear();
+        reached_goal__ = false;
+        sleep(1);
+        //===== Start: Getting WiFi CSI data and UWB Range measurements as robot rotates in place =====
+        //Start CSI
+        ROS_INFO("Starting CSI data collection");
+        for(int i=0; i<2; i++)
         {
-            for(int j=0;j<aoa_val[k].size();j++)
-            {
-              dist = range_val[k][i];
-              angle = aoa_val[k][j]; //position with respect to 0 degrees 
-              // std::cout << dist <<", " << angle << std::endl;
-              double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x_;
-              double position_y = (sin(angle*M_PI/180) * dist) + robot_position_y_;
-              // std::cout << position_x <<", " << position_y << std::endl;
-              // std::cout << "-----------------------------" << std::endl;
-              est_pos.push_back(std::make_pair(position_x,position_y));
-            }
+          get_csi_Pub_.publish(get_csi_data_);
         }
-        neighbor_robot_est_pos_.push_back(est_pos);
-      }
-      //======Finished: Compute AOA and then initial position estimates ==========================
+        sleep(2);
+        //Start motion
+        ROS_INFO("Starting motion");
+        ROS_INFO("Robot orientation: %f degrees", robot_orientation_before_);
+        int duration_val = 10;//seconds
+        auto starttime = std::chrono::high_resolution_clock::now();
+        auto endtime = std::chrono::high_resolution_clock::now();
+        float exp_duration;
 
-      //Particle filter to genererate new state estimates
-      ROS_INFO("Running particle filter");
+        velocity_cmd_.angular.z = 1.8;
+        velocityPub_.publish(velocity_cmd_);
+        while(true)
+        {
+          exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
+          if(exp_duration > duration_val) break;
+          endtime = std::chrono::high_resolution_clock::now(); 
+        }
+
+        //Stop motion
+        ROS_INFO("Stopping motion");
+        velocity_cmd_.linear.x = 0.0;
+        velocity_cmd_.angular.z = 0.0;
+        for(int i=0; i<100; i++)
+        {
+          velocityPub_.publish(geometry_msgs::Twist());
+        }
       
-      neighbor_pose_vec_.clear();
-      particle_filter();
-      for(int i=0; i<neighbor_pose_vec_.size(); i++)
-      {
-        std::cout << "X_pos = " << neighbor_pose_vec_[i].x << " Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
-      }
-    
-      /**
-       * @brief Update neighbor_pose_vec_ with the latest position estimates of the neighboring robots
-       * 
-       */
-      frontier_temp = search_.searchFromNew(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontier_temp.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
-	      ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
-      }
+        // Stop range collection and CSI and fetch data
+        Flag_get_range_=false;    
+        std::string fetch_data = homedir+"/catkin_ws/src/wsr_exploration/scripts/fetch_csi.sh up-board-10 192.168.1.27";
+        sleep(3);
+        ROS_INFO("Fetching data");
+        system(fetch_data.c_str()); //TODO: Check correct command from robot
+        sleep(5);
+
+        //===== Finished: Getting CSI data and Range measurements as robot rotates in place =====
+
+        //======Start: Compute AOA and then initial position estimates ==========================
+        ROS_INFO("Getting AOA");
+        std::pair<std::vector<std::string>, std::vector<std::vector<double>>> WSR_val = generate_aoa();
+        std::vector<std::vector<double>> aoa_val = WSR_val.second;
+
+        ROS_INFO("Getting Range");
+        std::vector<std::vector<double>> range_val = generate_range();    
+        
+        //Remove old range estimates
+        for(int i=0;i<neighbor_count_;i++)
+          range_vector_[i].clear();
+        
+        ROS_INFO("Generating position observations"); 
+        neighbor_robot_est_pos_.clear(); //Clear previous observations
+        for(int k=0;k<neighbor_count_;k++)
+        {
+          std::vector<std::pair<double,double>> est_pos;
+          double angle, dist;
+          
+          // std::cout << robot_orientation_ << ", " << robot_position_x_ << "," << robot_position_y_<<  std::endl;
+          // std::cout << "-----------------------" << std::endl;
+
+          for(int i=0;i<range_val[k].size();i++)
+          {
+              for(int j=0;j<aoa_val[k].size();j++)
+              {
+                dist = range_val[k][i];
+                angle = aoa_val[k][j]; //position with respect to 0 degrees 
+                // std::cout << dist <<", " << angle << std::endl;
+                double position_x = (cos(angle*M_PI/180) * dist) + robot_position_x_before_;
+                double position_y = (sin(angle*M_PI/180) * dist) + robot_position_y_before_;
+                // std::cout << position_x <<", " << position_y << std::endl;
+                // std::cout << "-----------------------------" << std::endl;
+                est_pos.push_back(std::make_pair(position_x,position_y));
+              }
+          }
+          neighbor_robot_est_pos_.push_back(est_pos);
+        }
+          //Particle filter to genererate new state estimates
+          ROS_INFO("Running particle filter");
+          
+          neighbor_pose_vec_.clear();
+          particle_filter();
+          std::cout << "Robots X_pos: " << robot_position_x_before_ << ", Y_pos" << robot_position_y_before_ << std::endl;
+          for(int i=0; i<neighbor_pose_vec_.size(); i++)
+          {
+            std::cout << "Neighbor X_pos = " << neighbor_pose_vec_[i].x << ", Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
+          }
+          /**
+           * @brief Update neighbor_pose_vec_ with the latest position estimates of the neighboring robots
+           * 
+           */
+          frontier_temp = search_.searchFromNew(pose.position, neighbor_pose_vec_);
+          ROS_DEBUG("Original cost");
+          for (size_t i = 0; i < frontier_temp.size(); ++i) 
+          {
+            ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
+            ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
+            ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
+          }
 
 
-      ROS_INFO("Neighbors count = %d", neighbor_pose_vec_.size());
-      for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
-      {
-        ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
+          ROS_INFO("Neighbors count = %d", neighbor_pose_vec_.size());
+          for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
+          {
+            ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
+          }
+          
+          frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
+          ROS_DEBUG("New frontier frontier cost");
+          for (size_t i = 0; i < frontiers.size(); ++i) 
+          {
+            ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
+            ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
+            ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
+          }
+          FLAG_GET_POS = true;
+          neighbor_pose_vec_.clear();
+          writeToFile(frontier_temp, frontiers, fn);
+
+      // ======Finished: Compute AOA and then initial position estimates ==========================
       }
-      
-      frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("New frontier frontier cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
+      else //Keep refining particle filter using range only measurements till the frontier goal is reached
       {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
+        ROS_INFO("Just chill");
+        // sleep(3); //Collect some range data
+        // ROS_INFO("Getting Range");
+        // std::vector<std::vector<double>> range_val = generate_range();    
+        
+        // //Remove old range estimates
+        // for(int i=0;i<neighbor_count_;i++)
+        //   range_vector_[i].clear();
+        
+        // ROS_INFO("Particle filter using range only measurements"); 
+        // neighbor_robot_est_pos_.clear(); //Clear previous observations
+        // for(int k=0;k<neighbor_count_;k++)
+        // {
+        //   std::vector<std::pair<double,double>> est_pos;
+        //   double angle, dist;
+          
+        //   for(int i=0;i<range_val[k].size();i++)
+        //   {
+        //     for(int j=0;j<aoa_init_.size();j++)
+        //     {
+        //       double est_pos_x = (cos(aoa_init_[j]*M_PI/180) * range_val[k][i]) + robot_position_x_before_;
+        //       double est_pos_y = (sin(aoa_init_[j]*M_PI/180) * range_val[k][i]) + robot_position_y_before_;
+        //       est_pos.push_back(std::make_pair(est_pos_x, est_pos_y));
+        //     }
+        //   }
+        //   neighbor_robot_est_pos_.push_back(est_pos);
+        // }
+
+        // //Particle filter to genererate new state estimates
+        // ROS_INFO("Running particle filter");
+        
+        // neighbor_pose_vec_.clear();
+        // particle_filter();
+        // std::cout << "Robots X_pos: " << robot_position_x_before_ << ", Y_pos" << robot_position_y_before_ << std::endl;
+        // for(int i=0; i<neighbor_pose_vec_.size(); i++)
+        // {
+        //   std::cout << "Neighbor X_pos = " << neighbor_pose_vec_[i].x << ", Y pos = " << neighbor_pose_vec_[i].y << " Confidence (weight) = " << neighbor_pose_vec_[i].z << std::endl;
+        // }
       }
-      FLAG_GET_POS = true;
-      neighbor_pose_vec_.clear();
-      writeToFile(frontier_temp, frontiers, fn);
     }
     else
     {
-      // frontiers = search_.searchFrom(pose.position); //original code.
-      
-      // using neighrbor info just to collect stats and not for utility calculation
-      frontiers = search_.searchFromNew(pose.position, neighbor_pose_vec_); 
-      
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
+      if(reached_goal__)
       {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
+        // reached_goal__=false;
+        // sleep(5);
+        // //Start motion
+        // ROS_INFO("Starting motion");
+        // ROS_INFO("Robot orientation: %f degrees", robot_orientation_before_);
+        // int duration_val = 9;//seconds
+        // auto starttime = std::chrono::high_resolution_clock::now();
+        // auto endtime = std::chrono::high_resolution_clock::now();
+        // float exp_duration;
+
+        // velocity_cmd_.angular.z = 2.0;
+        // velocityPub_.publish(velocity_cmd_);
+        // while(true)
+        // {
+        //   exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
+        //   if(exp_duration > duration_val) break;
+        //   endtime = std::chrono::high_resolution_clock::now(); 
+        // }
+
+        // //Stop motion
+        // ROS_INFO("Stopping motion");
+        // velocity_cmd_.linear.x = 0.0;
+        // velocity_cmd_.angular.z = 0.0;
+        // for(int i=0; i<100; i++)
+        // {
+        //   velocityPub_.publish(geometry_msgs::Twist());
+        // }
+        // sleep(5);
+      
+        // using neighrbor info just to collect stats and not for utility calculation
+        frontiers.clear();  //Generate new only when a goal is reached
+        frontiers = search_.searchFromNew(pose.position, neighbor_pose_vec_); 
+        
+        ROS_DEBUG("Original cost");
+        for (size_t i = 0; i < frontiers.size(); ++i) 
+        {
+          ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
+          ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
+        }
+
+        writeToFile(frontiers,frontier_temp,fn);
+      }
+      else
+      {
+        ROS_INFO("Using PF with range only");
+        sleep(5);
       }
 
-      writeToFile(frontiers,frontier_temp,fn);
     }
     
-    
-    if (frontiers.empty() || exploration_done_) 
-    {
-      stop();
-      writeToFile(frontier_temp,frontiers, fn);
-      return;
-    }
-
     // publish frontiers as visualization markers
     if (visualize_) {
       visualizeFrontiers(frontiers);
     }
+    
+    // if(frontiers.size() == 1)
+    // {
+    //   frontier->centroid = frontier->furthest;
+    //   frontier->centroid_distance = frontier->min_distance; //just a heuristic
+    // }
+
+    if(frontiers.empty() || exploration_done_) 
+      {
+        ROS_INFO("Empty frontiers detected. Ending Exploration");
+        stop();
+        writeToFile(frontier_temp,frontiers, fn);
+        return;
+      }
 
     // find non blacklisted frontier
-    auto frontier =
-        std::find_if_not(frontiers.begin(), frontiers.end(),
+    frontier = std::find_if_not(frontiers.begin(), frontiers.end(),
                         [this](const frontier_exploration::Frontier& f) {
                           return goalOnBlacklist(f.centroid);
                         });
@@ -615,19 +708,14 @@ namespace explore
       stop();
       return;
     }
-    
-    // if(frontiers.size() == 1)
-    // {
-    //   frontier->centroid = frontier->furthest;
-    //   frontier->centroid_distance = frontier->min_distance; //just a heuristic
-    // }
-
     geometry_msgs::Point target_position = frontier->centroid;
+    frontier->min_distance =  sqrt(pow((double(target_position.x) - double(robot_position_x_)), 2.0) +
+                                   pow((double(target_position.y) - double(robot_position_y_)), 2.0));
 
     // time out if we are not making any progress
-    bool same_goal = prev_goal_ == target_position;
+    same_goal__ = prev_goal_ == target_position;
     prev_goal_ = target_position;
-    if (!same_goal || prev_distance_ > frontier->min_distance) {
+    if (!same_goal__ || prev_distance_ > frontier->min_distance) {
       // we have different goal or we made some progress
       last_progress_ = ros::Time::now();
       prev_distance_ = frontier->min_distance;
@@ -641,10 +729,11 @@ namespace explore
     }
 
     // we don't need to do anything if we still pursuing the same goal
-    if (same_goal) {
+    if (same_goal__) {
       return;
     }
-
+    
+    // reached_goal__ = true;
     // send goal to move_base if we have something new to pursue
     move_base_msgs::MoveBaseGoal goal;
     goal.target_pose.pose.position = target_position;
@@ -700,6 +789,11 @@ namespace explore
       ROS_DEBUG("Adding current goal to black list");
     }
 
+    if (status == actionlib::SimpleClientGoalState::SUCCEEDED) {
+      ROS_INFO("==============================REACHED GOAL SUCCESSFULLY==============================");
+      reached_goal__=true;
+    }
+
     // find new goal immediatelly regardless of planning frequency.
     // execute via timer to prevent dead lock in move_base_client (this is
     // callback for sendGoal, which is called in makePlan). the timer must live
@@ -727,6 +821,7 @@ namespace explore
       std::string fn1 = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/init_pose_robot_"+std::to_string(k);
       writePosToFile(fina_est_posList,fn1);
     }
+    exit(1);
   }
 
 /**
@@ -930,16 +1025,22 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     for(int val=0; val<tx_top_aoa_peak.size(); val++)
     {
       std::set<double> filtered_angles;
-      for(int ii=0; ii<tx_top_aoa_peak[val].size(); ii++)
+      double threshold = 1.0;
+
+      while(filtered_angles.size()==0)
       {
-        for(int jj=ii+1; jj<tx_top_aoa_peak[val].size(); jj++)
+        for(int ii=0; ii<tx_top_aoa_peak[val].size(); ii++)
         {
-          if(abs(tx_top_aoa_peak[val][ii]-tx_top_aoa_peak[val][jj]) < 15)
+          for(int jj=ii+1; jj<tx_top_aoa_peak[val].size(); jj++)
           {
-            filtered_angles.insert(tx_top_aoa_peak[val][ii]);
-            filtered_angles.insert(tx_top_aoa_peak[val][jj]);
+            if(abs(tx_top_aoa_peak[val][ii]-tx_top_aoa_peak[val][jj]) < threshold)
+            {
+              filtered_angles.insert(tx_top_aoa_peak[val][ii]);
+              filtered_angles.insert(tx_top_aoa_peak[val][jj]);
+            }
           }
         }
+        threshold+=5; // iterately increment the threshold
       }
 
       std::vector<double> temp_angles;
@@ -1074,10 +1175,10 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
         {
           auto val = new_samples_sub[i];
           neighbor_robot_init_pos_[k].push_back(val);
-          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first+1, val.second));
-          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first-1, val.second));
-          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second+1));
-          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second-1));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first+2, val.second));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first-2, val.second));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second+2));
+          neighbor_robot_init_pos_[k].push_back(std::make_pair(val.first, val.second-2));
         }
 
         ROS_INFO("Best estimated position = %f, %f", best_sample.first, best_sample.second);

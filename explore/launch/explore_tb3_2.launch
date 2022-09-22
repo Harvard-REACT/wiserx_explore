@@ -5,7 +5,7 @@
 <arg name="neighbor_ns"  default="tb3_"/>
 
  <group ns="$(arg ns_1)">
-  <node pkg="explore_lite" type="explore_uwb_wsr" respawn="false" name="test_particle_filter_node1" output="screen">
+  <node pkg="explore_lite" type="explore_uwb_wsr" respawn="false" name="explore" output="screen">
     <param name="robot_name" value="$(arg ns_1)"/>
     <param name="robot_id" value="$(arg robot_id_1)"/>
     <param name="neighbor_name" value="$(arg neighbor_ns)"/>
@@ -14,19 +14,19 @@
     <param name="costmap_topic" value="/$(arg ns_1)/map"/>
     <param name="costmap_updates_topic" value="/$(arg ns_1)/map_updates"/>
     <param name="visualize" value="true"/>
-    <param name="planner_frequency" value="1.0"/> <!--default = 1-->
-    <param name="progress_timeout" value="30.0"/>
+    <param name="planner_frequency" value="0.04"/> <!--default = 1-->
+    <param name="progress_timeout" value="20.0"/>
     <param name="potential_scale" value="3.0"/>
     <param name="orientation_scale" value="0.0"/>
     <param name="gain_scale" value="1.0"/>
     <param name="transform_tolerance" value="0.3"/>
-    <param name="min_frontier_size" value="1.5"/> <!-- default 0.75-->
-    <param name="sensor_range" value="3.2"/> <!--env1: 1.75, env2: 3.0, 2.0-->
-    <param name="antenna_angular_offset" value="90.0"/> <!-- depends on how the antenns are mounted on the robot-->
+    <param name="min_frontier_size" value="1.25"/> <!-- default 0.75-->
+    <param name="sensor_range" value="3.4"/> <!--env1: 1.75, env2: 3.0, 2.0-->
+    <param name="antenna_angular_offset" value="0.0"/> <!-- depends on how the antenns are mounted on the robot-->
     <param name="decay_rate" value="1"/>
-    <param name="WSR_noise_mean" value="0.0"/>
+  :  <param name="WSR_noise_mean" value="0.0"/>
     <param name="WSR_noise_std" value="1"/>
-    <param name="noise_WSR" value="true"/>
+    <param name="noise_WSR" value="false"/>
     <param name="neighbor_count" value="1"/>
     <param name="WSR_robot_displacement" value="odom"/> 
     <param name="WSR_config_file" value="/home/react-ws-1/catkin_ws/src/m-explore/explore/config/WSR_param_config.json"/>

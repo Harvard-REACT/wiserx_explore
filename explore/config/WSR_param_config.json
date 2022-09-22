@@ -53,7 +53,7 @@
     },
     "ntheta":{
         "desc":"resolution of theta angle",
-        "value":5
+        "value":45
     },
     "phi_min":{
         "desc":"Minimum azimuth angle",
@@ -69,7 +69,7 @@
     },
     "theta_max":{
         "desc":"Maximum elevation angle",
-        "value":1
+        "value":45
     },
     "tau_min":{
         "desc":"N/A",
@@ -203,20 +203,20 @@
         "desc":"Reverse channel csi File stored on the RX robot which is performing 3D SAR",
         "value":{           
             "mac_id":"00:21:6A:53:89:D2",
-            "csi_fn":"/catkin_ws/src/wsr_exploration/data/csi_rx.dat"
+            "csi_fn":"/catkin_ws/src/wsr_exploration/data/csi_backup_data/csi_rx_2022-09-20_120927.dat"
         }
     },
     "input_trajectory_csv_fn_rx":{
         "desc":"Trajectory fiile",
-        "value":"/catkin_ws/src/wsr_exploration/data/rx_trajectory.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/traj_backup_data/rx_trajectory_2022-09-20_120927.csv"
     },
     "input_trajectory_csv_fn_rx_t265":{
         "desc":"Trajectory fiile",
-        "value":"/WSR_Project/WSR-Toolbox-cpp/data/Sample_data/t265_rx_trajectory.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/traj_backup_data/t265_rx_trajectory_2022-09-20_120927.csv"
     },
     "input_trajectory_csv_fn_rx_odom":{
         "desc":"Trajectory fiile",
-        "value":"/catkin_ws/src/wsr_exploration/data/odom_rx_trajectory.csv"
+        "value":"/catkin_ws/src/wsr_exploration/data/traj_backup_data/odom_rx_trajectory_2022-09-20_120927.csv"
     },
     "input_trajectory_csv_fn_tx":{
         "desc":"Trajectory file of TX_Neighbor_robot (WIP)",
@@ -329,7 +329,7 @@
     "slice_displacement_first":
     {
         "desc":"Slice the first diplacement component",
-        "value":true
+        "value":false
     },
     "slice_displacement_second":
     {

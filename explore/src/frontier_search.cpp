@@ -25,7 +25,7 @@ FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
   , decay_rate_(decay_rate)
 {
   //Calculate max size permissible for any frontier. Frontiers larger than this will be broken down
-  max_frontier_size_ = (2*M_PI*sensor_range_) / (costmap_->getResolution() * 4);
+  max_frontier_size_ = (2*M_PI*sensor_range_) / (costmap_->getResolution() * 3);
 }
 
 std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
@@ -905,7 +905,7 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
       unsigned int clear, f_point_idx  = costmap_->getIndex(fmx,fmy); 
       if(f_point_idx < map_size-1 ) //Check added to handle incorrect coordinate bug
       {
-	current.centroid.x += wx;
+	      current.centroid.x += wx;
         current.centroid.y += wy;
 
         // determine frontier's distance from robot, going by closest gridcell
