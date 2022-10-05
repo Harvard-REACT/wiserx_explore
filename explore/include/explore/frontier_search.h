@@ -3,6 +3,7 @@
 
 #include <costmap_2d/costmap_2d.h>
 #include <unordered_map>
+#include "Eigen/Eigen"
 
 namespace frontier_exploration
 {
@@ -120,6 +121,12 @@ protected:
 
   std::vector<Frontier> splitFrontier(const Frontier& frontier,
                                       unsigned int reference);
+
+  std::vector<Frontier> splitFrontierPCA(const Frontier& frontier,
+                                        unsigned int reference);
+
+  void updateInfo(Frontier& frontier,
+                  unsigned int reference);                                        
 
 private:
   costmap_2d::Costmap2D* costmap_;

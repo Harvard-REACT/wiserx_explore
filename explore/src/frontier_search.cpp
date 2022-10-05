@@ -207,6 +207,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
       //Split into two
       std::vector<Frontier> temp;
       temp = splitFrontier(frontier, pos);
+      //temp = splitFrontierPCA(frontier, pos);
       // ROS_INFO("temp[0] = %d, temp[1] = %d", temp[0].points.size(), temp[1].points.size());
       fq.push(temp[0]);
       fq.push(temp[1]);
@@ -215,7 +216,7 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     {
       new_fq.push(frontier);
     }
-    
+    // new_fq.push(frontier);
     // ROS_INFO("Frontier list size after splitting = %d", fq.size());
     fq.pop();
     // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
@@ -863,6 +864,7 @@ float FrontierSearch::neighborhoodDistance(unsigned int start,
 }
 
 /**
+ * @DEPRECATED
  * Splits a large frontier into two smaller frontiers
  * */
 std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
@@ -919,7 +921,7 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
         }
       }
       else{
-	ROS_INFO("Out of bounds detected and thrown away");	
+	        ROS_INFO("Out of bounds detected and thrown away");	
       };
 
     }
@@ -946,4 +948,113 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
 }
 
 
+/**
+ * Reference: https://github.com/HKUST-Aerial-Robotics/FUEL
+ * Splits a large frontier into two smaller frontiers using PCA
+ * */
+std::vector<Frontier> FrontierSearch::splitFrontierPCA(const Frontier& frontier,
+                                                      unsigned int reference)
+{
+  Eigen::Matrix2d cov;
+  cov.setZero();
+  
+  // Covariance matrix of cells
+  for (auto cell : frontier.points) 
+  {
+    Eigen::Vector2d diff(0,0); 
+    diff[0] = cell.x - frontier.centroid.x; 
+    diff[1] = cell.y - frontier.centroid.y;
+    cov += diff * diff.transpose(); ;
+  }
+  cov /= double(frontier.size);
+
+  // Find eigenvector corresponds to maximal eigenvector
+  Eigen::EigenSolver<Eigen::Matrix2d> es(cov);
+  auto values = es.eigenvalues().real();
+  auto vectors = es.eigenvectors().real();
+  int max_idx;
+  double max_eigenvalue = -1000000;
+  for (int i = 0; i < values.rows(); ++i) 
+  {
+    if (values[i] > max_eigenvalue) 
+    {
+      max_idx = i;
+      max_eigenvalue = values[i];
+    }
+  }
+  Eigen::Vector2d first_pc = vectors.col(max_idx);
+  std::cout << "max idx: " << max_idx << std::endl;
+  std::cout << "first pc: " << first_pc.transpose() << std::endl;
+
+
+  std::vector<Frontier> temp;
+  Frontier split1, split2;
+
+  for(auto cell : frontier.points)
+  {
+    Eigen::Vector2d diff(0,0); 
+    diff[0] = cell.x - frontier.centroid.x; 
+    diff[1] = cell.y - frontier.centroid.y;
+    if(diff.dot(first_pc) >= 0)
+    {
+      split1.points.push_back(cell);
+    }
+    else
+    {
+      split2.points.push_back(cell);
+    }
+  }
+
+  updateInfo(split1, reference);
+  updateInfo(split2, reference);
+
+  temp.push_back(split1);
+  temp.push_back(split2);
+
+  return temp;
+}
+
+/**
+ * Update the information of the frontiers.
+ * */
+void FrontierSearch::updateInfo(Frontier& frontier,
+                                unsigned int reference)
+  {
+    unsigned int rx, ry;
+    double reference_x, reference_y;
+    costmap_->indexToCells(reference, rx, ry);
+    costmap_->mapToWorld(rx, ry, reference_x, reference_y);
+
+    frontier.centroid.x = 0;
+    frontier.centroid.y = 0;
+    double wx, wy;
+    frontier.size = frontier.points.size();
+    frontier.min_distance = std::numeric_limits<double>::infinity();
+    for (auto cell : frontier.points)
+    {
+      wx = cell.x;
+      wy = cell.y;
+
+      // update centroid of frontier
+      frontier.centroid.x += wx;
+      frontier.centroid.y += wy;
+
+      // determine frontier's distance from robot, going by closest gridcell
+      // to robot
+      double distance = sqrt(pow((double(reference_x) - double(wx)), 2.0) +
+                            pow((double(reference_y) - double(wy)), 2.0));
+      if (distance < frontier.min_distance) 
+      {
+        frontier.min_distance = distance;
+        frontier.middle.x = wx;
+        frontier.middle.y = wy;
+      }
+    }
+    // average out frontier centroid
+    frontier.centroid.x /= frontier.size;
+    frontier.centroid.y /= frontier.size;
+
+    frontier.centroid_distance = sqrt(pow((double(reference_x) - double(frontier.centroid.x)), 2.0) +
+                                    pow((double(reference_y) - double(frontier.centroid.y)), 2.0));
+  }
 }

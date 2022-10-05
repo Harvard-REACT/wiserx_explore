@@ -238,72 +238,75 @@ namespace explore
     get_csi_Pub_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/collect_csi_data", 2);
     get_csi_data_.data = true;
 
-    //initialize UWB data structure based on number of neighbors
-    for(int i=0;i<neighbor_count_;i++)
+    if(FLAG_WSR_)
     {
-      std::vector<double> temp;
-      range_vector_.push_back(temp);
-    }
-
-
-    //======== Initialize particle filter states===========
-    //uniform AOA samples
-    int icr = 360/init_angle_samples_;
-    for(int i=0;i<360;)
-    {
-      aoa_init_.push_back(i);
-      i=i+icr;
-    }
-
-    //Range samples from UWB
-    ROS_INFO("Generating initial states");
-    ros::Rate r(10); //match the frequency of UWB
-    Flag_get_range_ = true;
-    for(int i=0;i<20;i++)
-    {
-      ros::spinOnce();
-      r.sleep();
-    }
-    Flag_get_range_ = false;
-
-    // Initial position estimates for the particle filter
-    for(int i=0;i<neighbor_count_;i++)
-    {
-      std::vector<std::pair<double,double>> init_pos, temp;
-      neighbor_best_position_esimtate_.push_back(temp);
-      std::vector<double> range_samples;
-      auto first = range_vector_[i].begin();
-      
-      ROS_INFO("Subsampling range data");
-      for(int j=0;j<range_vector_[i].size();)
+      //initialize UWB data structure based on number of neighbors
+      for(int i=0;i<neighbor_count_;i++)
       {
-        auto last = first + 10;
-        std::vector<double> temp(first,last);
-        std::sort(temp.begin(), temp.end(),sort_func);
-        range_samples.push_back((temp[4]+temp[5])/2); //Get median range value
-        j=j+10;
-        first =  range_vector_[i].begin() + j;
+        std::vector<double> temp;
+        range_vector_.push_back(temp);
       }
 
-      ROS_INFO("Generating state");
-      for(int k=0;k<range_samples.size();k++)
+
+      //======== Initialize particle filter states===========
+      //uniform AOA samples
+      int icr = 360/init_angle_samples_;
+      for(int i=0;i<360;)
       {
-        for(int l=0;l<aoa_init_.size();l++)
+        aoa_init_.push_back(i);
+        i=i+icr;
+      }
+
+      //Range samples from UWB
+      ROS_INFO("Generating initial states");
+      ros::Rate r(10); //match the frequency of UWB
+      Flag_get_range_ = true;
+      for(int i=0;i<20;i++)
+      {
+        ros::spinOnce();
+        r.sleep();
+      }
+      Flag_get_range_ = false;
+
+      // Initial position estimates for the particle filter
+      for(int i=0;i<neighbor_count_;i++)
+      {
+        std::vector<std::pair<double,double>> init_pos, temp;
+        neighbor_best_position_esimtate_.push_back(temp);
+        std::vector<double> range_samples;
+        auto first = range_vector_[i].begin();
+        
+        ROS_INFO("Subsampling range data");
+        for(int j=0;j<range_vector_[i].size();)
         {
-          // std::cout << aoa_init_[l] <<", " << range_samples[k] << std::endl;
-          double init_pos_x = (cos(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_x_;
-          double init_pos_y = (sin(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_y_;
-          // std::cout << init_pos_x <<", " << init_pos_y << std::endl;
-          // std::cout << "--------------------------------------" << std::endl;
-          init_pos.push_back(std::make_pair(init_pos_x, init_pos_y));
+          auto last = first + 10;
+          std::vector<double> temp(first,last);
+          std::sort(temp.begin(), temp.end(),sort_func);
+          range_samples.push_back((temp[4]+temp[5])/2); //Get median range value
+          j=j+10;
+          first =  range_vector_[i].begin() + j;
         }
+
+        ROS_INFO("Generating state");
+        for(int k=0;k<range_samples.size();k++)
+        {
+          for(int l=0;l<aoa_init_.size();l++)
+          {
+            // std::cout << aoa_init_[l] <<", " << range_samples[k] << std::endl;
+            double init_pos_x = (cos(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_x_;
+            double init_pos_y = (sin(aoa_init_[l]*M_PI/180) * range_samples[k]) + robot_position_y_;
+            // std::cout << init_pos_x <<", " << init_pos_y << std::endl;
+            // std::cout << "--------------------------------------" << std::endl;
+            init_pos.push_back(std::make_pair(init_pos_x, init_pos_y));
+          }
+        }
+
+        neighbor_robot_init_pos_.push_back(init_pos);
       }
 
-      neighbor_robot_init_pos_.push_back(init_pos);
+      ROS_INFO("Got initial state estimates");
     }
-
-    ROS_INFO("Got initial state estimates");
-
+    
     //Initialize exploration
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
@@ -395,25 +398,28 @@ namespace explore
       if (goalOnBlacklist(frontier.centroid)) {
         m.color = red;
       } else {
-        m.color = green;
+        m.color.r = ((double) rand() / (RAND_MAX)) + 1;
+        m.color.g = ((double) rand() / (RAND_MAX)) + 1;
+        m.color.b = ((double) rand() / (RAND_MAX)) + 1;
+        m.color.a = 1;
       }
       markers.push_back(m);
       ++id;
-      break;
-      // m.type = visualization_msgs::Marker::SPHERE;
-      // m.id = int(id);
-      // m.pose.position = frontier.centroid;
-      // // scale frontier according to its cost (costier frontiers will be smaller)
-      // // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
-      // double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
-      // // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
-      // m.scale.x = 0.2;//scale;
-      // m.scale.y = 0.2;
-      // m.scale.z = 0.2;
-      // m.points = {};
-      // m.color = green;
-      // markers.push_back(m);
-      // ++id;
+      // break;
+      m.type = visualization_msgs::Marker::SPHERE;
+      m.id = int(id);
+      m.pose.position = frontier.centroid;
+      // scale frontier according to its cost (costier frontiers will be smaller)
+      // double scale = std::min(std::abs(min_cost * 0.4 / frontier.cost), 0.5);
+      double scale = std::min((frontier.cost - min_cost) / (max_cost - min_cost), 0.2); //For new info gain formulation
+      // double scale = std::min(std::abs(min_cost * 0.4 / (frontier.cost+0.001)), 0.5); //For normalized cost to utilize the visualization.
+      m.scale.x = 0.2;//scale;
+      m.scale.y = 0.2;
+      m.scale.z = 0.2;
+      m.points = {};
+      m.color = green;
+      markers.push_back(m);
+      ++id;
     }
     size_t current_markers_count = markers.size();
 
@@ -740,12 +746,12 @@ namespace explore
     goal.target_pose.pose.orientation.w = 1.;
     goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
     goal.target_pose.header.stamp = ros::Time::now();
-    move_base_client_.sendGoal(
-        goal, [this, target_position](
-                  const actionlib::SimpleClientGoalState& status,
-                  const move_base_msgs::MoveBaseResultConstPtr& result) {
-          reachedGoal(status, result, target_position);
-        });
+    // move_base_client_.sendGoal(
+    //     goal, [this, target_position](
+    //               const actionlib::SimpleClientGoalState& status,
+    //               const move_base_msgs::MoveBaseResultConstPtr& result) {
+    //       reachedGoal(status, result, target_position);
+    //     });
   }
 
   /**
