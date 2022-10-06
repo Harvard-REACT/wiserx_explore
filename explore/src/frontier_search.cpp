@@ -206,8 +206,8 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     {
       //Split into two
       std::vector<Frontier> temp;
-      temp = splitFrontier(frontier, pos);
-      //temp = splitFrontierPCA(frontier, pos);
+      //temp = splitFrontier(frontier, pos);
+      temp = splitFrontierPCA(frontier, pos);
       // ROS_INFO("temp[0] = %d, temp[1] = %d", temp[0].points.size(), temp[1].points.size());
       fq.push(temp[0]);
       fq.push(temp[1]);
