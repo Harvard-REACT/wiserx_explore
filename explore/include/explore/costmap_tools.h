@@ -134,7 +134,7 @@ bool nearestCell(unsigned int& result, unsigned int start, unsigned char val,
 }
 
 /**
- * @brief Find all the cells of some value within a range of some cell
+ * @brief NJ addition - Find all the cells with 'cell_val' within a sensor range of 'start' cell
  * @param result Count of such cells
  * @param start Index initial cell to search from
  * @param val Specified value to search for
@@ -142,19 +142,20 @@ bool nearestCell(unsigned int& result, unsigned int start, unsigned char val,
  * @param range Range to search within
  * @return True if a cell with the requested value was found
  */
-bool nearestCellsWithinRange(int& result, unsigned int start, unsigned char val,
-                            unsigned char val2, unsigned char val3, 
+bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
                             const costmap_2d::Costmap2D& costmap, double& range)
 {
   const unsigned char* map = costmap.getCharMap();
   const unsigned int size_x = costmap.getSizeInCellsX(),
                      size_y = costmap.getSizeInCellsY();
 
-  int free_cells =0, occupied_cells = 0;
-
   // ROS_INFO("Costmap resolution: %f", costmap.getResolution());
   // ROS_INFO("Range: %f", range);
   // ROS_INFO("range/resolution = %f ", range/costmap.getResolution());
+  float dist = 0;
+  int sigmoid_cost_midpoint_ = range/2;
+  int sigmoid_cost_steepness_ = 2;
+
   if (start >= size_x * size_y) {
     return false;
   }
@@ -170,28 +171,25 @@ bool nearestCellsWithinRange(int& result, unsigned int start, unsigned char val,
   costmap.indexToCells(start, sx, sy);
 
   // search for neighbouring cell matching value
-  while (!bfs.empty()) {
+  while (!bfs.empty()) 
+  {
     unsigned int idx = bfs.front();
     bfs.pop();
 
     // return if cell of correct value is found
-    if (map[idx] == val) {
-      result += 1;
-    }
-    else if (map[idx] == val2)
+    if (map[idx] == cell_val) 
     {
-      free_cells += 1;
-    }
-    else if(map[idx] == val3)
-    {
-      occupied_cells +=1;
+      costmap.indexToCells(idx, nx, ny);
+      dist = sqrt(pow((sx-nx),2) + pow((sy-ny),2));
+      result += 1/(1+exp(sigmoid_cost_steepness_*(dist-sigmoid_cost_midpoint_))); //Info available from a cell decays with distance. Using sigmoid based on DARPA IROS 2022 papers. Basically we want to capture the uncertainty in information gain as the cell distance increases from a frontier
     }
 
-    // iterate over all adjacent unvisited cells
-    for (unsigned nbr : nhood8(idx, costmap)) {
+    // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)
+    for (unsigned nbr : nhood8(idx, costmap)) 
+    {
       if (!visited_flag[nbr]) {
         costmap.indexToCells(nbr, nx, ny);
-        float dist = sqrt(pow((sx-nx),2) + pow((sy-ny),2));
+        dist = sqrt(pow((sx-nx),2) + pow((sy-ny),2));
         if(dist*costmap.getResolution() <= range) 
         {
             bfs.push(nbr);
@@ -201,13 +199,10 @@ bool nearestCellsWithinRange(int& result, unsigned int start, unsigned char val,
       }
     }
   }
-
-  // ROS_INFO("Free = %d", free_cells);
-  // ROS_INFO("Occupied = %d", occupied_cells);
-  // ROS_INFO("Unknown = %d", result);
-  // ROS_INFO("Total = %d", result + free_cells + occupied_cells);
   return true;
 }
+
+
 
 void informationGain(float& result, unsigned int start, unsigned char val,
                     const costmap_2d::Costmap2D& costmap, double& range,

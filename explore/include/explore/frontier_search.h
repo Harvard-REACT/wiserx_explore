@@ -46,7 +46,7 @@ public:
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
                  double gain_scale, double min_frontier_size, double range, 
-                 float decay_rate_);
+                 float decay_rate_,float alpha_parameter_, float beta_parameter_);
 
   /**
    * @brief Runs search implementation, outward from the start position
@@ -106,7 +106,7 @@ protected:
    * @return cost of the frontier
    */
   double frontierUtility(const Frontier& frontier,
-                        int& unexplored_cells);
+                        float& information_gain);
   
   double frontierUtility(const Frontier& frontier,
                         float& information_gain,
@@ -128,15 +128,20 @@ protected:
   void updateInfo(Frontier& frontier,
                   unsigned int reference);                                        
 
-private:
-  costmap_2d::Costmap2D* costmap_;
-  unsigned char* map_;
-  unsigned int size_x_, size_y_;
-  double potential_scale_, gain_scale_, sensor_range_;
-  double min_frontier_size_;
-  float decay_rate_, eta_=1;
-  std::unordered_map<int, int> total_overlap_g_c_;
-  int max_frontier_size_ = 0;
+  private:
+    costmap_2d::Costmap2D* costmap_;
+    std::unordered_map<int, int> total_overlap_g_c_;
+    unsigned char* map_;
+    unsigned int size_x_;
+    unsigned int size_y_;
+    double potential_scale_; 
+    double gain_scale_;
+    double sensor_range_;
+    double min_frontier_size_;
+    float decay_rate_, eta_=1;
+    int max_frontier_size_ = 0;
+    float alpha_parameter_ = 1;
+    float beta_parameter_ = 1;
 };
 }
 #endif

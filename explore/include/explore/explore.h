@@ -146,7 +146,8 @@ private:
   double planner_frequency_=0, noise_mean_=0, noise_std_=0,
          potential_scale_, orientation_scale_=0, gain_scale_=0, sensor_range_=0, 
          decay_rate_=0,robot_orientation_=0,robot_position_x_=0,robot_position_y_=0,
-         prev_distance_=0,antenna_angular_offset_=0,robot_orientation_before_=0;
+         prev_distance_=0,antenna_angular_offset_=0,robot_orientation_before_=0,
+         utility_alpha_parameter_=1, utility_beta_parameter_=1;
   ros::Duration progress_timeout_;
   bool visualize_;
   std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
