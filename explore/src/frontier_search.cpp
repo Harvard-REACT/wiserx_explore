@@ -16,14 +16,13 @@ using costmap_2d::FREE_SPACE;
 
 FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
                                double potential_scale, double gain_scale,
-                               double min_frontier_size, double range, float decay_rate,
+                               double min_frontier_size, double range,
                                float utility_alpha_parameter, float utility_beta_parameter)
   : costmap_(costmap)
   , potential_scale_(potential_scale)
   , gain_scale_(gain_scale)
   , min_frontier_size_(min_frontier_size)
   , sensor_range_(range)
-  , decay_rate_(decay_rate)
   , alpha_parameter_(utility_alpha_parameter)
   , beta_parameter_(utility_beta_parameter)
 {
@@ -33,6 +32,7 @@ FrontierSearch::FrontierSearch(costmap_2d::Costmap2D* costmap,
 
 /**
  * @brief Original frontier search function
+ * @ Deprecated
  * */
 std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 {
@@ -119,10 +119,10 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 }
 
 /**
- * @brief Information gain computation without using relative position of neighbors for utility computation
+ * @brief Generate utility of the frontiers
  * */
 std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point position,
-                                                    std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots)
+                                                    std::vector<quadmap::Node>& neighboring_robots_positions)
 {
   std::vector<Frontier> frontier_list, final_frontier_list;
   float f_cost_min = 100000, f_cost_max = 0;
@@ -141,7 +141,6 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
   size_x_ = costmap_->getSizeInCellsX();
   size_y_ = costmap_->getSizeInCellsY();
 
-  // ROS_INFO("################## Map size = %d, %d ########################", size_x_, size_y_);
 
   // initialize flag arrays to keep track of visited and frontier cells
   std::vector<bool> frontier_flag(size_x_ * size_y_, false);
@@ -152,10 +151,6 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
 
   // find closest clear cell to start search
   unsigned int clear, pos = costmap_->getIndex(mx, my);
-
-  // ROS_INFO("World pos: %f, %f", position.x, position.y);
-  // ROS_INFO("Map pos: %d, %d", mx, my);
-  // ROS_INFO("pos index= %d", pos);
 
   if (nearestCell(clear, pos, FREE_SPACE, *costmap_)) {
     bfs.push(clear);
@@ -191,48 +186,13 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     }
   }
   
-
-  /* Break large frontiers into smaller frontiers */
-  ROS_INFO("Total Frontiers = %d", frontier_list.size());
-  // ROS_INFO("Max Frontier size = %d", max_frontier_size_);
-
+  ROS_INFO("Total Frontiers = %d", int(frontier_list.size()));
   std::queue<Frontier> fq, new_fq;
-
   for (int i=0; i<frontier_list.size(); i++)
   {
-    // fq.push(frontier_list[i]);
     new_fq.push(frontier_list[i]);
   }
   frontier_list.clear();
-
-
-  // while(fq.size() > 0)
-  // {
-  //   Frontier frontier = fq.front();
-  //   //ROS_INFO("Frontier list size = %d", fq.size()); 
-  //   //ROS_INFO("Current Frontier size = %d", frontier.size);
-  //   if (frontier.size > max_frontier_size_)
-  //   {
-  //     //Split into two
-  //     std::vector<Frontier> temp;
-  //     //temp = splitFrontier(frontier, pos);
-  //     temp = splitFrontierPCA(frontier, pos);
-  //     // ROS_INFO("temp[0] = %d, temp[1] = %d", temp[0].points.size(), temp[1].points.size());
-  //     fq.push(temp[0]);
-  //     fq.push(temp[1]);
-  //   }
-  //   else
-  //   {
-  //     new_fq.push(frontier);
-  //   }
-  //   // new_fq.push(frontier);
-  //   // ROS_INFO("Frontier list size after splitting = %d", fq.size());
-  //   fq.pop();
-  //   // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
-    
-  // }
-  // ROS_INFO("Total Frontiers after splitting = %d", new_fq.size());
-
 
   /* Compute Utility */
   float info_gain_uexp_cell_count = 0;
@@ -249,25 +209,28 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
     ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
     ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
     ROS_INFO("Frontier centroid index= %d", frontier_pos);
+    ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
     
     // bool val = nearestCellsWithinRange(uexp_cell_count, frontier_pos, NO_INFORMATION, FREE_SPACE,
     //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
     
-    bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_);
-  
+    bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
+                                           neighboring_robots_positions);
+
+
     // ROS_INFO("****** Unexplored cells around frontier: %d ***********", uexp_cell_count);
-    ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
 
     // frontier.cost = frontierCost(frontier); //Default cost function
-    frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function, single robot
+    frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function
     
     if(info_gain_uexp_cell_count == 0) continue;
 
     frontier.information_gain = info_gain_uexp_cell_count;
     frontier.effort = frontier.centroid_distance;
     frontier.pos_id = frontier_pos;
-    frontier.neighbor_distance = neighborhoodDistance(frontier_pos, relative_position_of_neighboring_robots);
-    frontier.neighbors = relative_position_of_neighboring_robots.size();
+    frontier.neighbor_distance = -1;
+    // frontier.neighbor_distance = neighborhoodDistance(frontier_pos, neighboring_robots_positions);
+    frontier.neighbors = neighboring_robots_positions.size();
     final_frontier_list.push_back(frontier);
   }
 
@@ -279,179 +242,6 @@ std::vector<Frontier> FrontierSearch::searchFromNew(geometry_msgs::Point positio
   return final_frontier_list;
 }
 
-
-
-/**
- * New formulation 4
-*/
-std::vector<Frontier> FrontierSearch::searchFromWithNeighorInfo(geometry_msgs::Point position,
-                                                                std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots)
-{
-  std::vector<Frontier> frontier_list, final_frontier_list;
-  float f_cost_min = 100000, f_cost_max = 0;
-  float information_gain=0, effort = 0;
-  unsigned fmx, fmy;
-  int uexp_cell_count = 0;
-
-  // Sanity check that robot is inside costmap bounds before searching
-  unsigned int mx, my;
-
-  if (!costmap_->worldToMap(position.x, position.y, mx, my)) {
-    ROS_ERROR("Robot out of costmap bounds, cannot search for frontiers");
-    return frontier_list;
-  }
-
-  // make sure map is consistent and locked for duration of search
-  std::lock_guard<costmap_2d::Costmap2D::mutex_t> lock(*(costmap_->getMutex()));
-
-  map_ = costmap_->getCharMap();
-  size_x_ = costmap_->getSizeInCellsX();
-  size_y_ = costmap_->getSizeInCellsY();
-
-  // ROS_INFO("################## Map size = %d, %d ########################", size_x_, size_y_);
-
-  // initialize flag arrays to keep track of visited and frontier cells
-  std::vector<bool> frontier_flag(size_x_ * size_y_, false);
-  std::vector<bool> visited_flag(size_x_ * size_y_, false);
-
-  // initialize breadth first search
-  std::queue<unsigned int> bfs;
-
-  // find closest clear cell to start search
-  unsigned int clear, pos = costmap_->getIndex(mx, my);
-
-  // ROS_INFO("World pos: %f, %f", position.x, position.y);
-  // ROS_INFO("Map pos: %d, %d", mx, my);
-  // ROS_INFO("pos index= %d", pos);
-
-  if (nearestCell(clear, pos, FREE_SPACE, *costmap_)) {
-    bfs.push(clear);
-  } else {
-    bfs.push(pos);
-    ROS_WARN("Could not find nearby clear cell to start search");
-  }
-  visited_flag[bfs.front()] = true;
-
-  while (!bfs.empty()) {
-    unsigned int idx = bfs.front();
-    bfs.pop();
-
-    // iterate over 4-connected neighbourhood
-    for (unsigned nbr : nhood4(idx, *costmap_)) {
-      // add to queue all free, unvisited cells, use descending search in case
-      // initialized on non-free cell
-      if (map_[nbr] <= map_[idx] && !visited_flag[nbr]) {
-        visited_flag[nbr] = true;
-        bfs.push(nbr);
-        // check if cell is new frontier cell (unvisited, NO_INFORMATION, free
-        // neighbour)
-      } else if (isNewFrontierCell(nbr, frontier_flag)) {
-        frontier_flag[nbr] = true;
-        Frontier new_frontier = buildNewFrontier(nbr, pos, frontier_flag);
-        if (new_frontier.size * costmap_->getResolution() >=
-            min_frontier_size_) {
-          frontier_list.push_back(new_frontier);
-        }
-      }
-    }
-  }
-
-
-  //Break large frontiers into smaller frontiers
-  ROS_INFO("Total Frontiers = %d", frontier_list.size());
-  std::queue<Frontier> fq, new_fq;
-
-  for (int i=0; i<frontier_list.size(); i++)
-  {
-    fq.push(frontier_list[i]);
-  }
-  frontier_list.clear();
-
-
-  while(fq.size() > 0)
-  {
-    Frontier frontier = fq.front();
-    // ROS_INFO("Frontier list size = %d", fq.size()); 
-    ROS_INFO("Current Frontier size = %d", frontier.size);
-    ROS_INFO("Max Frontier size = %d", max_frontier_size_);
-    if (frontier.size > max_frontier_size_)
-    {
-      //Split into two
-      std::vector<Frontier> temp;
-      // temp = splitFrontier(frontier, pos);
-      temp = splitFrontierPCA(frontier, pos);
-      ROS_INFO("temp[0] = %d, temp[1] = %d", temp[0].points.size(), temp[1].points.size());
-      fq.push(temp[0]);
-      fq.push(temp[1]);
-    }
-    else
-    {
-      new_fq.push(frontier);
-    }
-    
-    // ROS_INFO("Frontier list size after splitting = %d", fq.size());
-    fq.pop();
-    // ROS_INFO("Frontier list size after removing the first = %d", fq.size());
-    
-  }
-  ROS_INFO("Total Frontiers after splitting = %d", new_fq.size());
-  
-
-
-
-  // set travel and information gain costs of frontiers
-  while(!new_fq.empty())
-  // for (auto& frontier : final_frontier_list) 
-  {
-    Frontier frontier = new_fq.front();
-    new_fq.pop();
-    information_gain = 0;
-    effort = 0;
-    uexp_cell_count = 0;
-    
-    
-    costmap_->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
-    unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
-    
-    ROS_INFO("***************************************************");
-    ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
-    ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
-    ROS_INFO("Frontier centroid index= %d", frontier_pos);
-
-    /*Added here only for testing*/    
-    // bool val = nearestCellsWithinRange(uexp_cell_count, frontier_pos, NO_INFORMATION, FREE_SPACE,
-    //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
-    // information_gain = uexp_cell_count;
-    /*******/
-
-    informationGain(information_gain, frontier_pos, NO_INFORMATION,
-                    *costmap_, sensor_range_, total_overlap_g_c_, decay_rate_,
-                    relative_position_of_neighboring_robots, eta_);
-
-    // ROS_INFO("****** Unexplored cells around frontier: %d ***********", uexp_cell_count);
-    ROS_INFO("Size of frontier: %d ", frontier.size);
-
-    frontier.cost = frontierUtility(frontier, information_gain, relative_position_of_neighboring_robots, effort);
-    
-    if(information_gain == 0) continue;
-    
-    frontier.information_gain = information_gain;
-    frontier.effort = effort;
-    frontier.pos_id = frontier_pos;
-    frontier.neighbor_distance = neighborhoodDistance(frontier_pos, relative_position_of_neighboring_robots);
-    frontier.neighbors = relative_position_of_neighboring_robots.size();
-    final_frontier_list.push_back(frontier);
-  }
-
-
-  // For frontier Utility, the frontier with highest utility should be the first
-  std::sort(
-    final_frontier_list.begin(), final_frontier_list.end(),
-    [](const Frontier& f1, const Frontier& f2) { return f1.cost > f2.cost; });
-
-  return final_frontier_list;
-
-}
 
 /**
  * @brief Build a new frontier
@@ -535,6 +325,7 @@ Frontier FrontierSearch::buildNewFrontier(unsigned int initial_cell,
   return output;
 }
 
+
 /**
  * @brief Check if a cell is a new frontier cell
  * */
@@ -557,6 +348,7 @@ bool FrontierSearch::isNewFrontierCell(unsigned int idx,
   return false;
 }
 
+
 /**
  * @brief Original code for frontier costcomputation
  * */
@@ -565,6 +357,7 @@ double FrontierSearch::frontierCost(const Frontier& frontier)
   return (potential_scale_ * frontier.min_distance * costmap_->getResolution()) -
          (gain_scale_ * frontier.size * costmap_->getResolution());
 }
+
 
 /**
  * Greedy method, Single robot
@@ -582,6 +375,7 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
   
   return res;
 }
+
 
 /**
  * Greedy method multi robot

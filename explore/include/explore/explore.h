@@ -51,11 +51,14 @@
 #include <geometry_msgs/Pose.h>
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
+#include <explore/quadmap.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
 #include "tf/tf.h"
 #include <natnet_pkg/PoseArrayID.h>
+#include <wsr_exploration/QuadmapViz.h>
+#include <wsr_exploration/RelativeEstimate.h>
 
 #include <regex>
 #include <iterator>
@@ -66,6 +69,7 @@
 #include <random>
 #include <pwd.h>
 #include <time.h>
+#include <chrono>
 
 namespace explore
 {
@@ -125,7 +129,7 @@ private:
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
-  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_;
+  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_;
   ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
   tf::TransformListener tf_listener_;
 
@@ -144,17 +148,19 @@ private:
 
   // parameters
   double planner_frequency_=0, noise_mean_=0, noise_std_=0,
-         potential_scale_, orientation_scale_=0, gain_scale_=0, sensor_range_=0, 
-         decay_rate_=0,robot_orientation_=0,robot_position_x_=0,robot_position_y_=0,
+         potential_scale_, orientation_scale_=0, gain_scale_=0, sensor_range_=0,
+         robot_orientation_=0,robot_position_x_=0,robot_position_y_=0,
          prev_distance_=0,antenna_angular_offset_=0,robot_orientation_before_=0,
          utility_alpha_parameter_=1, utility_beta_parameter_=1;
+  float noise_x_ = 0 ;
+  float noise_y_ = 0 ;
   ros::Duration progress_timeout_;
   bool visualize_;
   std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
               robot_csi_,robot_displacement_;
   std::vector<int>neighbor_id_;
-  std::vector<geometry_msgs::Point> neighbor_pose_vec_;
-  bool FLAG_getting_next_frontier_ = true, FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
+  std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
+  bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
       ,Flag_get_range_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1, iterations__=0;
@@ -164,10 +170,20 @@ private:
   void writePosToFile(std::vector<std::pair<double,double>>& pos_file,
                       std::string fn);
 
+
+  //Quadmap parameters
+  quadmap::QuadMap base_quadmap_;
+  double Quadmap_width_;
+  double Quadmap_height;
+  std::unordered_map<std::string, quadmap::Robot> robot_information;
+
+
   //Particle filter parameters
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_init_pos_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_est_pos_;
-  int particle_threshold_ = 540, init_angle_samples_ = 180;
+  int particle_threshold_ = 540;
+  int init_angle_samples_ = 180;
+  int frame__ = 0;
   std::vector<int> aoa_init_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
   bool same_goal__ = false, reached_goal__=true,__checked_for_new_frontiers=false;

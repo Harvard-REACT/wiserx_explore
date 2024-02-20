@@ -4,6 +4,7 @@
 #include <costmap_2d/costmap_2d.h>
 #include <unordered_map>
 #include "Eigen/Eigen"
+#include <explore/quadmap.h>
 
 namespace frontier_exploration
 {
@@ -46,7 +47,7 @@ public:
    */
   FrontierSearch(costmap_2d::Costmap2D* costmap, double potential_scale,
                  double gain_scale, double min_frontier_size, double range, 
-                 float decay_rate_,float alpha_parameter_, float beta_parameter_);
+                 float alpha_parameter_, float beta_parameter_);
 
   /**
    * @brief Runs search implementation, outward from the start position
@@ -54,10 +55,7 @@ public:
    * @return List of frontiers, if any
    */
   std::vector<Frontier> searchFrom(geometry_msgs::Point position);
-  std::vector<Frontier> searchFromWithNeighorInfo(geometry_msgs::Point position,
-                                                  std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots);
-  std::vector<Frontier> searchFromNew(geometry_msgs::Point position,
-                                      std::vector<geometry_msgs::Point> relative_position_of_neighboring_robots);
+  std::vector<Frontier> searchFromNew(geometry_msgs::Point position, std::vector<quadmap::Node>& neighboring_robots_positions);
 
 protected:
   /**

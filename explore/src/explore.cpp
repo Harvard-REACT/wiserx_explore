@@ -52,6 +52,9 @@ inline static bool operator==(const geometry_msgs::Point& one,
 std::string fn = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/mexplore_data/";
 std::default_random_engine generator;
 bool FLAG_noise = false;
+auto start_val = std::chrono::high_resolution_clock::now();
+auto stop_val = std::chrono::high_resolution_clock::now();
+auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
 
 namespace explore
 {
@@ -65,46 +68,113 @@ namespace explore
   }
 
 
+  // /** 
+  //  * @brief Get positions of neighboring robots in gazebo (global frame)
+  //  * */
+  // void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
+  // {
+  //   int itr = 0, n_count = 0;
+  //   std::vector<std::string> name = msg->name;
+  //   neighbor_id_.clear();
+    
+  //   //Get the id of all other robots except itself
+  //   for(std::string& val : name)
+  //   {
+  //     if (IsMatch(val) && val!=robot_name_) 
+  //     {
+  //       neighbor_id_.push_back(n_count); 
+  //     }
+  //     n_count+=1;
+  //   }
+
+  //   //Store the positions (can be modified to add noise) of the neighboring robot
+  //   std::vector<geometry_msgs::Pose> pose_vec = msg->pose;    
+    
+  //   for (itr=0; itr<neighbor_id_.size(); itr++)
+  //   {        
+  //     if(FLAG_noise)
+  //     {
+  //       static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
+  //       pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
+  //       pose_vec[neighbor_id_[itr]].position.y = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
+  //     }
+      
+  //     current_neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
+  //   }
+  // }
+
+
   /** 
    * @brief Get positions of neighboring robots in gazebo (global frame)
    * */
   void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
   {
     int itr = 0, n_count = 0;
-    // std::cout << FLAG_getting_next_frontier_ << std::endl;
-    if(FLAG_getting_next_frontier_) //Control the update rate, but does not work
-    {
-      std::vector<std::string> name = msg->name;
-      neighbor_id_.clear();
-      
-      //Get the id of all other robots except itself
-      for(std::string& val : name)
-      {
-        if (IsMatch(val) && val!=robot_name_) 
-        {
-          neighbor_id_.push_back(n_count); 
-        }
-        n_count+=1;
-      }
+    std::vector<std::string> name = msg->name;
+    std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
 
-      //Store the positions (can be modified to add noise) of the neighboring robot
-      std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
-      neighbor_pose_vec_.clear();
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+    if(duration.count() > 5) // publish every 5 seconds
+    {
+      wsr_exploration::QuadmapViz msg;
       
-      for (itr=0; itr<neighbor_id_.size(); itr++)
-      {        
-        if(FLAG_noise)
+      for(itr =0; itr<name.size(); itr++)
+      {
+        wsr_exploration::RelativeEstimate neighboring_robot;
+        quadmap::Node position_node(pose_vec[itr].position.x, pose_vec[itr].position.y);      
+        
+        auto search_val = robot_information.find(name[itr]);
+        if( search_val == robot_information.end())
         {
-          static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
-          pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
-          pose_vec[neighbor_id_[itr]].position.y = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
+          quadmap::Robot new_robot_track;
+          new_robot_track.robot_id = itr;
+          robot_information[name[itr]] = new_robot_track;
         }
         
-        neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
+        position_node.update_info(robot_information[name[itr]].robot_tau, robot_information[name[itr]].robot_id);
+
+        if(name[itr]!=robot_name_)
+        {
+          static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_);
+          noise_x_ = gaussian_noise_(generator);
+          noise_y_ = gaussian_noise_(generator);
+          std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)};
+          position_node.add_position_noise(noise_x_, noise_y_);
+          position_node.updateOmega(cov_array[0], cov_array[1]);
+
+          neighboring_robot.true_position.x = position_node.true_x;
+          neighboring_robot.true_position.y = position_node.true_y;
+          neighboring_robot.estimated_position.x = position_node.est_x;
+          neighboring_robot.estimated_position.y = position_node.est_y;
+          neighboring_robot.covariance = cov_array;
+          neighboring_robot.status = 1;
+          msg.other_robots.push_back(neighboring_robot);
+        }
+        else
+        {
+          msg.own_position.x = pose_vec[itr].position.x;
+          msg.own_position.y = pose_vec[itr].position.y;
+          msg.robot_id = robot_information[name[itr]].robot_id;
+        }
+        robot_information[name[itr]].node_information.push(position_node);
+        base_quadmap_.insert_till_end(position_node); 
       }
-      
+
+      //TODO: Need to publish the data to python node for visualization
+      //Get frontiers centroids.
+      //function // get current frontier centroids.
+
+      msg.header.stamp = ros::Time::now();
+      msg.header.frame_id = std::to_string(frame__++);
+      quadmapPub_.publish(msg);
+
+      start_val = std::chrono::high_resolution_clock::now();
     }
+    
+    stop_val = std::chrono::high_resolution_clock::now();
+
   }
+
 
   /** 
    * @brief Get positions of neighboring robots in for hardware experiments in motion capture lab
@@ -119,7 +189,7 @@ namespace explore
         //std::cout << "Position: " << msg->poses[i].position << std::endl;
         //std::cout << "Orientation: " << msg->poses[i].orientation << std::endl;
         //std::cout << "\n" << std::endl;
-        //neighbor_pose_vec_.clear();
+        current_neighbor_pose_vec_.clear();
         if(msg->poses[i].ID != robot_id_)
         {
           //ROS_INFO("Got neighbor");
@@ -131,11 +201,11 @@ namespace explore
             temp.x = temp.x + gaussian_noise_(generator);
             temp.y = temp.y + gaussian_noise_(generator);
           }
-          neighbor_pose_vec_.push_back(temp);
+          current_neighbor_pose_vec_.push_back(temp);
           
-          for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
+          for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
           {   
-            ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
+            ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
           }
         }
       }
@@ -173,7 +243,6 @@ namespace explore
     private_nh_.param("orientation_scale", orientation_scale_, 0.0);
     private_nh_.param("gain_scale", gain_scale_, 1.0);
     private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
-    private_nh_.param("decay_rate", decay_rate_, 0.25);
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
     private_nh_.param("use_WSR", FLAG_WSR_, true);
     private_nh_.param("noise_WSR", FLAG_noise, false);
@@ -181,18 +250,24 @@ namespace explore
     private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
     private_nh_.param("WSR_utility_alpha_parameter", utility_alpha_parameter_, 1.0); 
     private_nh_.param("WSR_utility_beta_parameter", utility_beta_parameter_, 1.0); 
+    private_nh_.param("Quadmap_width", Quadmap_width_, 1.0); 
+    private_nh_.param("Quadmap_height", Quadmap_height, 1.0); 
 
     //Subscribers
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
+    quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
 
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
 
+    auto domain = quadmap::Rect(float(Quadmap_width_)/2, float(Quadmap_height)/2, float(Quadmap_width_), float(Quadmap_height));
+    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_);
+
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
-                                                  min_frontier_size, sensor_range_,decay_rate_,
+                                                  min_frontier_size, sensor_range_,
                                                   utility_alpha_parameter_, utility_beta_parameter_);
 
     if (visualize_) {
@@ -298,11 +373,11 @@ namespace explore
   {
     // find frontiers
     auto pose = costmap_client_.getRobotPose();
-    ROS_INFO("Neighbors count = %d", neighbor_pose_vec_.size());
+    ROS_INFO("Neighbors count = %d", int(current_neighbor_pose_vec_.size()));
     
-    for (int itr=0; itr<neighbor_pose_vec_.size(); itr++)
+    for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
     {
-      ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, neighbor_pose_vec_[itr].x, neighbor_pose_vec_[itr].y);
+      ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
     }
 
     ROS_DEBUG("New frontier frontier cost");
@@ -311,50 +386,21 @@ namespace explore
     std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
     ROS_DEBUG("found %lu frontiers", frontiers.size());
 
-    // If using relative postions to update the utility computation of a frontier
-    if(FLAG_WSR_)
-    {
-      
-      //Individual frontier utility computation
-      frontier_temp = search_.searchFromNew(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontier_temp.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontier_temp[i].cost);
-	      ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontier_temp[i].centroid.x, frontier_temp[i].centroid.y);
-      }
-      
-      //Frontier utility computation while accounting for relative positions of neighboring robot
-      frontiers = search_.searchFromWithNeighorInfo(pose.position, neighbor_pose_vec_);
-      ROS_DEBUG("New frontier cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier neighbors %d", frontier_temp[i].neighbors);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
-      }
-      FLAG_GET_POS = true;
-      neighbor_pose_vec_.clear();
-      writeToFile(frontier_temp, frontiers, fn);
-    }
-    // Local utility computation without neighboring robot info
-    else
-    {
-      // frontiers = search_.searchFrom(pose.position); //original code.
-      
-      // using neighrbor info just to collect stats and not for utility calculation
-      frontiers = search_.searchFromNew(pose.position, neighbor_pose_vec_); 
-      
-      ROS_DEBUG("Original cost");
-      for (size_t i = 0; i < frontiers.size(); ++i) 
-      {
-        ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-        ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
-      }
+    
+    //Get relative positions info by searching the quadmap and update the vector neighboring_robots_positions
+    std::vector<quadmap::Node> neighboring_robots_positions;
+    
+    // using neighrbor info just to collect stats and not for utility calculation
+    frontiers = search_.searchFromNew(pose.position, neighboring_robots_positions); 
 
-      writeToFile(frontiers,frontiers,fn);
+    ROS_DEBUG("Original cost");
+    for (size_t i = 0; i < frontiers.size(); ++i) 
+    {
+      ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
+      ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
     }
+    writeToFile(frontiers,frontiers,fn);
+    
     
     // Stop if no more new frontiers exist or the stop flag is set.
     if (frontiers.empty() || exploration_done_) 
@@ -419,6 +465,7 @@ namespace explore
           reachedGoal(status, result, target_position);
         });
   }
+
 
   /** 
    * @brief Blacklist frontiers that are not reachable

@@ -15,6 +15,7 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   visualization_msgs
   natnet_pkg
+  wsr_exploration
 )
 find_package(OpenMP REQUIRED)
 
@@ -34,6 +35,7 @@ catkin_package(
     std_msgs
     tf
     visualization_msgs
+    wsr_exploration
 )
 
 ###########
@@ -60,31 +62,32 @@ add_executable(explore
   src/explore.cpp
   src/frontier_search.cpp
 )
+
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(explore ${catkin_LIBRARIES})
 
-add_executable(test_particle_filter
-  src/costmap_client.cpp
-  src/test_particle_filter.cpp
-  src/frontier_search.cpp
-)
-add_dependencies(test_particle_filter ${${PROJECT_NAME}_EXPORTED_TARGETS} 
-                ${catkin_EXPORTED_TARGETS})
-target_link_libraries(test_particle_filter ${catkin_LIBRARIES} 
-                      lib_wsr_1.0.1_parallel.so 
-                      OpenMP::OpenMP_CXX)
+# add_executable(test_particle_filter
+#   src/costmap_client.cpp
+#   src/test_particle_filter.cpp
+#   src/frontier_search.cpp
+# )
+# add_dependencies(test_particle_filter ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+#                 ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(test_particle_filter ${catkin_LIBRARIES} 
+#                       lib_wsr_1.0.1_parallel.so 
+#                       OpenMP::OpenMP_CXX)
 
 
-add_executable(explore_uwb_wsr
-  src/costmap_client.cpp
-  src/explore_uwb_wsr.cpp
-  src/frontier_search.cpp
-)
-add_dependencies(explore_uwb_wsr ${${PROJECT_NAME}_EXPORTED_TARGETS} 
-                ${catkin_EXPORTED_TARGETS})
-target_link_libraries(explore_uwb_wsr ${catkin_LIBRARIES} 
-                      lib_wsr_1.0.1_parallel.so 
-                      OpenMP::OpenMP_CXX)
+# add_executable(explore_uwb_wsr
+#   src/costmap_client.cpp
+#   src/explore_uwb_wsr.cpp
+#   src/frontier_search.cpp
+# )
+# add_dependencies(explore_uwb_wsr ${${PROJECT_NAME}_EXPORTED_TARGETS} 
+#                 ${catkin_EXPORTED_TARGETS})
+# target_link_libraries(explore_uwb_wsr ${catkin_LIBRARIES} 
+#                       lib_wsr_1.0.1_parallel.so 
+#                       OpenMP::OpenMP_CXX)
 
 
 # add_executable(test_wsr
