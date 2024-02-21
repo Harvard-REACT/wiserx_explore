@@ -20,13 +20,14 @@ namespace quadmap
 {
     class Node 
     {
+        private:
+            int& tau_copy;
+            int& robot_id_copy;
         public:        
             float true_x;
             float true_y;
             float est_x;
             float est_y;
-            int* tau_copy = NULL;
-            int* robot_id_copy = NULL;
             float cov_x = 0;
             float cov_y = 0;
             float kappa = 0;
@@ -35,7 +36,7 @@ namespace quadmap
             Node* next_node = NULL;
 
             // Constructors
-            Node(float x, float y) : true_x(x), true_y(y) 
+            Node(float x, float y, int& robot_tau, int& robot_id): true_x(x), true_y(y), tau_copy(robot_tau), robot_id_copy(robot_id) 
             {
                 est_x = true_x;
                 est_y = true_y;
@@ -45,14 +46,6 @@ namespace quadmap
             {
                 est_x = true_x + noise_x;
                 est_y = true_y + noise_y;
-            }
-            
-
-            void update_info(int robot_tau, int robot_id)
-            {
-                //pointer to the status of the robot which is stored in the trajectory object
-                tau_copy = &robot_tau; 
-                robot_id_copy = &robot_id;
             }
 
             // Member functions
@@ -73,12 +66,13 @@ namespace quadmap
 
             int getTau() const 
             {
-                return *tau_copy;
+                return tau_copy;
             }
 
             int getRobotID() const 
             {
-                return *robot_id_copy;
+                std::cout << "Robot ID " <<robot_id_copy << std::endl;
+                return robot_id_copy;
             }
     };
 

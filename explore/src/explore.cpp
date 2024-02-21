@@ -109,7 +109,6 @@ namespace explore
    * */
   void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
   {
-    int itr = 0, n_count = 0;
     std::vector<std::string> name = msg->name;
     std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
 
@@ -118,46 +117,58 @@ namespace explore
     {
       wsr_exploration::QuadmapViz msg;
       
-      for(itr =0; itr<name.size(); itr++)
+      for(int itr=0; itr<name.size(); itr++)
       {
-        wsr_exploration::RelativeEstimate neighboring_robot;
-        quadmap::Node position_node(pose_vec[itr].position.x, pose_vec[itr].position.y);      
-        
-        auto search_val = robot_information.find(name[itr]);
-        if( search_val == robot_information.end())
+        if(IsMatch(name[itr]))
         {
+          wsr_exploration::RelativeEstimate neighboring_robot;   
           quadmap::Robot new_robot_track;
-          new_robot_track.robot_id = itr;
-          robot_information[name[itr]] = new_robot_track;
-        }
-        
-        position_node.update_info(robot_information[name[itr]].robot_tau, robot_information[name[itr]].robot_id);
 
-        if(name[itr]!=robot_name_)
-        {
-          static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_);
-          noise_x_ = gaussian_noise_(generator);
-          noise_y_ = gaussian_noise_(generator);
-          std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)};
-          position_node.add_position_noise(noise_x_, noise_y_);
-          position_node.updateOmega(cov_array[0], cov_array[1]);
+          auto search_val = robot_information.find(name[itr].c_str());
+          if( search_val == robot_information.end())
+          {
+            new_robot_track.robot_id = itr;
+            robot_information.insert({name[itr].c_str(), new_robot_track});
+            ROS_INFO("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
+          }
+          else
+          {
+            ROS_INFO("OLD: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
+          }
+          
+          //TODO: The positions need to be in world coordinates, so need to multiply with costmap resolution
+          quadmap::Node position_node(pose_vec[itr].position.x, pose_vec[itr].position.y, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);   
 
-          neighboring_robot.true_position.x = position_node.true_x;
-          neighboring_robot.true_position.y = position_node.true_y;
-          neighboring_robot.estimated_position.x = position_node.est_x;
-          neighboring_robot.estimated_position.y = position_node.est_y;
-          neighboring_robot.covariance = cov_array;
-          neighboring_robot.status = 1;
-          msg.other_robots.push_back(neighboring_robot);
+          if(name[itr]!=robot_name_)
+          {
+            static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_);
+            noise_x_ = gaussian_noise_(generator);
+            noise_y_ = gaussian_noise_(generator);
+            std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)};
+            position_node.add_position_noise(noise_x_, noise_y_);
+            position_node.updateOmega(cov_array[0], cov_array[1]);
+
+            neighboring_robot.true_position.x = position_node.true_x;
+            neighboring_robot.true_position.y = position_node.true_y;
+            neighboring_robot.estimated_position.x = position_node.est_x;
+            neighboring_robot.estimated_position.y = position_node.est_y;
+            neighboring_robot.covariance = cov_array;
+            neighboring_robot.status = 1;
+            ROS_INFO("Name, robot_id: %s, %d", name[itr].c_str(), position_node.getRobotID());
+            neighboring_robot.robot_id = position_node.getRobotID();
+            msg.other_robots.push_back(neighboring_robot);
+          }
+          else
+          {
+            msg.own_position.x = pose_vec[itr].position.x;
+            msg.own_position.y = pose_vec[itr].position.y;
+            ROS_INFO("Name, robot_id: %s, %d", name[itr].c_str(), position_node.getRobotID());
+            msg.robot_id = position_node.getRobotID();
+          }
+          
+          robot_information[name[itr]].node_information.push(position_node);
+          base_quadmap_.insert_till_end(position_node); 
         }
-        else
-        {
-          msg.own_position.x = pose_vec[itr].position.x;
-          msg.own_position.y = pose_vec[itr].position.y;
-          msg.robot_id = robot_information[name[itr]].robot_id;
-        }
-        robot_information[name[itr]].node_information.push(position_node);
-        base_quadmap_.insert_till_end(position_node); 
       }
 
       //TODO: Need to publish the data to python node for visualization
@@ -236,7 +247,7 @@ namespace explore
     private_nh_.param("progress_timeout", timeout, 30.0);
     progress_timeout_ = ros::Duration(timeout);
     private_nh_.param("visualize", visualize_, false);
-    private_nh_.param("robot_name", robot_name_, std::string("tb3_0"));
+    private_nh_.param("robot_name", robot_name_, std::string("tb3_1"));
     private_nh_.param("robot_id", robot_id_, 0);
     private_nh_.param("neighbor_name", neighbor_name_, std::string("tb3_"));
     private_nh_.param("potential_scale", potential_scale_, 1e-3);
