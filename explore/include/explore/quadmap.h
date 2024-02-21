@@ -71,7 +71,7 @@ namespace quadmap
 
             int getRobotID() const 
             {
-                std::cout << "Robot ID " <<robot_id_copy << std::endl;
+                // std::cout << "Robot ID " <<robot_id_copy << std::endl;
                 return robot_id_copy;
             }
     };

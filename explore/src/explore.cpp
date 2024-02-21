@@ -111,7 +111,8 @@ namespace explore
   {
     std::vector<std::string> name = msg->name;
     std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
-
+    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+    
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
     if(duration.count() > 5) // publish every 5 seconds
     {
@@ -129,15 +130,12 @@ namespace explore
           {
             new_robot_track.robot_id = itr;
             robot_information.insert({name[itr].c_str(), new_robot_track});
-            ROS_INFO("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
-          }
-          else
-          {
-            ROS_INFO("OLD: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
+            // ROS_DEBUG("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
           }
           
-          //TODO: The positions need to be in world coordinates, so need to multiply with costmap resolution
-          quadmap::Node position_node(pose_vec[itr].position.x, pose_vec[itr].position.y, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);   
+          //TODO: The positions need to be in map coordinates
+          costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+          quadmap::Node position_node(mx__, my__, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);   
 
           if(name[itr]!=robot_name_)
           {
@@ -154,15 +152,13 @@ namespace explore
             neighboring_robot.estimated_position.y = position_node.est_y;
             neighboring_robot.covariance = cov_array;
             neighboring_robot.status = 1;
-            ROS_INFO("Name, robot_id: %s, %d", name[itr].c_str(), position_node.getRobotID());
             neighboring_robot.robot_id = position_node.getRobotID();
             msg.other_robots.push_back(neighboring_robot);
           }
           else
           {
-            msg.own_position.x = pose_vec[itr].position.x;
-            msg.own_position.y = pose_vec[itr].position.y;
-            ROS_INFO("Name, robot_id: %s, %d", name[itr].c_str(), position_node.getRobotID());
+            msg.own_position.x = position_node.true_x;
+            msg.own_position.y = position_node.true_y;
             msg.robot_id = position_node.getRobotID();
           }
           
@@ -285,6 +281,7 @@ namespace explore
       marker_array_publisher_ = private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
     }
 
+    
     ROS_INFO("Waiting to connect to move_base server");
     move_base_client_.waitForServer();
     ROS_INFO("Connected to move_base server");

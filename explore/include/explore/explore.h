@@ -139,6 +139,7 @@ private:
   frontier_exploration::FrontierSearch search_;
   ros::Timer exploring_timer_;
   ros::Timer oneshot_;
+  unsigned int mx__, my__;
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
