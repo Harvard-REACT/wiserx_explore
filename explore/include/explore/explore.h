@@ -140,6 +140,7 @@ private:
   ros::Timer exploring_timer_;
   ros::Timer oneshot_;
   unsigned int mx__, my__;
+  unsigned int fmx__, fmy__;
 
   std::vector<geometry_msgs::Point> frontier_blacklist_;
   geometry_msgs::Point prev_goal_;
@@ -161,6 +162,7 @@ private:
               robot_csi_,robot_displacement_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
+  std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;
   bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
       ,Flag_get_range_ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
@@ -189,8 +191,8 @@ private:
   std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
   bool same_goal__ = false, reached_goal__=true,__checked_for_new_frontiers=false;
   double robot_position_x_before_=0.0, robot_position_y_before_=0.0;
-  std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
-  std::vector<frontier_exploration::Frontier>::iterator frontier;
+  std::vector<frontier_exploration::Frontier> frontiers__, frontier_temp__;
+  std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
 };
 }
 

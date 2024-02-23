@@ -161,7 +161,7 @@ namespace frontier_exploration
     float E_hat_c = 0;
     float info_loss = 0;
     unsigned int sx, sy, nx, ny;
-    double swx, swy, wx, wy;
+    double swx, swy, wx, wy, rwx, rwy;
 
     if (start >= size_x * size_y) {
       return false;
@@ -196,15 +196,19 @@ namespace frontier_exploration
         //Using sigmoid based on DARPA IROS 2022 papers. 
         //Basically we want to capture the uncertainty in information gain as the cell distance increases from a frontier
         //Subtract the information loss due to other robots positions        
-        for(int jj = 0; jj < neighboring_robots_positions.size(); jj++)
+        for (auto neighboring_robot_val : neighboring_robots_positions) 
         {
-          dist_j = sqrt(pow((neighboring_robots_positions[jj].est_x-wx),2) + pow((neighboring_robots_positions[jj].est_y-wy),2));
-          info_loss = 1/(1+exp(neighboring_robots_positions[jj].omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
-          E_hat_c += neighboring_robots_positions[jj].getTau() * info_loss;
+            costmap.mapToWorld(neighboring_robot_val.est_x, neighboring_robot_val.est_y, rwx, rwy);
+            dist_j = sqrt(pow((rwx-wx),2) + pow((rwy-wy),2));
+            info_loss = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
+            E_hat_c += neighboring_robot_val.getTau() * info_loss; //Check whether to include the loss due to a robot (e.g. only when its functional)
         }
 
-        if(neighboring_robots_positions.size()>0) E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss
-
+        if(neighboring_robots_positions.size()>0) 
+        {
+          E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss
+        }
+        
         dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2));
         result += ( 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); 
       }

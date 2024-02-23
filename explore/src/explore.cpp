@@ -112,9 +112,11 @@ namespace explore
     std::vector<std::string> name = msg->name;
     std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+    double world_x, world_y;
+    std::vector<frontier_exploration::Frontier> frontiers_copy;
     
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-    if(duration.count() > 5) // publish every 5 seconds
+    if(duration.count() > 10) // publish every 10 seconds
     {
       wsr_exploration::QuadmapViz msg;
       
@@ -134,22 +136,38 @@ namespace explore
           }
           
           //TODO: The positions need to be in map coordinates
+          // double cmOrigin_X = costmap2d->getOriginX();
+          // double cmOrigin_Y = costmap2d->getOriginY();
+          // ROS_INFO("**** Origin_X, Origin_Y: %f, %f **** ", cmOrigin_X, cmOrigin_Y);
           costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
           quadmap::Node position_node(mx__, my__, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);   
 
           if(name[itr]!=robot_name_)
           {
-            static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_);
+            static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_); //Noise is in world coordinates
             noise_x_ = gaussian_noise_(generator);
             noise_y_ = gaussian_noise_(generator);
-            std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)};
-            position_node.add_position_noise(noise_x_, noise_y_);
+            pose_vec[itr].position.x = pose_vec[itr].position.x + gaussian_noise_(generator);
+            pose_vec[itr].position.y = pose_vec[itr].position.y + gaussian_noise_(generator);
+            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+            position_node.add_position_noise(mx__, my__);            
+            std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)}; //This is the covariance for the noise in world coordinates.
+
             position_node.updateOmega(cov_array[0], cov_array[1]);
 
+            // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);          
+            // neighboring_robot.true_position.x = world_x;
+            // neighboring_robot.true_position.y = world_y;
+            
+            // costmap2d->mapToWorld(position_node.est_x, position_node.est_y, world_x, world_y);          
+            // neighboring_robot.estimated_position.x = world_x;
+            // neighboring_robot.estimated_position.y = world_y;
+    
             neighboring_robot.true_position.x = position_node.true_x;
-            neighboring_robot.true_position.y = position_node.true_y;
+            neighboring_robot.true_position.y = position_node.true_y;        
             neighboring_robot.estimated_position.x = position_node.est_x;
             neighboring_robot.estimated_position.y = position_node.est_y;
+
             neighboring_robot.covariance = cov_array;
             neighboring_robot.status = 1;
             neighboring_robot.robot_id = position_node.getRobotID();
@@ -157,19 +175,31 @@ namespace explore
           }
           else
           {
+            // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);  
+            // msg.own_position.x = world_x;
+            // msg.own_position.y = world_y;
             msg.own_position.x = position_node.true_x;
             msg.own_position.y = position_node.true_y;
             msg.robot_id = position_node.getRobotID();
+            robot_id_ = msg.robot_id; //Not that the robot id will not change during an instance of simulation
           }
           
           robot_information[name[itr]].node_information.push(position_node);
           base_quadmap_.insert_till_end(position_node); 
+          base_quadmap_.update_quadmap_ID(itr);
         }
       }
 
-      //TODO: Need to publish the data to python node for visualization
       //Get frontiers centroids.
-      //function // get current frontier centroids.
+      frontiers_copy = frontier_temp__;
+      for(auto frontier_val : frontiers_copy)
+      {
+        geometry_msgs::Point fc_point;
+        costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+        fc_point.x = fmx__;
+        fc_point.y = fmy__;
+        msg.frontiers_centroid.push_back(fc_point);
+      }
 
       msg.header.stamp = ros::Time::now();
       msg.header.frame_id = std::to_string(frame__++);
@@ -257,8 +287,8 @@ namespace explore
     private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
     private_nh_.param("WSR_utility_alpha_parameter", utility_alpha_parameter_, 1.0); 
     private_nh_.param("WSR_utility_beta_parameter", utility_beta_parameter_, 1.0); 
-    private_nh_.param("Quadmap_width", Quadmap_width_, 1.0); 
-    private_nh_.param("Quadmap_height", Quadmap_height, 1.0); 
+    private_nh_.param("Quadmap_width", Quadmap_width_, 20.0); 
+    private_nh_.param("Quadmap_height", Quadmap_height, 20.0); 
 
     //Subscribers
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
@@ -268,9 +298,15 @@ namespace explore
 
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
+    
+    //Since we insert in map coordinates
+    float map_resolution = 0.25;
+    float width = Quadmap_width_/map_resolution;
+    float height = Quadmap_height/map_resolution;
 
+    //TODO : Check this - map coordinates, map_resolution,
     auto domain = quadmap::Rect(float(Quadmap_width_)/2, float(Quadmap_height)/2, float(Quadmap_width_), float(Quadmap_height));
-    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_);
+    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution);
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
@@ -381,58 +417,83 @@ namespace explore
   {
     // find frontiers
     auto pose = costmap_client_.getRobotPose();
-    ROS_INFO("Neighbors count = %d", int(current_neighbor_pose_vec_.size()));
+    // ROS_INFO("Neighbors count = %d", int(current_neighbor_pose_vec_.size()));
     
-    for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
-    {
-      ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
-    }
+    // for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
+    // {
+    //   ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
+    // }
 
-    ROS_DEBUG("New frontier frontier cost");
-    
     // get frontiers sorted according to cost
-    std::vector<frontier_exploration::Frontier> frontiers, frontier_temp;
-    ROS_DEBUG("found %lu frontiers", frontiers.size());
+    frontiers__.clear();
+    std::vector<frontier_exploration::Frontier> final_sorted_frontiers;
+    frontiers__ = search_.searchFrontiers(pose.position);
+    ROS_DEBUG("found %lu frontiers", frontiers__.size());
+    frontier_temp__ = frontiers__;
+    unsigned fmx, fmy;
+    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+
+    // for(int i=0; i<frontiers__.size(); i++)
+    // {
+    //   frontier_exploration::Frontier frontier = frontiers__[i];
+    //   costmap2d->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
+    //   unsigned int clear, frontier_pos  = costmap2d->getIndex(fmx,fmy);
+      
+    //   ROS_INFO("***************************************************");
+    //   ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
+      
+    //   //Get relative positions around a frontier centroid by searching the quadmap and update the vector neighboring_robots_positions
+    //   quadmap::Node center(fmx, fmy, robot_id_, robot_id_); //Value of the 3rd parameter is meaningless here for the query
+    //   std::vector<quadmap::Node> neighboring_robots_positions;
+    //   ROS_INFO("Quadmap ID : %d", base_quadmap_.get_quadmap_ID());
+    //   auto op_val = base_quadmap_.query_radius(center,2*sensor_range_,neighboring_robots_positions);
+    //   ROS_INFO("[Explore.cpp] query result %d", op_val);
+    //   for(auto val : neighboring_robots_positions)
+    //   {
+    //     ROS_INFO("Node position %f, %f", val.true_x, val.true_y);
+    //   }
+    //   ROS_INFO("[Explore.cpp] Query Check: Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+    // }
+    // final_sorted_frontiers = frontiers;
+    
+    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_); 
 
     
-    //Get relative positions info by searching the quadmap and update the vector neighboring_robots_positions
-    std::vector<quadmap::Node> neighboring_robots_positions;
-    
-    // using neighrbor info just to collect stats and not for utility calculation
-    frontiers = search_.searchFromNew(pose.position, neighboring_robots_positions); 
-
-    ROS_DEBUG("Original cost");
-    for (size_t i = 0; i < frontiers.size(); ++i) 
+    ROS_INFO("===============Sorted frontiers===================");
+    for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
     {
-      ROS_DEBUG("frontier %zd cost: %f", i, frontiers[i].cost);
-      ROS_DEBUG("frontier %zd position: (%f, %f )", i, frontiers[i].centroid.x, frontiers[i].centroid.y);
+      ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
+      ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
     }
-    writeToFile(frontiers,frontiers,fn);
+    
+    //TODO: Update this to store utility without using the relative positions
+    writeToFile(frontiers__,final_sorted_frontiers,fn); 
     
     
     // Stop if no more new frontiers exist or the stop flag is set.
-    if (frontiers.empty() || exploration_done_) 
+    if (final_sorted_frontiers.empty() || exploration_done_) 
     {
       stop();
-      writeToFile(frontier_temp,frontiers, fn);
+      writeToFile(frontiers__,final_sorted_frontiers, fn);
       return;
     }
 
     // publish frontiers as visualization markers
     if (visualize_) {
-      visualizeFrontiers(frontiers);
+      visualizeFrontiers(final_sorted_frontiers);
     }
 
     // find non blacklisted frontier
     auto frontier =
-        std::find_if_not(frontiers.begin(), frontiers.end(),
+        std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
                         [this](const frontier_exploration::Frontier& f) {
                           return goalOnBlacklist(f.centroid);
                         });
     
     
-    if (frontier == frontiers.end()) 
+    if (frontier == final_sorted_frontiers.end()) 
     {
+      //TODO add navigation to home position.
       stop();
       return;
     }
@@ -546,25 +607,18 @@ namespace explore
   {
 
     // Store stats of the frontier when utility does not account for relative positions of neighboring robots
-    for(int i=0; i<default_frontiers.size(); i++)
+    for(int i=0; i<int(default_frontiers.size()); i++)
     { 
-      std::vector<float> temp {float(default_frontiers[i].pos_id), default_frontiers[i].information_gain, 
-                              default_frontiers[i].effort, default_frontiers[i].neighbor_distance, 
-                              float(default_frontiers[i].neighbors), float(i+1)}; 
-
+      std::vector<float> temp {float(default_frontiers[i].pos_id), float(default_frontiers[i].information_gain), 
+                              float(default_frontiers[i].centroid_distance), float(default_frontiers[i].size), float(i+1)}; 
       default_frontier_stats_.push_back(temp);
     }
 
-    // Store stats of the frontier when utility accounts for relative positions of neighboring robots
-    if(FLAG_WSR_)
-    { 
-      for(int i=0; i<wsr_frontiers.size(); i++)
-      {
-        std::vector<float> temp{ float(wsr_frontiers[i].pos_id), wsr_frontiers[i].information_gain, 
-                            wsr_frontiers[i].effort, wsr_frontiers[i].neighbor_distance, 
-                            float(wsr_frontiers[i].neighbors), float(i+1)};
-        wsr_frontiers_stats_.push_back(temp);
-      }
+    for(int i=0; i<int(wsr_frontiers.size()); i++)
+    {
+      std::vector<float> temp{float(wsr_frontiers[i].pos_id), float(wsr_frontiers[i].information_gain), 
+                              float(wsr_frontiers[i].centroid_distance), float(wsr_frontiers[i].size), float(i+1)};
+      wsr_frontiers_stats_.push_back(temp);
     }
 
     // IF exploration ends, store all data into a file

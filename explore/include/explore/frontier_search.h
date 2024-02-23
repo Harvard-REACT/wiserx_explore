@@ -17,17 +17,14 @@ struct Frontier {
   double min_distance;
   double centroid_distance;
   double cost;
-  double coordination_cost; //Will be calculated based on the relative positions of neighbors obtained from wireless signal sensors.
+  double information_gain;
   geometry_msgs::Point initial;
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
   geometry_msgs::Point furthest;
   std::vector<geometry_msgs::Point> points;
-  float information_gain;
-  float effort;
   int pos_id;
-  float neighbor_distance;
-  int neighbors;
+  int neighbors_count;
 };
 
 /**
@@ -55,7 +52,10 @@ public:
    * @return List of frontiers, if any
    */
   std::vector<Frontier> searchFrom(geometry_msgs::Point position);
-  std::vector<Frontier> searchFromNew(geometry_msgs::Point position, std::vector<quadmap::Node>& neighboring_robots_positions);
+  std::vector<Frontier> searchFrontiers(geometry_msgs::Point& position);
+  std::vector<Frontier> getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
+                                              quadmap::QuadMap& base_quadmap,
+                                              int& robot_id);
 
 protected:
   /**
