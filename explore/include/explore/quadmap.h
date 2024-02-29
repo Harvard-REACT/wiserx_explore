@@ -34,13 +34,14 @@ namespace quadmap
             
             float cov_x = 0;
             float cov_y = 0;
-            float omega = 0;
+            float omega = 1;
             //TODO update this 
-            float kappa = 0;
+            float kappa = 0.5;
+            int timestep = 0;
                         
             // Constructors
             //Note that map coordinates are in unsigned int, but here they are stored as float
-            Node(float x, float y, int robot_tau, int robot_id): true_x(x), true_y(y), tau_copy(robot_tau), robot_id_copy(robot_id) 
+            Node(float x, float y, int robot_tau, int robot_id, int timestep): true_x(x), true_y(y), tau_copy(robot_tau), robot_id_copy(robot_id), timestep(timestep) 
             {
                 est_x = true_x;
                 est_y = true_y;
@@ -65,9 +66,11 @@ namespace quadmap
                 return std::hypot(true_x - other.true_x, true_y - other.true_y);
             }
 
-            void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates, need to change this
+            void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                omega = exp(-kappa*(cov_x+cov_y));
+                // omega = exp(-kappa*(cov_x+cov_y));
+                omega = cov_x+cov_y;
+                ROS_INFO("OMEGA = %f", omega);
             }
 
             int getTau() const 
@@ -122,10 +125,10 @@ namespace quadmap
 
             // Checks if a given point (x, y) is within the rectangle.
             // Returns true if the point is inside; otherwise, false.
-            // bool contains(const Node* point) const 
+            // bool contains(const Node& point) const 
             // {
-            //     return point->true_x >= west_edge && point->true_x < east_edge &&
-            //         point->true_y >= north_edge && point->true_y < south_edge;
+            //     return point.true_x >= west_edge && point.true_x < east_edge &&
+            //         point.true_y >= north_edge && point.true_y < south_edge;
             // }
 
             bool contains(const Node& point) const 
@@ -189,10 +192,10 @@ namespace quadmap
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
                 exit(1);
             }
-            ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
-            ROS_INFO("sensor_range %f ", sensor_range);
-            ROS_INFO("map_resolution %f ", map_resolution);
-            ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
+            // ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
+            // ROS_INFO("sensor_range %f ", sensor_range);
+            // ROS_INFO("map_resolution %f ", map_resolution);
+            // ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
         }
 
         /**
@@ -285,14 +288,14 @@ namespace quadmap
                         // Add the point here if the boundary contains the point and meets the condition.
                         // points.push_back(std::ref(point));
                         points.push_back(point);
-                        ROS_INFO("Boundary w,h : %f,%f", boundary.w, boundary.h);
-                        ROS_INFO("Boundary cx,xy : %f,%f", boundary.cx, boundary.cy);                         
-                        ROS_INFO("west_edge %f", boundary.west_edge);
-                        ROS_INFO("east_edge %f", boundary.east_edge);
-                        ROS_INFO("north_edge %f", boundary.north_edge);
-                        ROS_INFO("south_edge %f", boundary.south_edge);                        
-                        ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.true_x, point.true_y, point.getRobotID());
-                        ROS_INFO("---------------------------");
+                        // ROS_INFO("Boundary w,h : %f,%f", boundary.w, boundary.h);
+                        // ROS_INFO("Boundary cx,xy : %f,%f", boundary.cx, boundary.cy);                         
+                        // ROS_INFO("west_edge %f", boundary.west_edge);
+                        // ROS_INFO("east_edge %f", boundary.east_edge);
+                        // ROS_INFO("north_edge %f", boundary.north_edge);
+                        // ROS_INFO("south_edge %f", boundary.south_edge);                        
+                        // ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.true_x, point.true_y, point.getRobotID());
+                        // ROS_INFO("---------------------------");
                                                
                         // for (auto ptr : points)
                         // {
@@ -350,9 +353,9 @@ namespace quadmap
             // Search this node's nodes to see if they lie within the circular boundary. Exclude a robot's own positions.
             if(points.size()>0)
             {
-                ROS_INFO("---- Found an intersecting boundary---");
-                ROS_INFO("Boundary w,h : %f,%f", this->boundary.w, this->boundary.h);
-                ROS_INFO("Boundary cx,cy : %f,%f", this->boundary.cx, this->boundary.cy);
+                // ROS_INFO("---- Found an intersecting boundary---");
+                // ROS_INFO("Boundary w,h : %f,%f", this->boundary.w, this->boundary.h);
+                // ROS_INFO("Boundary cx,cy : %f,%f", this->boundary.cx, this->boundary.cy);
                 // ROS_INFO("Points dim %d", int(points.size()));
             }
 
@@ -361,36 +364,37 @@ namespace quadmap
             {
                 // const Node point = ref.get();
 
-                ROS_INFO(" %d) Quadmap boundary true point = %f,%f ",it_v++, point.true_x, point.true_y);
-                ROS_INFO("Quadmap west_edge %f", this->boundary.west_edge);
-                ROS_INFO("Quadmap east_edge %f", this->boundary.east_edge);
-                ROS_INFO("Quadmap north_edge %f", this->boundary.north_edge);
-                ROS_INFO("Quadmap south_edge %f", this->boundary.south_edge); 
+                // ROS_INFO(" %d) Quadmap boundary true point = %f,%f ",it_v++, point.true_x, point.true_y);
+                // ROS_INFO("Quadmap west_edge %f", this->boundary.west_edge);
+                // ROS_INFO("Quadmap east_edge %f", this->boundary.east_edge);
+                // ROS_INFO("Quadmap north_edge %f", this->boundary.north_edge);
+                // ROS_INFO("Quadmap south_edge %f", this->boundary.south_edge); 
 
                 auto a = query_boundary.contains(point);
-                ROS_INFO("Query west_edge %f", query_boundary.west_edge);
-                ROS_INFO("Query east_edge %f", query_boundary.east_edge);
-                ROS_INFO("Query north_edge %f", query_boundary.north_edge);
-                ROS_INFO("Query south_edge %f", query_boundary.south_edge); 
+                // ROS_INFO("Query west_edge %f", query_boundary.west_edge);
+                // ROS_INFO("Query east_edge %f", query_boundary.east_edge);
+                // ROS_INFO("Query north_edge %f", query_boundary.north_edge);
+                // ROS_INFO("Query south_edge %f", query_boundary.south_edge); 
 
                 auto b = point.distanceTo(centre);
+                // auto b = point.truedistanceTo(centre);
                 int c = point.robot_id_copy;
                 
-                ROS_INFO("Point ID = %d ", c);
-                ROS_INFO("Query Boundary contains point = %d", a);
-                ROS_INFO("Distance to center = %f", b);
-                ROS_INFO("Own ID: %d", centre.getRobotID());
+                // ROS_INFO("Point ID = %d ", c);
+                // ROS_INFO("Query Boundary contains point = %d", a);
+                // ROS_INFO("Distance to center = %f", b);
+                // ROS_INFO("Own ID: %d", centre.getRobotID());
 
                 if (a && b<= radius && c!= centre.getRobotID()) {
-                    ROS_INFO("Success - Found node!!!");
+                    // ROS_INFO("Success - Found node!!!");
                     found_nodes.push_back(point); //Store pointer to the node data point.
-                    ROS_INFO("Node size: %ld", found_nodes.size());
+                    // ROS_INFO("Node size: %ld", found_nodes.size());
                     found = true;
                 }
             }
 
             // If this node has been divided, recurse the search into the child nodes.
-            ROS_INFO("[query_circle before] Node size: %ld", found_nodes.size());
+            // ROS_INFO("[query_circle before] Node size: %ld", found_nodes.size());
 
             if (divided) {
                 found |= nw->query_circle(boundary, centre, radius, found_nodes);
@@ -399,7 +403,7 @@ namespace quadmap
                 found |= sw->query_circle(boundary, centre, radius, found_nodes);
             }
 
-            ROS_INFO("[query_circle after] Node size: %ld", found_nodes.size());
+            // ROS_INFO("[query_circle after] Node size: %ld", found_nodes.size());
             return found;
         }
 
@@ -418,13 +422,13 @@ namespace quadmap
             float centerY = centre.true_y;
             float rad = radius/map_resolution;
             
-            ROS_INFO("Rad : %f ", rad);
+            // ROS_INFO("Rad : %f ", rad);
             Rect query_boundary(centerX, centerY, 2 * rad, 2 * rad);
 
             // Call query_circle with the calculated boundary, center, and radius.
             bool final_output = query_circle(query_boundary, centre, rad, found_nodes);
 
-            ROS_INFO("[query_radius] Node size: %ld", found_nodes.size());
+            // ROS_INFO("[query_radius] Node size: %ld", found_nodes.size());
 
             return final_output;
 

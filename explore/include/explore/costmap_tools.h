@@ -134,6 +134,14 @@ namespace frontier_exploration
     return false;
   }
 
+
+  bool withinBounds(double& x, double& y, std::vector<geometry_msgs::Point>& envBoundary)
+  {
+    return x >= envBoundary[0].x && x <= envBoundary[1].x &&
+        y >= envBoundary[0].y && y <= envBoundary[2].y;
+  }
+
+
   /**
    * @brief NJ addition - Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
    * @param result Count of such cells
@@ -147,8 +155,9 @@ namespace frontier_exploration
    * @return True if a cell with the requested value was found
    */
   bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
-                                   const costmap_2d::Costmap2D& costmap, double& range,
-                                   std::vector<quadmap::Node>& neighboring_robots_positions)
+                                   const costmap_2d::Costmap2D& costmap, double& sensor_range,
+                                   std::vector<quadmap::Node>& neighboring_robots_positions, 
+                                   std::vector<geometry_msgs::Point>& envBoundary)
   {
     const unsigned char* map = costmap.getCharMap();
     const unsigned int size_x = costmap.getSizeInCellsX(),
@@ -156,14 +165,17 @@ namespace frontier_exploration
 
     float dist_i = 0;
     float dist_j = 0;
-    int sigmoid_cost_midpoint_ = range/2;
-    int sigmoid_cost_steepness_ = 2;
+    int sigmoid_cost_midpoint_ = sensor_range/2; //Note that since the sigmoid is still based on the sensor range only
+    int sigmoid_cost_steepness_ = 0.1; //0.75 //0.1 ==> almost uniform
     float E_hat_c = 0;
-    float info_loss = 0;
+    float info_loss_with_distance = 0, info_loss_with_time=0;
     unsigned int sx, sy, nx, ny;
     double swx, swy, wx, wy, rwx, rwy;
+    float L = sensor_range;
+    int rel_positions_in_known_region=0;
 
-    if (start >= size_x * size_y) {
+    if (start >= size_x * size_y) 
+    {
       return false;
     }
 
@@ -177,7 +189,79 @@ namespace frontier_exploration
     costmap.indexToCells(start, sx, sy);
     costmap.mapToWorld(sx, sy, swx, swy);
 
-    // search for neighbouring cell matching value
+    //NJ - This doesn't work.
+    // if(neighboring_robots_positions.size() > 0)
+    // {
+    //   unsigned int idx_rel_position;
+    //   for (auto neighboring_robot_val : neighboring_robots_positions) 
+    //   {
+    //     costmap.mapToWorld(neighboring_robot_val.est_x, neighboring_robot_val.est_y, rwx, rwy);
+    //     dist_j = sqrt(pow((rwx-swx),2) + pow((rwy-swy),2));
+        
+    //     if(dist_j <= sensor_range) //Checking closer proximity than when computing overlap
+    //     {
+    //       ROS_INFO("[Frontier Info gain] Found a position in known region at distance %f", dist_j);
+    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.est_x, neighboring_robot_val.est_y);
+    //       if(map[idx_rel_position] != cell_val) rel_positions_in_known_region+=1;
+    //     }
+    //   }
+    
+    //   //If 90% of positions around a frontier are in known space, it likely indicates that the region has been explored throughly by other robots
+    //   //and won't have high information due to proximity of a region boundary. Hence assign 0 information gain to it.
+    //   if(rel_positions_in_known_region/int(neighboring_robots_positions.size()) >= 0.5) 
+    //   {
+    //     ROS_INFO("[Frontier Info gain] Highly explored region (rel positions in known : %f %), hence assigning 0 info gain", (rel_positions_in_known_region/neighboring_robots_positions.size())*100);
+    //     result = 0; 
+    //     return true;
+    //   }
+    // }
+
+    // std::sort(
+    //   neighboring_robots_positions.begin(), neighboring_robots_positions.end(),
+    //   [](const quadmap::Node& n1, const quadmap::Node& n2) { return n1.timestep < n1.timestep; });
+
+
+    // ROS_INFO("--------------------------------------------------");
+    // for (auto neighboring_robot_val : neighboring_robots_positions) 
+    // {
+    //   ROS_INFO("Timestep : %d ", neighboring_robot_val.timestep);
+    // }
+
+    //Mark all cells withing sensing range of the relative position of other robots as visited.
+    // if(neighboring_robots_positions.size() > 0)
+    // {
+    //   unsigned int idx_rel_position;
+    //   for (auto neighboring_robot_val : neighboring_robots_positions) 
+    //     {
+    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.true_x, neighboring_robot_val.true_y);
+    //       costmap.mapToWorld(neighboring_robot_val.true_x, neighboring_robot_val.true_y, rwx, rwy);
+    //       std::queue<unsigned int> bfs_rel;
+    //       bfs_rel.push(idx_rel_position);
+
+    //       while(!bfs_rel.empty())
+    //       {
+    //         unsigned int idx_near_rel = bfs.front();
+    //         bfs_rel.pop();
+    //         for (unsigned nbr : nhood8(idx_near_rel, costmap)) 
+    //         {
+    //           if (!visited_flag[nbr]) 
+    //           {
+    //             costmap.indexToCells(nbr, nx, ny);
+    //             costmap.mapToWorld(nx, ny, wx, wy);
+    //             dist_i = sqrt(pow((rwx-rwy),2) + pow((swy-wy),2)); 
+    //             if(dist_i <= sensor_range) 
+    //             {
+    //                 bfs_rel.push(nbr);
+    //             }
+    //             visited_flag[nbr] = true;     //Ideally we mark them true if the information loss is beyond a threshold.
+    //           }
+    //         }
+    //       }
+    //   }
+    // }
+
+
+    // search for neighbouring cell matching value and have not been already marked as visited by other robots.
     while (!bfs.empty()) 
     {
       unsigned int idx = bfs.front();
@@ -190,24 +274,39 @@ namespace frontier_exploration
         costmap.mapToWorld(nx, ny, wx, wy); //Need everything in world coordinates
 
         E_hat_c = 0;
-        info_loss = 0;
-
         //Info available from a cell decays with distance. 
         //Using sigmoid based on DARPA IROS 2022 papers. 
         //Basically we want to capture the uncertainty in information gain as the cell distance increases from a frontier
-        //Subtract the information loss due to other robots positions        
+        //Subtract the information loss due to other robots positions 
+        
+        int iterator = 0;
         for (auto neighboring_robot_val : neighboring_robots_positions) 
         {
             costmap.mapToWorld(neighboring_robot_val.est_x, neighboring_robot_val.est_y, rwx, rwy);
+            // costmap.mapToWorld(neighboring_robot_val.true_x, neighboring_robot_val.true_y, rwx, rwy);
             dist_j = sqrt(pow((rwx-wx),2) + pow((rwy-wy),2));
-            info_loss = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
-            E_hat_c += neighboring_robot_val.getTau() * info_loss; //Check whether to include the loss due to a robot (e.g. only when its functional)
+            
+            if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
+            {
+              // ROS_INFO("Distance to rel position (meters): %f", dist_j);
+              // info_loss_with_distance = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
+              // E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
+              
+              info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_-neighboring_robot_val.omega)));
+              info_loss_with_time = exp(-10*iterator)*info_loss_with_distance;
+              // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
+              // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
+              E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
+              iterator+=1;
+            }
         }
+        // ROS_INFO("--------------------------------------------------");
 
-        if(neighboring_robots_positions.size()>0) 
-        {
-          E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss
-        }
+        // //Decay with time instead of using average         
+        // if(neighboring_robots_positions.size()>0) 
+        // {
+        //   E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss
+        // }
         
         dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2));
         result += ( 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); 
@@ -216,11 +315,12 @@ namespace frontier_exploration
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)
       for (unsigned nbr : nhood8(idx, costmap)) 
       {
-        if (!visited_flag[nbr]) {
+        if (!visited_flag[nbr]) 
+        {
           costmap.indexToCells(nbr, nx, ny);
           costmap.mapToWorld(nx, ny, wx, wy);
-          dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2));
-          if(dist_i <= range) 
+          dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2)); 
+          if(dist_i <= sensor_range) 
           {
               bfs.push(nbr);
           }
@@ -233,4 +333,5 @@ namespace frontier_exploration
   }
 
 }
+
 #endif

@@ -59,6 +59,7 @@
 #include <natnet_pkg/PoseArrayID.h>
 #include <wsr_exploration/QuadmapViz.h>
 #include <wsr_exploration/RelativeEstimate.h>
+#include <wsr_exploration/FrontierInfo.h>
 
 #include <regex>
 #include <iterator>
@@ -111,6 +112,8 @@ private:
 
   bool IsMatch(std::string& val);
 
+  bool IsMatchDim(std::string& val);
+
   void writeToFile(std::vector<frontier_exploration::Frontier>& default_frontiers, 
                             std::vector<frontier_exploration::Frontier>&wsr_frontiers,
                             std::string& fn);
@@ -159,7 +162,7 @@ private:
   ros::Duration progress_timeout_;
   bool visualize_;
   std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
-              robot_csi_,robot_displacement_;
+              robot_csi_,robot_displacement_, __dim_object_name;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
   std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;
@@ -172,14 +175,18 @@ private:
   int neighbor_count_=1;
   void writePosToFile(std::vector<std::pair<double,double>>& pos_file,
                       std::string fn);
-
+  float __Flag_set_home = false;
+  geometry_msgs::Point  __left_bottom, __right_bottom, __left_top, __right_top;
+  std::vector<geometry_msgs::Point> __envBoundary;
+  geometry_msgs::Point __home_position
+  
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
   double Quadmap_width_;
   double Quadmap_height;
   std::unordered_map<std::string, quadmap::Robot> robot_information;
-
+  int timestep__ = 0 ;
 
   //Particle filter parameters
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_init_pos_;

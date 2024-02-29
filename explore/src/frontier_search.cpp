@@ -195,7 +195,8 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
 */
 std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                                              quadmap::QuadMap& base_quadmap,
-                                                             int& robot_id)
+                                                             int& robot_id, bool use_relative_positions,
+                                                             std::vector<geometry_msgs::Point>& envBoundary)
 {
   std::vector<Frontier> final_frontier_list;
   float f_cost_min = 100000, f_cost_max = 0;
@@ -219,24 +220,29 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
     
     //Get relative positions around a frontier centroid by searching the quadmap and update the vector neighboring_robots_positions
-    quadmap::Node center(fmx, fmy, robot_id, robot_id); //Value of the 3rd parameter is meaningless here for the query
+    int ts=0;
+    quadmap::Node center(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
     std::vector<quadmap::Node> neighboring_robots_positions;
-    ROS_INFO("Quadmap ID : %d", base_quadmap.quadmap_ID);
-    base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
     
-    ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+    if(use_relative_positions)
+    {
+      base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
+    }
 
+    ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
     bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
-                                           neighboring_robots_positions);
+                                           neighboring_robots_positions, envBoundary);
 
 
     // ROS_INFO("****** Unexplored cells around frontier: %d ***********", uexp_cell_count);
-    frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function
-    frontier.pos_id = frontier_pos;
-    frontier.neighbors_count = neighboring_robots_positions.size();
-    frontier.information_gain = info_gain_uexp_cell_count;
-    final_frontier_list.push_back(frontier);
-
+    if(info_gain_uexp_cell_count > 0) //meters
+    { 
+      frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function
+      frontier.pos_id = frontier_pos;
+      frontier.neighbors_count = neighboring_robots_positions.size();
+      frontier.information_gain = info_gain_uexp_cell_count;
+      final_frontier_list.push_back(frontier);
+    }
   }
 
   // For frontier Utility, the frontier with highest utility should be the first
@@ -373,6 +379,7 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
 
   //Note: the centroid distance does not account for the map resoulution, but since its just a scaler multiplier. 
   res = (alpha_parameter_*frontier.size *information_gain)/(beta_parameter_*frontier.centroid_distance);
+  // res = (information_gain)/(frontier.centroid_distance);
   // ROS_INFO("Information gain based on unexplored cell count = %f", information_gain);
   // ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
   ROS_INFO("frontier Utility = %f", res);
@@ -383,41 +390,42 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
 
 /**
  * Greedy method multi robot
+ * Deprecated
  * */
-double FrontierSearch::frontierUtility(const Frontier& frontier,
-                                      float& information_gain,
-                                      std::vector<geometry_msgs::Point> rel_positions, 
-                                      float& effort)
-{
-  ROS_INFO("Total Information gain (accounting for sensor overlap) = %f", information_gain);
+// double FrontierSearch::frontierUtility(const Frontier& frontier,
+//                                       float& information_gain,
+//                                       std::vector<geometry_msgs::Point> rel_positions, 
+//                                       float& effort)
+// {
+//   ROS_INFO("Total Information gain (accounting for sensor overlap) = %f", information_gain);
 
-  float min_dist_j_all = 100000, temp=0;
-  for(int j=0; j<rel_positions.size(); j++)
-  {
+//   float min_dist_j_all = 100000, temp=0;
+//   for(int j=0; j<rel_positions.size(); j++)
+//   {
     
-    //Change temp to the closest distance to the frontier
-    float min_dist_j = 100000;
-    for(int tau=0; tau<frontier.points.size(); tau++)
-    {
-      temp = sqrt(pow((rel_positions[j].x - frontier.points[tau].x), 2.0) +
-                  pow((rel_positions[j].y - frontier.points[tau].y), 2.0));
+//     //Change temp to the closest distance to the frontier
+//     float min_dist_j = 100000;
+//     for(int tau=0; tau<frontier.points.size(); tau++)
+//     {
+//       temp = sqrt(pow((rel_positions[j].x - frontier.points[tau].x), 2.0) +
+//                   pow((rel_positions[j].y - frontier.points[tau].y), 2.0));
 
-      min_dist_j = min_dist_j < temp ? min_dist_j: temp;
-    }
+//       min_dist_j = min_dist_j < temp ? min_dist_j: temp;
+//     }
     
-    min_dist_j_all = min_dist_j_all < min_dist_j  ? min_dist_j_all : min_dist_j ;
-  }
+//     min_dist_j_all = min_dist_j_all < min_dist_j  ? min_dist_j_all : min_dist_j ;
+//   }
 
-  int gamma_1 = 1;
-  float gamma_2 =  min_dist_j_all <= frontier.centroid_distance ? (1/(1+min_dist_j_all)) : 0;
-  effort = gamma_1 * frontier.centroid_distance * (1 + gamma_2);
-  auto val = information_gain / effort;
-  // effort = frontier.centroid_distance; //Added only for testing;
-  ROS_INFO("frontier effort of robot i = %f", frontier.centroid_distance);
-  ROS_INFO("frontier Utility for robot i = %f", val);
+//   int gamma_1 = 1;
+//   float gamma_2 =  min_dist_j_all <= frontier.centroid_distance ? (1/(1+min_dist_j_all)) : 0;
+//   effort = gamma_1 * frontier.centroid_distance * (1 + gamma_2);
+//   auto val = information_gain / effort;
+//   // effort = frontier.centroid_distance; //Added only for testing;
+//   ROS_INFO("frontier effort of robot i = %f", frontier.centroid_distance);
+//   ROS_INFO("frontier Utility for robot i = %f", val);
 
-  return val;
-}
+//   return val;
+// }
 
 /**
  * @brief Compute distance to neighboring robot. Might be removed in future

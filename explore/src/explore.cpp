@@ -68,6 +68,14 @@ namespace explore
   }
 
 
+  /** 
+   * Find matching value for getting environment dimensions.
+   * */
+  bool  Explore::IsMatchDim(std::string& val)
+  {
+    return (val.find(__dim_object_name) != std::string::npos);
+  }
+
   // /** 
   //  * @brief Get positions of neighboring robots in gazebo (global frame)
   //  * */
@@ -118,6 +126,7 @@ namespace explore
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
     if(duration.count() > 10) // publish every 10 seconds
     {
+      timestep__+=1;
       wsr_exploration::QuadmapViz msg;
       
       for(int itr=0; itr<name.size(); itr++)
@@ -136,11 +145,14 @@ namespace explore
           }
           
           //TODO: The positions need to be in map coordinates
-          // double cmOrigin_X = costmap2d->getOriginX();
-          // double cmOrigin_Y = costmap2d->getOriginY();
-          // ROS_INFO("**** Origin_X, Origin_Y: %f, %f **** ", cmOrigin_X, cmOrigin_Y);
+          double cmOrigin_X = costmap2d->getOriginX();
+          double cmOrigin_Y = costmap2d->getOriginY();
+          ROS_INFO("**** Origin_X, Origin_Y: %f, %f **** ", cmOrigin_X, cmOrigin_Y);
           costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
-          quadmap::Node position_node(mx__, my__, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);   
+          unsigned int sizeX = costmap2d->getSizeInCellsX();
+          unsigned int sizeY = costmap2d->getSizeInCellsY();
+          ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+          quadmap::Node position_node(mx__, my__, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id,timestep__);   
 
           if(name[itr]!=robot_name_)
           {
@@ -151,8 +163,10 @@ namespace explore
             pose_vec[itr].position.y = pose_vec[itr].position.y + gaussian_noise_(generator);
             costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
             position_node.add_position_noise(mx__, my__);            
-            std::vector<double> cov_array{pow(2.0,noise_std_), pow(2.0,noise_std_)}; //This is the covariance for the noise in world coordinates.
+            std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
 
+            
+            //Set omega to 1
             position_node.updateOmega(cov_array[0], cov_array[1]);
 
             // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);          
@@ -188,17 +202,62 @@ namespace explore
           base_quadmap_.insert_till_end(position_node); 
           base_quadmap_.update_quadmap_ID(itr);
         }
+        // else if(!__FLAG_Dim && IsMatchDim(name[itr]))
+        // {
+          
+        //   if(pose_vec[itr].position.x < 0  && pose_vec[itr].position.y < 0)
+        //   {
+        //     __left_bottom.x=pose_vec[itr].position.x; 
+        //     __left_bottom.y=pose_vec[itr].position.y;
+        //     __Flag_leftB = true; 
+        //   }
+        //   else if(pose_vec[itr].position.x > 0  && pose_vec[itr].position.y < 0)
+        //   {
+        //     __right_bottom.x=pose_vec[itr].position.x; 
+        //     __right_bottom.y=pose_vec[itr].position.y; 
+        //     __Flag_rightB = true;
+        //   }
+        //   else if(pose_vec[itr].position.x > 0  && pose_vec[itr].position.y > 0)
+        //   {
+        //     __left_top.x=pose_vec[itr].position.x; 
+        //     __left_top.y=pose_vec[itr].position.y; 
+        //     __Flag_leftT = true;
+        //   }
+        //   else if(pose_vec[itr].position.x < 0  && pose_vec[itr].position.y > 0)
+        //   {
+        //     __right_top.x=pose_vec[itr].position.x; 
+        //     __right_top.y=pose_vec[itr].position.y;
+        //     __Flag_rightT = true;
+        //   }
+
+        //   __FLAG_Dim = __Flag_leftB && __Flag_rightB && __Flag_leftT && __Flag_rightT;
+        //   if(__FLAG_Dim)
+        //   {
+        //     __envBoundary.push_back(__left_bottom);
+        //     __envBoundary.push_back(__right_bottom);
+        //     __envBoundary.push_back(__left_top);
+        //     __envBoundary.push_back(__right_top);
+        //     ROS_INFO("Set Boundary corners");
+        //   } 
+        // }
       }
 
       //Get frontiers centroids.
       frontiers_copy = frontier_temp__;
+      // if(frontier_temp__.size()>0) 
       for(auto frontier_val : frontiers_copy)
       {
-        geometry_msgs::Point fc_point;
+        // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+        wsr_exploration::FrontierInfo fc_point;
         costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
-        fc_point.x = fmx__;
-        fc_point.y = fmy__;
-        msg.frontiers_centroid.push_back(fc_point);
+        fc_point.centroid.x = fmx__;
+        fc_point.centroid.y = fmy__;
+        fc_point.size=frontier_val.size;
+        fc_point.information_gain=frontier_val.information_gain;
+        fc_point.centroid_distance=frontier_val.centroid_distance;
+        fc_point.utility=frontier_val.cost;
+        fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+        msg.frontiers.push_back(fc_point);
       }
 
       msg.header.stamp = ros::Time::now();
@@ -288,13 +347,15 @@ namespace explore
     private_nh_.param("WSR_utility_alpha_parameter", utility_alpha_parameter_, 1.0); 
     private_nh_.param("WSR_utility_beta_parameter", utility_beta_parameter_, 1.0); 
     private_nh_.param("Quadmap_width", Quadmap_width_, 20.0); 
-    private_nh_.param("Quadmap_height", Quadmap_height, 20.0); 
+    private_nh_.param("Quadmap_height", Quadmap_height, 20.0);
+ 
 
     //Subscribers
     modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
+    __dim_object_name = "mailbox_blue_clone";
 
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
@@ -417,6 +478,13 @@ namespace explore
   {
     // find frontiers
     auto pose = costmap_client_.getRobotPose();
+
+    if(!__Flag_set_home)
+    {
+      __home_position.x = pose.position.x;
+      __home_position.y = pose.position.y;
+      __Flag_set_home = true;
+    }
     // ROS_INFO("Neighbors count = %d", int(current_neighbor_pose_vec_.size()));
     
     // for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
@@ -429,7 +497,6 @@ namespace explore
     std::vector<frontier_exploration::Frontier> final_sorted_frontiers;
     frontiers__ = search_.searchFrontiers(pose.position);
     ROS_DEBUG("found %lu frontiers", frontiers__.size());
-    frontier_temp__ = frontiers__;
     unsigned fmx, fmy;
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
 
@@ -455,8 +522,10 @@ namespace explore
     //   ROS_INFO("[Explore.cpp] Query Check: Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
     // }
     // final_sorted_frontiers = frontiers;
-    
-    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_); 
+    if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
+
+    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_, __envBoundary); 
+    frontier_temp__ = final_sorted_frontiers;
 
     
     ROS_INFO("===============Sorted frontiers===================");

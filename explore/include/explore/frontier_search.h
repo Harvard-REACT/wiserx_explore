@@ -55,7 +55,8 @@ public:
   std::vector<Frontier> searchFrontiers(geometry_msgs::Point& position);
   std::vector<Frontier> getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                               quadmap::QuadMap& base_quadmap,
-                                              int& robot_id);
+                                              int& robot_id, bool use_relative_positions,
+                                              std::vector<geometry_msgs::Point>& envBoundary);
 
 protected:
   /**
