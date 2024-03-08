@@ -54,7 +54,13 @@ std::default_random_engine generator;
 bool FLAG_noise = false;
 auto start_val = std::chrono::high_resolution_clock::now();
 auto stop_val = std::chrono::high_resolution_clock::now();
+auto start_exploration = std::chrono::high_resolution_clock::now();
+auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+
+static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters
+static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.08); //bearing noise mean and stddev in meters
+
 
 namespace explore
 {
@@ -136,12 +142,12 @@ namespace explore
           wsr_exploration::RelativeEstimate neighboring_robot;   
           quadmap::Robot new_robot_track;
 
-          auto search_val = robot_information.find(name[itr].c_str());
-          if( search_val == robot_information.end())
+          auto search_val = robot_information__.find(name[itr].c_str());
+          if( search_val == robot_information__.end())
           {
             new_robot_track.robot_id = itr;
-            robot_information.insert({name[itr].c_str(), new_robot_track});
-            // ROS_DEBUG("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id);
+            robot_information__.insert({name[itr].c_str(), new_robot_track});
+            // ROS_DEBUG("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id);
           }
           
           //TODO: The positions need to be in map coordinates
@@ -152,7 +158,7 @@ namespace explore
           unsigned int sizeX = costmap2d->getSizeInCellsX();
           unsigned int sizeY = costmap2d->getSizeInCellsY();
           ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
-          quadmap::Node position_node(mx__, my__, robot_information[name[itr].c_str()].robot_tau, robot_information[name[itr].c_str()].robot_id,timestep__);   
+          quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);   
 
           if(name[itr]!=robot_name_)
           {
@@ -198,7 +204,7 @@ namespace explore
             robot_id_ = msg.robot_id; //Not that the robot id will not change during an instance of simulation
           }
           
-          robot_information[name[itr]].node_information.push(position_node);
+          robot_information__[name[itr]].node_information.push(position_node);
           base_quadmap_.insert_till_end(position_node); 
           base_quadmap_.update_quadmap_ID(itr);
         }
@@ -259,6 +265,207 @@ namespace explore
         fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
         msg.frontiers.push_back(fc_point);
       }
+
+      msg.header.stamp = ros::Time::now();
+      msg.header.frame_id = std::to_string(frame__++);
+      quadmapPub_.publish(msg);
+
+      start_val = std::chrono::high_resolution_clock::now();
+    }
+    
+    stop_val = std::chrono::high_resolution_clock::now();
+
+  }
+
+
+void get_noisy_range_and_bearing_from_groundtruth(geometry_msgs::Pose& robot_i_positions,
+                                                                geometry_msgs::Pose& robot_j_positions,
+                                                                std::vector<double>& output)
+{ 
+  float diff_x = robot_j_positions.position.x - robot_i_positions.position.x ;
+  float diff_y = robot_j_positions.position.y - robot_i_positions.position.y;
+  
+  
+  float noisy_range = sqrt(pow((diff_x),2.0) + pow((diff_y),2.0)); // meters
+  float noisy_bearing = atan2(diff_y, diff_x); // radians
+  ROS_INFO("True range (meters), bearing (degrees) = %f, %f", noisy_range, noisy_bearing*180/3.14);
+
+  noisy_range = noisy_range +  range_measurement_gaussian_noise_(generator); // meters
+  noisy_bearing = noisy_bearing +  bearing_measurement_gaussian_noise_(generator); // radians
+  ROS_INFO("Noisy range (meters), bearing(degrees): = %f, %f", noisy_range, noisy_bearing*180/3.14);
+  
+  output.push_back(noisy_range);
+  output.push_back(noisy_bearing);
+  ROS_INFO("output range (meters), bearing(degrees): = %f, %f", output[0], output[1]*180/3.14);
+}
+
+
+
+void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
+{
+    std::vector<std::string> name = input_msg->name;
+    std::vector<geometry_msgs::Pose> pose_vec = input_msg->pose;
+    geometry_msgs::Pose robot_i_positions;
+    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+    double world_x, world_y;
+    std::vector<frontier_exploration::Frontier> frontiers_copy;
+    std::vector<double> cov_array{0,0};
+    
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+    if(duration.count() > measurement_interval__) // publish every 10 seconds
+    {
+      timestep__+=1;
+      wsr_exploration::QuadmapViz msg;
+      
+      //First find the current position of the robot i
+      for(int itr=0; itr<name.size(); itr++)
+      {
+        if(name[itr]==robot_name_)
+        {
+          robot_i_positions = pose_vec[itr];
+          robot_id_ = itr; //Not that the robot id will not change during an instance of simulation
+          costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+          msg.own_position.x = mx__;
+          msg.own_position.y = my__;
+          msg.robot_id = itr;
+          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          break;
+        }
+
+      }
+      
+      for(int itr=0; itr<name.size(); itr++)
+      {
+        if(IsMatch(name[itr]))
+        {
+          wsr_exploration::RelativeEstimate neighboring_robot;             
+          double est_x_j,est_y_j;
+        
+          if(name[itr]!=robot_name_) //Only do this for robot j in the neighborhood of robot i
+          {
+            //Get true positions of the neighboring robot and generate range and bearing 
+            measurement_output__.clear();
+            get_noisy_range_and_bearing_from_groundtruth(robot_i_positions, pose_vec[itr], measurement_output__);
+            ROS_INFO("Got estimates");
+            ROS_INFO("Noisy range (meters), bearing(degrees): = %f, %f", measurement_output__[0], measurement_output__[1]*180/3.14);
+
+
+            auto search_val = robot_information__.find(name[itr].c_str());
+            if( search_val == robot_information__.end())
+            {
+              ROS_INFO("Creating Robot j track");
+              quadmap::Robot new_robot_track;
+              new_robot_track.robot_id = itr;
+              robot_information__.insert({name[itr].c_str(), new_robot_track});
+
+              double first_est_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
+              double first_est_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
+              
+              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
+              
+              
+              VectorXd robot_j_first_estimate(4) ;
+              ROS_INFO("Created Kalman filter object");
+              robot_j_first_estimate << first_est_x, first_est_y, 0.1, 0.1; // x,y,vx,vy - constant velocity model
+              ROS_INFO("Initializaing EKF Track");
+              wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__);
+              ekf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
+              est_x_j = robot_j_first_estimate[0];
+              est_y_j = robot_j_first_estimate[1];
+              ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+
+
+              // ROS_INFO("Created Particle filter object");
+              // VectorXd robot_j_first_estimate(4) ;
+              // robot_j_first_estimate << first_est_x, first_est_y, 0.1, 0.1; // x,y,vx,vy - constant velocity model
+              // wsr_state_estimation::ParticleFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__, 0.5,0.01, 0.2,0.2);
+              // pf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
+              // est_x_j = robot_j_first_estimate[0];
+              // est_y_j = robot_j_first_estimate[1];
+              // ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+            }
+            else
+            {
+              //Perform state_estimation of robot j
+              ROS_INFO("Found Robot j track");
+              
+              ekf_robot_track__[name[itr].c_str()].predict();
+              VectorXd z(2);
+              z << measurement_output__[0] , measurement_output__[1];
+              ekf_robot_track__[name[itr].c_str()].update(z,robot_i_positions);
+              est_x_j = ekf_robot_track__[name[itr].c_str()].x[0];
+              est_y_j = ekf_robot_track__[name[itr].c_str()].x[1];
+              cov_array[0] = ekf_robot_track__[name[itr].c_str()].P(0,0); //cov_x
+              cov_array[1] = ekf_robot_track__[name[itr].c_str()].P(1,1); //cov_y
+
+
+              // pf_robot_track__[name[itr].c_str()].predict();
+              // VectorXd z(2);
+              // z << measurement_output__[0] , measurement_output__[1];
+              // pf_robot_track__[name[itr].c_str()].updateWeights(z,robot_i_positions);
+              // VectorXd est_j(4); 
+              // est_j =  pf_robot_track__[name[itr].c_str()].getEstimate();
+              // est_x_j = est_j(0);
+              // est_y_j = est_j(1);
+              // MatrixXd cov = pf_robot_track__[name[itr].c_str()].computeCovariance(est_j);
+              // cov_array[0] = cov(0,0); //cov_x
+              // cov_array[1] = cov(1,1); //cov_y
+
+              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              ROS_INFO("Predicate estimate = %f, %f", est_x_j, est_y_j);
+
+            }
+
+            unsigned int sizeX = costmap2d->getSizeInCellsX();
+            unsigned int sizeY = costmap2d->getSizeInCellsY();
+            ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+            
+            //Add true position
+            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+            quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
+
+            //Add estimated position
+            costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
+            position_node.add_position_noise(mx__, my__);            
+            position_node.updateOmega(1, 1);
+            robot_information__[name[itr]].node_information.push(position_node);
+            base_quadmap_.insert_till_end(position_node); 
+            base_quadmap_.update_quadmap_ID(itr);
+
+            //Publisher message
+            ROS_INFO("Adding neighbor info");
+            neighboring_robot.true_position.x = position_node.true_x;
+            neighboring_robot.true_position.y = position_node.true_y;        
+            neighboring_robot.estimated_position.x = position_node.est_x;
+            neighboring_robot.estimated_position.y = position_node.est_y;
+
+            neighboring_robot.covariance = cov_array;
+            neighboring_robot.status = 1;
+            neighboring_robot.robot_id = position_node.getRobotID();
+            msg.other_robots.push_back(neighboring_robot);
+            ROS_INFO("Added neighbor info");
+          }
+        }
+      }
+
+      //Get frontiers centroids.
+      // frontiers_copy = frontier_temp__;
+      // // if(frontier_temp__.size()>0) 
+      // for(auto frontier_val : frontiers_copy)
+      // {
+      //   // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+      //   wsr_exploration::FrontierInfo fc_point;
+      //   costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+      //   fc_point.centroid.x = fmx__;
+      //   fc_point.centroid.y = fmy__;
+      //   fc_point.size=frontier_val.size;
+      //   fc_point.information_gain=frontier_val.information_gain;
+      //   fc_point.centroid_distance=frontier_val.centroid_distance;
+      //   fc_point.utility=frontier_val.cost;
+      //   fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+      //   msg.frontiers.push_back(fc_point);
+      // }
 
       msg.header.stamp = ros::Time::now();
       msg.header.frame_id = std::to_string(frame__++);
@@ -348,10 +555,12 @@ namespace explore
     private_nh_.param("WSR_utility_beta_parameter", utility_beta_parameter_, 1.0); 
     private_nh_.param("Quadmap_width", Quadmap_width_, 20.0); 
     private_nh_.param("Quadmap_height", Quadmap_height, 20.0);
+    private_nh_.param("measurement_interval", measurement_interval__, 5.0);
  
 
     //Subscribers
-    modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
@@ -524,7 +733,7 @@ namespace explore
     // final_sorted_frontiers = frontiers;
     if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
 
-    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_, __envBoundary); 
+    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_); 
     frontier_temp__ = final_sorted_frontiers;
 
     
@@ -536,14 +745,18 @@ namespace explore
     }
     
     //TODO: Update this to store utility without using the relative positions
-    writeToFile(frontiers__,final_sorted_frontiers,fn); 
+    end_exploration = std::chrono::high_resolution_clock::now();
+    std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
+    writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
     
     
     // Stop if no more new frontiers exist or the stop flag is set.
     if (final_sorted_frontiers.empty() || exploration_done_) 
     {
       stop();
-      writeToFile(frontiers__,final_sorted_frontiers, fn);
+      end_exploration = std::chrono::high_resolution_clock::now();
+      std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
+      writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
       return;
     }
 
@@ -670,23 +883,16 @@ namespace explore
   /** 
    * Save exploration stats to file
    * */
-  void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_frontiers, 
-                            std::vector<frontier_exploration::Frontier>& wsr_frontiers,
-                            std::string& fn)
+  void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& wsr_frontiers,
+                            std::string& fn,
+                            std::chrono::seconds& elapsed_time__)
   {
 
-    // Store stats of the frontier when utility does not account for relative positions of neighboring robots
-    for(int i=0; i<int(default_frontiers.size()); i++)
-    { 
-      std::vector<float> temp {float(default_frontiers[i].pos_id), float(default_frontiers[i].information_gain), 
-                              float(default_frontiers[i].centroid_distance), float(default_frontiers[i].size), float(i+1)}; 
-      default_frontier_stats_.push_back(temp);
-    }
-
-    for(int i=0; i<int(wsr_frontiers.size()); i++)
+    float dur = elapsed_time__.count();
+    for(int i=0; i<wsr_frontiers.size(); i++)
     {
       std::vector<float> temp{float(wsr_frontiers[i].pos_id), float(wsr_frontiers[i].information_gain), 
-                              float(wsr_frontiers[i].centroid_distance), float(wsr_frontiers[i].size), float(i+1)};
+                              float(wsr_frontiers[i].centroid_distance), float(wsr_frontiers[i].neighbors_count), float(i+1), dur};
       wsr_frontiers_stats_.push_back(temp);
     }
 
@@ -697,18 +903,10 @@ namespace explore
       std::cout.precision(10);
       const auto p1 = std::chrono::system_clock::now();
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
-      std::string fn1 = fn+"def_frontiers_stats_"+robot_name_+"_"+ts+".csv";
-      std::string fn2 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
-      if(FLAG_WSR_)
-      {
-        fn1 = fn+"def_frontiers_stats_wsr_"+robot_name_+"_"+ts+".csv";
-        fn2 = fn+"wsr_frontiers_stats_wsr_"+robot_name_+"_"+ts+".csv";
-      }
-      
+      std::string fn1 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
       std::ofstream myfile_def (fn1);
-      std::ofstream myfile_wsr (fn2);
       std::vector<double> temp;
-      std::vector<std::string> details {"pos_id", "info_gain", "effort", "j_dist", "j_count", "index"}; //index 1 means the top most frontier at each iteration which will then be selected
+      std::vector<std::string> details {"pos_id", "info_gain", "centroid_distance" , "j_relative_position_count", "frontier_index", "Elapsed time(sec)"}; //index 1 means the top most frontier at each iteration which will then be selected
 
       if (myfile_def.is_open())
       {
@@ -719,40 +917,17 @@ namespace explore
           myfile_def << "\n";
 
 
-          for(size_t i = 0; i < default_frontier_stats_.size(); i++)
+          for(size_t i = 0; i < wsr_frontiers_stats_.size(); i++)
           {
-              for(int j=0; j< default_frontier_stats_[i].size(); j++)
+              for(int j=0; j< wsr_frontiers_stats_[i].size(); j++)
               {
-                  myfile_def << std::fixed << default_frontier_stats_[i][j] << ",";
+                  myfile_def << std::fixed << wsr_frontiers_stats_[i][j] << ",";
               }
               myfile_def << "\n";
           }
           
       }
       myfile_def.close();
-
-      if(FLAG_WSR_)
-      {
-        if (myfile_wsr.is_open())
-        {
-            for(int j=0; j< details.size(); j++)
-            {
-                myfile_wsr << std::fixed << details[j] << ",";
-            }
-            myfile_wsr << "\n";
-            
-            for(size_t i = 0; i < wsr_frontiers_stats_.size(); i++)
-            {
-                for(int j=0; j< wsr_frontiers_stats_[i].size(); j++)
-                {
-                    myfile_wsr << std::fixed << wsr_frontiers_stats_[i][j] << ",";
-                }
-                myfile_wsr << "\n";
-            }
-          
-        }
-        myfile_wsr.close();
-      }
     }
   }
 

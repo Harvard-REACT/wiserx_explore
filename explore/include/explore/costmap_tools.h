@@ -134,14 +134,6 @@ namespace frontier_exploration
     return false;
   }
 
-
-  bool withinBounds(double& x, double& y, std::vector<geometry_msgs::Point>& envBoundary)
-  {
-    return x >= envBoundary[0].x && x <= envBoundary[1].x &&
-        y >= envBoundary[0].y && y <= envBoundary[2].y;
-  }
-
-
   /**
    * @brief NJ addition - Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
    * @param result Count of such cells
@@ -156,8 +148,7 @@ namespace frontier_exploration
    */
   bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
                                    const costmap_2d::Costmap2D& costmap, double& sensor_range,
-                                   std::vector<quadmap::Node>& neighboring_robots_positions, 
-                                   std::vector<geometry_msgs::Point>& envBoundary)
+                                   std::vector<quadmap::Node>& neighboring_robots_positions)
   {
     const unsigned char* map = costmap.getCharMap();
     const unsigned int size_x = costmap.getSizeInCellsX(),
@@ -165,8 +156,10 @@ namespace frontier_exploration
 
     float dist_i = 0;
     float dist_j = 0;
-    int sigmoid_cost_midpoint_ = sensor_range/2; //Note that since the sigmoid is still based on the sensor range only
-    int sigmoid_cost_steepness_ = 0.1; //0.75 //0.1 ==> almost uniform
+    float sigmoid_cost_midpoint_ = sensor_range; //Note that since the sigmoid is still based on the sensor range only
+    // float sigmoid_cost_steepness_ = 0.1; //0.75 //0.1 ==> almost uniform (for older sigmoid formualation)
+    float sigmoid_cost_steepness_ = 0.1; 
+    float sigmoid_cost_amplitude_ = 1.0;
     float E_hat_c = 0;
     float info_loss_with_distance = 0, info_loss_with_time=0;
     unsigned int sx, sy, nx, ny;
@@ -286,14 +279,20 @@ namespace frontier_exploration
             // costmap.mapToWorld(neighboring_robot_val.true_x, neighboring_robot_val.true_y, rwx, rwy);
             dist_j = sqrt(pow((rwx-wx),2) + pow((rwy-wy),2));
             
-            if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
+            // if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
+            if(dist_j <= sensor_range)
             {
               // ROS_INFO("Distance to rel position (meters): %f", dist_j);
               // info_loss_with_distance = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
               // E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
               
-              info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_-neighboring_robot_val.omega)));
-              info_loss_with_time = exp(-10*iterator)*info_loss_with_distance;
+              // info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_-neighboring_robot_val.omega)));
+              // info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
+              
+              //NJ modified - new sigmoid function
+              info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
+              // info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/std::max(sigmoid_cost_steepness_,neighboring_robot_val.omega)));
+              info_loss_with_time = exp(-2*iterator)*info_loss_with_distance;
               // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
               // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
               E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
@@ -309,7 +308,9 @@ namespace frontier_exploration
         // }
         
         dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2));
-        result += ( 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); 
+        result += (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)) - E_hat_c); // Use this when sensor bounding overlapp within sensor_range only
+        //result += 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c; // Use this when sensor bounding overlapp within sensor_range only
+        // result += std::max(float(0.0), 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); //Not using negative info gain for a cell 
       }
 
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)

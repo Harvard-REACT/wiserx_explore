@@ -635,6 +635,7 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
     return op;   
   }
 
+  
   /**
    * 
    * */

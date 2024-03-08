@@ -61,6 +61,7 @@ add_executable(explore
   src/costmap_client.cpp
   src/explore.cpp
   src/frontier_search.cpp
+  src/state_filter.cpp
 )
 
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})

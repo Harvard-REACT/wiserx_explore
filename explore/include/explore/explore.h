@@ -41,6 +41,17 @@
 #include <mutex>
 #include <string>
 #include <vector>
+#include <regex>
+#include <iterator>
+#include <unistd.h>
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <random>
+#include <pwd.h>
+#include <time.h>
+#include <chrono>
+#include <cmath>
 
 #include <actionlib/client/simple_action_client.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -52,6 +63,7 @@
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
 #include <explore/quadmap.h>
+#include <explore/state_estimation_filter.h>
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
@@ -61,16 +73,7 @@
 #include <wsr_exploration/RelativeEstimate.h>
 #include <wsr_exploration/FrontierInfo.h>
 
-#include <regex>
-#include <iterator>
-#include <unistd.h>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <random>
-#include <pwd.h>
-#include <time.h>
-#include <chrono>
+
 
 namespace explore
 {
@@ -108,15 +111,17 @@ private:
 
   void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
+  void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
+
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
   bool IsMatch(std::string& val);
 
   bool IsMatchDim(std::string& val);
 
-  void writeToFile(std::vector<frontier_exploration::Frontier>& default_frontiers, 
-                            std::vector<frontier_exploration::Frontier>&wsr_frontiers,
-                            std::string& fn);
+  void writeToFile(std::vector<frontier_exploration::Frontier>& wsr_frontiers,
+                            std::string& fn,
+                            std::chrono::seconds& elapsed_time__);
 
   void explorationStatusCB(const std_msgs::Bool::ConstPtr& msg);
   void uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg);
@@ -178,17 +183,20 @@ private:
   float __Flag_set_home = false;
   geometry_msgs::Point  __left_bottom, __right_bottom, __left_top, __right_top;
   std::vector<geometry_msgs::Point> __envBoundary;
-  geometry_msgs::Point __home_position
+  geometry_msgs::Point __home_position;
   
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
   double Quadmap_width_;
   double Quadmap_height;
-  std::unordered_map<std::string, quadmap::Robot> robot_information;
+  std::unordered_map<std::string, quadmap::Robot> robot_information__;
   int timestep__ = 0 ;
 
-  //Particle filter parameters
+  //Filter parameters
+  std::vector<double> measurement_output__;
+  std::unordered_map<std::string, wsr_state_estimation::ExtendedKalmanFilter> ekf_robot_track__;
+  std::unordered_map<std::string, wsr_state_estimation::ParticleFilter> pf_robot_track__;
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_init_pos_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_robot_est_pos_;
   int particle_threshold_ = 540;
@@ -198,6 +206,7 @@ private:
   std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
   bool same_goal__ = false, reached_goal__=true,__checked_for_new_frontiers=false;
   double robot_position_x_before_=0.0, robot_position_y_before_=0.0;
+  double measurement_interval__ = 0;
   std::vector<frontier_exploration::Frontier> frontiers__, frontier_temp__;
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
 };

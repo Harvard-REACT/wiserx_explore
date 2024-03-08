@@ -34,7 +34,7 @@ namespace quadmap
             
             float cov_x = 0;
             float cov_y = 0;
-            float omega = 1;
+            float omega = 0;
             //TODO update this 
             float kappa = 0.5;
             int timestep = 0;
@@ -46,7 +46,7 @@ namespace quadmap
                 est_x = true_x;
                 est_y = true_y;
             }
-
+            
             void add_position_noise(float noisy_map_x, float noisy_map_y)
             {
                 est_x = noisy_map_x;
@@ -69,7 +69,7 @@ namespace quadmap
             void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
             {
                 // omega = exp(-kappa*(cov_x+cov_y));
-                omega = cov_x+cov_y;
+                omega = cov_x+cov_y; //Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }
 
@@ -125,11 +125,11 @@ namespace quadmap
 
             // Checks if a given point (x, y) is within the rectangle.
             // Returns true if the point is inside; otherwise, false.
-            // bool contains(const Node& point) const 
-            // {
-            //     return point.true_x >= west_edge && point.true_x < east_edge &&
-            //         point.true_y >= north_edge && point.true_y < south_edge;
-            // }
+            bool containsTrue(const Node& point) const 
+            {
+                return point.true_x >= west_edge && point.true_x < east_edge &&
+                    point.true_y >= north_edge && point.true_y < south_edge;
+            }
 
             bool contains(const Node& point) const 
             {
@@ -283,7 +283,8 @@ namespace quadmap
                 // }
                 if (boundary.w <= 2*sensor_range_map_res) 
                 {
-                    if (boundary.contains(point)) 
+                    if (boundary.contains(point))
+                    // if (boundary.containsTrue(point)) 
                     {
                         // Add the point here if the boundary contains the point and meets the condition.
                         // points.push_back(std::ref(point));
@@ -371,6 +372,7 @@ namespace quadmap
                 // ROS_INFO("Quadmap south_edge %f", this->boundary.south_edge); 
 
                 auto a = query_boundary.contains(point);
+                // auto a = query_boundary.containsTrue(point);
                 // ROS_INFO("Query west_edge %f", query_boundary.west_edge);
                 // ROS_INFO("Query east_edge %f", query_boundary.east_edge);
                 // ROS_INFO("Query north_edge %f", query_boundary.north_edge);
