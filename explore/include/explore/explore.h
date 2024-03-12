@@ -90,6 +90,7 @@ public:
 
   void start();
   void stop();
+  ros::NodeHandle public_nh_;
 
 private:
   /**

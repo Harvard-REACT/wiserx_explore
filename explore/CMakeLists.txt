@@ -16,8 +16,27 @@ find_package(catkin REQUIRED COMPONENTS
   visualization_msgs
   natnet_pkg
   wsr_exploration
+  message_generation
 )
 find_package(OpenMP REQUIRED)
+
+
+################################################
+## Declare ROS messages, services and actions ##
+################################################
+
+## Generate messages in the 'msg' folder
+add_message_files(
+  FILES
+  RangeBearing.msg
+)
+
+## Generate added messages and services with any dependencies listed here
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 
 ###################################
 ## catkin specific configuration ##
@@ -36,6 +55,7 @@ catkin_package(
     tf
     visualization_msgs
     wsr_exploration
+    message_runtime
 )
 
 ###########
@@ -64,15 +84,15 @@ add_executable(explore
   src/state_filter.cpp
 )
 
-add_executable(test_aoa
-  src/test_realtime_aoa.cpp
+add_executable(realtime_range_aoa
+  src/realtime_range_aoa.cpp
 )
 
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(explore ${catkin_LIBRARIES})
 
-add_dependencies(test_aoa ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(test_aoa ${catkin_LIBRARIES})
+add_dependencies(realtime_range_aoa ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(realtime_range_aoa ${catkin_LIBRARIES})
 
 
 # add_executable(test_particle_filter
