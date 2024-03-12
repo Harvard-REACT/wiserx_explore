@@ -64,8 +64,16 @@ add_executable(explore
   src/state_filter.cpp
 )
 
+add_executable(test_aoa
+  src/test_realtime_aoa.cpp
+)
+
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(explore ${catkin_LIBRARIES})
+
+add_dependencies(test_aoa ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(test_aoa ${catkin_LIBRARIES})
+
 
 # add_executable(test_particle_filter
 #   src/costmap_client.cpp
