@@ -72,8 +72,8 @@
 #include <wsr_exploration/QuadmapViz.h>
 #include <wsr_exploration/RelativeEstimate.h>
 #include <wsr_exploration/FrontierInfo.h>
-
-
+#include <nav_msgs/Path.h>
+#include <nav_msgs/GetPlan.h>
 
 namespace explore
 {
@@ -114,6 +114,8 @@ private:
 
   void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
+  void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
+
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
   bool IsMatch(std::string& val);
@@ -132,8 +134,14 @@ private:
   double quaternionToYaw(const tf::Quaternion& q);
   bool validateQuaternion(const tf::Quaternion& quat);
 
-
   double wrap0to360(double val);
+
+  bool GetPlanPath(const geometry_msgs::PoseStamped& start,
+                  const geometry_msgs::PoseStamped& goal, float tolerance,
+                  nav_msgs::Path& plan); 
+
+  double calculatePathLength(const nav_msgs::Path& path); 
+  
   void particle_filter();
 
   ros::NodeHandle private_nh_;
@@ -143,8 +151,7 @@ private:
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
-  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>
-      move_base_client_;
+  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> move_base_client_;
   frontier_exploration::FrontierSearch search_;
   ros::Timer exploring_timer_;
   ros::Timer oneshot_;
@@ -185,7 +192,11 @@ private:
   geometry_msgs::Point  __left_bottom, __right_bottom, __left_top, __right_top;
   std::vector<geometry_msgs::Point> __envBoundary;
   geometry_msgs::Point __home_position;
-  
+  ros::ServiceClient move_bas_path_client__; 
+  nav_msgs::Path frontier_centroid_path__;
+  geometry_msgs::PoseStamped start__; 
+  geometry_msgs::PoseStamped goal__;
+  float tolerance__ = 0.5; //in meters
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;

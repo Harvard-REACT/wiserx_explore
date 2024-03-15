@@ -36,7 +36,7 @@ namespace quadmap
             float cov_y = 0;
             float omega = 0;
             //TODO update this 
-            float kappa = 0.5;
+            float gamma_val = 1;
             int timestep = 0;
                         
             // Constructors
@@ -68,7 +68,7 @@ namespace quadmap
 
             void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                omega = exp(-kappa*(cov_x+cov_y));
+                omega = exp(-gamma_val*(cov_x+cov_y));
                 // omega = cov_x+cov_y; //Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }

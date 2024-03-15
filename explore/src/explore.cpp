@@ -162,18 +162,18 @@ namespace explore
 
           if(name[itr]!=robot_name_)
           {
-            static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_); //Noise is in world coordinates
-            noise_x_ = gaussian_noise_(generator);
-            noise_y_ = gaussian_noise_(generator);
-            pose_vec[itr].position.x = pose_vec[itr].position.x + gaussian_noise_(generator);
-            pose_vec[itr].position.y = pose_vec[itr].position.y + gaussian_noise_(generator);
-            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
-            position_node.add_position_noise(mx__, my__);            
-            std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
-
+            // static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_); //Noise is in world coordinates
+            // noise_x_ = gaussian_noise_(generator);
+            // noise_y_ = gaussian_noise_(generator);
+            // pose_vec[itr].position.x = pose_vec[itr].position.x + gaussian_noise_(generator);
+            // pose_vec[itr].position.y = pose_vec[itr].position.y + gaussian_noise_(generator);
+            // costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+            // position_node.add_position_noise(mx__, my__);            
+            // std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
+             std::vector<double> cov_array{0, 0};
             
             //Set omega to 1
-            position_node.updateOmega(cov_array[0], cov_array[1]);
+            position_node.updateOmega(cov_array[0], cov_array[1]); //With true positions, omega should be 0
 
             // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);          
             // neighboring_robot.true_position.x = world_x;
@@ -208,44 +208,6 @@ namespace explore
           base_quadmap_.insert_till_end(position_node); 
           base_quadmap_.update_quadmap_ID(itr);
         }
-        // else if(!__FLAG_Dim && IsMatchDim(name[itr]))
-        // {
-          
-        //   if(pose_vec[itr].position.x < 0  && pose_vec[itr].position.y < 0)
-        //   {
-        //     __left_bottom.x=pose_vec[itr].position.x; 
-        //     __left_bottom.y=pose_vec[itr].position.y;
-        //     __Flag_leftB = true; 
-        //   }
-        //   else if(pose_vec[itr].position.x > 0  && pose_vec[itr].position.y < 0)
-        //   {
-        //     __right_bottom.x=pose_vec[itr].position.x; 
-        //     __right_bottom.y=pose_vec[itr].position.y; 
-        //     __Flag_rightB = true;
-        //   }
-        //   else if(pose_vec[itr].position.x > 0  && pose_vec[itr].position.y > 0)
-        //   {
-        //     __left_top.x=pose_vec[itr].position.x; 
-        //     __left_top.y=pose_vec[itr].position.y; 
-        //     __Flag_leftT = true;
-        //   }
-        //   else if(pose_vec[itr].position.x < 0  && pose_vec[itr].position.y > 0)
-        //   {
-        //     __right_top.x=pose_vec[itr].position.x; 
-        //     __right_top.y=pose_vec[itr].position.y;
-        //     __Flag_rightT = true;
-        //   }
-
-        //   __FLAG_Dim = __Flag_leftB && __Flag_rightB && __Flag_leftT && __Flag_rightT;
-        //   if(__FLAG_Dim)
-        //   {
-        //     __envBoundary.push_back(__left_bottom);
-        //     __envBoundary.push_back(__right_bottom);
-        //     __envBoundary.push_back(__left_top);
-        //     __envBoundary.push_back(__right_top);
-        //     ROS_INFO("Set Boundary corners");
-        //   } 
-        // }
       }
 
       //Get frontiers centroids.
@@ -483,6 +445,99 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
   }
 
 
+void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
+{
+    std::vector<std::string> name = input_msg->name;
+    std::vector<geometry_msgs::Pose> pose_vec = input_msg->pose;
+    geometry_msgs::Pose robot_i_positions;
+    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+    double world_x, world_y;
+    std::vector<frontier_exploration::Frontier> frontiers_copy;
+    std::vector<double> cov_array{0,0};
+    
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+    if(duration.count() > measurement_interval__) // publish every 10 seconds
+    {
+      timestep__+=1;
+      wsr_exploration::QuadmapViz msg;
+      
+      //First find the current position of the robot i
+      for(int itr=0; itr<name.size(); itr++)
+      {
+        if(name[itr]==robot_name_)
+        {
+          robot_i_positions = pose_vec[itr];
+          robot_id_ = itr; //Not that the robot id will not change during an instance of simulation
+          costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+          msg.own_position.x = mx__;
+          msg.own_position.y = my__;
+          msg.robot_id = itr;
+          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          break;
+        }
+      }
+      
+      for(int itr=0; itr<name.size(); itr++)
+      {
+        if(IsMatch(name[itr]))
+        {        
+          if(name[itr]!=robot_name_) //Only do this for robot j in the neighborhood of robot i
+          {
+            wsr_exploration::RelativeEstimate neighboring_robot;
+            unsigned int sizeX = costmap2d->getSizeInCellsX();
+            unsigned int sizeY = costmap2d->getSizeInCellsY();
+            ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+            
+            //Add true position
+            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+            quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
+
+            //Publisher message
+            ROS_INFO("Adding neighbor info");
+            neighboring_robot.true_position.x = position_node.true_x;
+            neighboring_robot.true_position.y = position_node.true_y;        
+            neighboring_robot.estimated_position.x = position_node.est_x;
+            neighboring_robot.estimated_position.y = position_node.est_y;
+
+            neighboring_robot.covariance = cov_array;
+            neighboring_robot.status = 1;
+            neighboring_robot.robot_id = position_node.getRobotID();
+            msg.other_robots.push_back(neighboring_robot);
+            ROS_INFO("Added neighbor info");
+          }
+        }
+      }
+
+      //Get frontiers centroids.
+      frontiers_copy = frontier_temp__;
+      // if(frontier_temp__.size()>0) 
+      for(auto frontier_val : frontiers_copy)
+      {
+        // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+        wsr_exploration::FrontierInfo fc_point;
+        costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+        fc_point.centroid.x = fmx__;
+        fc_point.centroid.y = fmy__;
+        fc_point.size=frontier_val.size;
+        fc_point.information_gain=frontier_val.information_gain;
+        fc_point.centroid_distance=frontier_val.centroid_distance;
+        fc_point.utility=frontier_val.cost;
+        fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+        msg.frontiers.push_back(fc_point);
+      }
+
+      msg.header.stamp = ros::Time::now();
+      msg.header.frame_id = std::to_string(frame__++);
+      quadmapPub_.publish(msg);
+
+      start_val = std::chrono::high_resolution_clock::now();
+    }
+    
+    stop_val = std::chrono::high_resolution_clock::now();
+
+  }
+
+
   /** 
    * @brief Get positions of neighboring robots in for hardware experiments in motion capture lab
    * */
@@ -566,7 +621,18 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
-    modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
+    
+    if(FLAG_WSR_)
+    {
+      // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
+      modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+    }
+    else
+    {
+      modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackTruePositionForBaseline, this);
+    }
+
+    move_bas_path_client__ = private_nh_.serviceClient<nav_msgs::GetPlan>("/"+robot_name_+"/move_base_node/make_plan");
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
@@ -740,107 +806,169 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     // final_sorted_frontiers = frontiers;
     if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
 
-    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_,__FLAG_can_stop_now__); 
-    frontier_temp__ = final_sorted_frontiers;
-
-    
-    ROS_INFO("===============Sorted frontiers===================");
-    for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
-    {
-      ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
-      ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
-    }
-    
-    //Get estimated fill percentage of the quadmap
-    filled_cell_count__ = 0;
-    base_quadmap_.query_filled(filled_cell_count__);
-    ROS_INFO("******* Total cells = %f", cell_count__);
-    ROS_INFO("******* Filled cells = %f", filled_cell_count__);
-    ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
-
-    if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-15)
+    //Need to update the frontier centroid distance based on the path length, should be in world coordinates
+    actionlib::SimpleClientGoalState current_state  = move_base_client_.getState();
+    if (current_state != actionlib::SimpleClientGoalState::ACTIVE)
     { 
-      __FLAG_can_stop_now__ = true;
-      ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
-    }
+      start__.pose = pose;
+      for (size_t i = 0; i < frontiers__.size(); ++i) 
+      {
+        ROS_INFO("frontier %zd centroid distance before: %f meters", i, frontiers__[i].centroid_distance);
+        
+        goal__.pose.position.x = frontiers__[i].centroid.x;
+        goal__.pose.position.y = frontiers__[i].centroid.y;
+        goal__.pose.orientation.w = 0.0;
 
-    if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
-    { 
-      ROS_INFO("******* Hard Termination stop ******************");
-      final_sorted_frontiers.clear();
-    }
+        if(GetPlanPath(start__, goal__, tolerance__, frontier_centroid_path__))
+        {
+          ROS_INFO("Path received with %ld poses", frontier_centroid_path__.poses.size());
+          frontiers__[i].centroid_distance = calculatePathLength(frontier_centroid_path__);
+        }
+        else
+        {
+          //No reachable path, assign high cost
+          frontiers__[i].centroid_distance = 1000;
+        }
+        ROS_INFO("frontier %zd centroid distance after: %f meters", i, frontiers__[i].centroid_distance);
+        ROS_INFO("*****************************************************************************");
+      }   
+    
+      final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_,__FLAG_can_stop_now__); 
+      frontier_temp__ = final_sorted_frontiers;
 
-    //TODO: Update this to store utility without using the relative positions
-    end_exploration = std::chrono::high_resolution_clock::now();
-    std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
-    writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
+      
+      ROS_INFO("===============Sorted frontiers===================");
+      for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
+      {
+        ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
+        ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
+      }
     
-    
-    // Stop if no more new frontiers exist or the stop flag is set.
-    if (final_sorted_frontiers.empty() || exploration_done_) 
-    {
-      stop();
+      //Get estimated fill percentage of the quadmap
+      if(FLAG_WSR_)
+      {
+        filled_cell_count__ = 0;
+        base_quadmap_.query_filled(filled_cell_count__);
+        ROS_INFO("******* Total cells = %f", cell_count__);
+        ROS_INFO("******* Filled cells = %f", filled_cell_count__);
+        ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
+
+        if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-15)
+        { 
+          __FLAG_can_stop_now__ = true;
+          ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
+        }
+
+        if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
+        { 
+          ROS_INFO("******* Hard Termination stop ******************");
+          final_sorted_frontiers.clear();
+        }
+      }
+
+      //TODO: Update this to store utility without using the relative positions
       end_exploration = std::chrono::high_resolution_clock::now();
       std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
       writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
-      return;
-    }
+      
+      
+      // Stop if no more new frontiers exist or the stop flag is set.
+      if (final_sorted_frontiers.empty() || exploration_done_) 
+      {
+        stop();
+        end_exploration = std::chrono::high_resolution_clock::now();
+        std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
+        writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
+        return;
+      }
 
-    // publish frontiers as visualization markers
-    if (visualize_) {
-      visualizeFrontiers(final_sorted_frontiers);
-    }
+      // publish frontiers as visualization markers
+      if (visualize_) 
+      {
+        visualizeFrontiers(final_sorted_frontiers);
+      }
 
-    // find non blacklisted frontier
-    auto frontier =
-        std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
-                        [this](const frontier_exploration::Frontier& f) {
-                          return goalOnBlacklist(f.centroid);
+      // find non blacklisted frontier
+      auto frontier =
+          std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
+                          [this](const frontier_exploration::Frontier& f) {
+                            return goalOnBlacklist(f.centroid);
+                          });
+      
+      
+      if (frontier == final_sorted_frontiers.end()) 
+      {
+        //TODO add navigation to home position.
+        stop();
+        return;
+      }
+      
+      // time out if we are not making any progress
+      geometry_msgs::Point target_position = frontier->centroid;
+      bool same_goal = prev_goal_ == target_position;
+      prev_goal_ = target_position;
+      if (!same_goal || prev_distance_ > frontier->min_distance) 
+      {
+        last_progress_ = ros::Time::now(); // we have different goal or we made some progress
+        prev_distance_ = frontier->min_distance;
+      }
+      if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
+      {
+        frontier_blacklist_.push_back(target_position);
+        ROS_DEBUG("Adding current goal to black list");
+        makePlan();
+        return;
+      }
+
+      if (same_goal) 
+      {
+        return;     // we don't need to do anything if we still pursuing the same goal
+
+      }
+
+      // send goal to move_base if we have something new to pursue
+      move_base_msgs::MoveBaseGoal goal;
+      goal.target_pose.pose.position = target_position;
+      goal.target_pose.pose.orientation.w = 1.;
+      goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
+      goal.target_pose.header.stamp = ros::Time::now();
+      move_base_client_.sendGoal(goal, [this, target_position]
+                        ( const actionlib::SimpleClientGoalState& status,
+                          const move_base_msgs::MoveBaseResultConstPtr& result) 
+                        {
+                          reachedGoal(status, result, target_position);
                         });
     
+      }
+  
+  }
+
+
+  /** 
+   * @brief Get the path from planner from current position to the frontier centroid
+   * */
+  bool Explore::GetPlanPath(const geometry_msgs::PoseStamped& start,
+                const geometry_msgs::PoseStamped& goal, float tolerance,
+                nav_msgs::Path& plan) 
+  {
     
-    if (frontier == final_sorted_frontiers.end()) 
-    {
-      //TODO add navigation to home position.
-      stop();
-      return;
-    }
-    
-    // time out if we are not making any progress
-    geometry_msgs::Point target_position = frontier->centroid;
-    bool same_goal = prev_goal_ == target_position;
-    prev_goal_ = target_position;
-    if (!same_goal || prev_distance_ > frontier->min_distance) 
-    {
-      last_progress_ = ros::Time::now(); // we have different goal or we made some progress
-      prev_distance_ = frontier->min_distance;
-    }
-    if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
-    {
-      frontier_blacklist_.push_back(target_position);
-      ROS_DEBUG("Adding current goal to black list");
-      makePlan();
-      return;
-    }
+    move_bas_path_client__.waitForExistence(); // Optional: Wait for the service to exist.
 
-    if (same_goal) 
+    nav_msgs::GetPlan srv;
+    srv.request.start = start;
+    srv.request.goal = goal;
+    srv.request.tolerance = tolerance;
+
+    if (move_bas_path_client__.call(srv)) 
     {
-      return;     // we don't need to do anything if we still pursuing the same goal
-
+      plan = srv.response.plan;
+      return true;
+    } 
+    else 
+    {
+      ROS_ERROR("Failed to call service.");
+      return false;
     }
-
-    // send goal to move_base if we have something new to pursue
-    move_base_msgs::MoveBaseGoal goal;
-    goal.target_pose.pose.position = target_position;
-    goal.target_pose.pose.orientation.w = 1.;
-    goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
-    goal.target_pose.header.stamp = ros::Time::now();
-    move_base_client_.sendGoal(
-        goal, [this, target_position](
-                  const actionlib::SimpleClientGoalState& status,
-                  const move_base_msgs::MoveBaseResultConstPtr& result) {
-          reachedGoal(status, result, target_position);
-        });
   }
 
 
@@ -864,6 +992,28 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     return false;
   }
 
+  
+    /** 
+   * @brief Find the actual path length instead of the euclidean distance.
+   * */
+  double Explore::calculatePathLength(const nav_msgs::Path& path) 
+  {
+    double total_length = 0.0;
+
+    for (size_t i = 1; i < path.poses.size(); ++i) {
+        const auto& pose1 = path.poses[i - 1].pose.position;
+        const auto& pose2 = path.poses[i].pose.position;
+
+        double dx = pose1.x - pose2.x;
+        double dy = pose1.y - pose2.y;
+        total_length += sqrt(dx*dx + dy*dy);
+    }
+
+    return total_length;
+  }
+  
+  
+  
   /** 
    * @brief Action of finding a new goal when the current goal is reached
    * */
@@ -872,7 +1022,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
                             const geometry_msgs::Point& frontier_goal)
   {
     ROS_DEBUG("Reached goal with status: %s", status.toString().c_str());
-    if (status == actionlib::SimpleClientGoalState::ABORTED) {
+    if (status == actionlib::SimpleClientGoalState::ABORTED) 
+    {
       frontier_blacklist_.push_back(frontier_goal);
       ROS_DEBUG("Adding current goal to black list");
     }

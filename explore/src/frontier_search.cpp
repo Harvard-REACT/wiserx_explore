@@ -263,6 +263,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
                                            neighboring_robots_positions);
 
 
+    
     // ROS_INFO("****** Unexplored cells around frontier: %d ***********", uexp_cell_count);
 
     frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function
