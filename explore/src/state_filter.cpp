@@ -112,8 +112,8 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 1, 0,
         0, 0, 0, 1;
 
-    P << 1, 0, 0, 0, // Initial state covariance
-        0, 1, 0, 0,
+    P << 400, 0, 0, 0, // Initial state covariance
+        0, 400, 0, 0,
         0, 0, 1000, 0,
         0, 0, 0, 1000;
 

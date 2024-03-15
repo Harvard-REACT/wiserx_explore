@@ -329,6 +329,10 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           msg.own_position.y = my__;
           msg.robot_id = itr;
           ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          
+          //Add own's position to enable estimating of quadmap fill and terminating.
+          quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+          base_quadmap_.insert_till_end(position_node); 
           break;
         }
 
@@ -367,7 +371,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               
               VectorXd robot_j_first_estimate(4) ;
               ROS_INFO("Created Kalman filter object");
-              robot_j_first_estimate << first_est_x, first_est_y, 0.1, 0.1; // x,y,vx,vy - constant velocity model
+              robot_j_first_estimate << first_est_x, first_est_y, 0.15, 0.15; // x,y,vx,vy - constant velocity model
               ROS_INFO("Initializaing EKF Track");
               wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__);
               ekf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
@@ -428,10 +432,10 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             //Add estimated position
             costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
             position_node.add_position_noise(mx__, my__);            
-            position_node.updateOmega(1, 1);
+            position_node.updateOmega(cov_array[0], cov_array[1]); //Update the term based on the covariance
             robot_information__[name[itr]].node_information.push(position_node);
             base_quadmap_.insert_till_end(position_node); 
-            base_quadmap_.update_quadmap_ID(itr);
+            // base_quadmap_.update_quadmap_ID(itr);
 
             //Publisher message
             ROS_INFO("Adding neighbor info");
@@ -450,22 +454,22 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       }
 
       //Get frontiers centroids.
-      // frontiers_copy = frontier_temp__;
-      // // if(frontier_temp__.size()>0) 
-      // for(auto frontier_val : frontiers_copy)
-      // {
-      //   // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-      //   wsr_exploration::FrontierInfo fc_point;
-      //   costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
-      //   fc_point.centroid.x = fmx__;
-      //   fc_point.centroid.y = fmy__;
-      //   fc_point.size=frontier_val.size;
-      //   fc_point.information_gain=frontier_val.information_gain;
-      //   fc_point.centroid_distance=frontier_val.centroid_distance;
-      //   fc_point.utility=frontier_val.cost;
-      //   fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
-      //   msg.frontiers.push_back(fc_point);
-      // }
+      frontiers_copy = frontier_temp__;
+      // if(frontier_temp__.size()>0) 
+      for(auto frontier_val : frontiers_copy)
+      {
+        // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+        wsr_exploration::FrontierInfo fc_point;
+        costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+        fc_point.centroid.x = fmx__;
+        fc_point.centroid.y = fmy__;
+        fc_point.size=frontier_val.size;
+        fc_point.information_gain=frontier_val.information_gain;
+        fc_point.centroid_distance=frontier_val.centroid_distance;
+        fc_point.utility=frontier_val.cost;
+        fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+        msg.frontiers.push_back(fc_point);
+      }
 
       msg.header.stamp = ros::Time::now();
       msg.header.frame_id = std::to_string(frame__++);
@@ -556,6 +560,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     private_nh_.param("Quadmap_width", Quadmap_width_, 20.0); 
     private_nh_.param("Quadmap_height", Quadmap_height, 20.0);
     private_nh_.param("measurement_interval", measurement_interval__, 5.0);
+    private_nh_.param("quadmap_fill_percentage", fill_percentage_threshold__, 90.0); 
+    private_nh_.param("map_resolution", map_resolution__, 0.15); 
  
 
     //Subscribers
@@ -570,13 +576,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
     
     //Since we insert in map coordinates
-    float map_resolution = 0.25;
-    float width = Quadmap_width_/map_resolution;
-    float height = Quadmap_height/map_resolution;
+    float width = Quadmap_width_/map_resolution__;
+    float height = Quadmap_height/map_resolution__;
 
     //TODO : Check this - map coordinates, map_resolution,
-    auto domain = quadmap::Rect(float(Quadmap_width_)/2, float(Quadmap_height)/2, float(Quadmap_width_), float(Quadmap_height));
-    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution);
+    
+    auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
+    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
+    cell_count__ = base_quadmap_.total_cells;
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
@@ -733,7 +740,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     // final_sorted_frontiers = frontiers;
     if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
 
-    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_); 
+    final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_,__FLAG_can_stop_now__); 
     frontier_temp__ = final_sorted_frontiers;
 
     
@@ -744,6 +751,25 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
     }
     
+    //Get estimated fill percentage of the quadmap
+    filled_cell_count__ = 0;
+    base_quadmap_.query_filled(filled_cell_count__);
+    ROS_INFO("******* Total cells = %f", cell_count__);
+    ROS_INFO("******* Filled cells = %f", filled_cell_count__);
+    ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
+
+    if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-15)
+    { 
+      __FLAG_can_stop_now__ = true;
+      ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
+    }
+
+    if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
+    { 
+      ROS_INFO("******* Hard Termination stop ******************");
+      final_sorted_frontiers.clear();
+    }
+
     //TODO: Update this to store utility without using the relative positions
     end_exploration = std::chrono::high_resolution_clock::now();
     std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);

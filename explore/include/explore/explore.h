@@ -193,6 +193,12 @@ private:
   double Quadmap_height;
   std::unordered_map<std::string, quadmap::Robot> robot_information__;
   int timestep__ = 0 ;
+  float cell_count__ = 0;
+  float filled_cell_count__=0;
+  int my_tau__ = 1;
+  bool __FLAG_can_stop_now__ = false;
+  double fill_percentage_threshold__ = 75;
+  double map_resolution__ = 0 ;
 
   //Filter parameters
   std::vector<double> measurement_output__;

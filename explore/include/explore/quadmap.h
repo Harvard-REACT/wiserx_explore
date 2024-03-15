@@ -68,8 +68,8 @@ namespace quadmap
 
             void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                // omega = exp(-kappa*(cov_x+cov_y));
-                omega = cov_x+cov_y; //Trace of the covariance matrix
+                omega = exp(-kappa*(cov_x+cov_y));
+                // omega = cov_x+cov_y; //Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }
 
@@ -105,6 +105,9 @@ namespace quadmap
             // Constructor initializes the rectangle with center (cx, cy), width (w), and height (h)
             // and calculates the edges based on these values.
             Rect()
+            {
+            }
+            ~Rect()
             {
             }
             
@@ -178,6 +181,8 @@ namespace quadmap
             float sensor_range_map_res = 0;
             float map_resolution = 0;
             int quadmap_ID = 0;
+            int filled_val = 0;
+            int total_cells = 0;
         
         QuadMap()
         {
@@ -187,15 +192,17 @@ namespace quadmap
         : boundary(boundary), sensor_range(sensor_range), map_resolution(map_resolution), depth(depth), divided(false)
         {
             sensor_range_map_res = sensor_range/map_resolution;
+            total_cells = (boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res);
+
             if (boundary.w != boundary.h) 
             {
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
                 exit(1);
             }
-            // ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
-            // ROS_INFO("sensor_range %f ", sensor_range);
-            // ROS_INFO("map_resolution %f ", map_resolution);
-            // ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
+            ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
+            ROS_INFO("sensor_range %f ", sensor_range);
+            ROS_INFO("map_resolution %f ", map_resolution);
+            ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
         }
 
         /**
@@ -281,7 +288,7 @@ namespace quadmap
                 //     }
                 //     return false;
                 // }
-                if (boundary.w <= 2*sensor_range_map_res) 
+                if (boundary.w <= sensor_range_map_res) 
                 {
                     if (boundary.contains(point))
                     // if (boundary.containsTrue(point)) 
@@ -302,6 +309,7 @@ namespace quadmap
                         // {
                         //     ROS_INFO("Insert Check inserted a true point(x,y,ID) = %f,%f,%d ", ptr.true_x, ptr.true_y, ptr.getRobotID());
                         // }
+                        this->filled_val += 1;
                         return true;
                     }
                     
@@ -324,6 +332,46 @@ namespace quadmap
                     return false; // Return false if the point could not be inserted into any child nodes.
                 }
             }
+
+
+        /**
+         * Finds the nodes within the quadtree that lie within a specified radius of a given centre node.
+         * 
+         * The search is optimized by first considering a bounding square around the circle defined by the radius.
+         * This method checks if the quadtree node's boundary intersects with this square. If not, it concludes
+         * there are no nodes of interest in this node. If there is an intersection, it further checks each node
+         * within the node to determine if it lies within the specified radius from the centre. This method combines
+         * both rectangular boundary checks and circular distance checks to efficiently filter out nodes.
+         * 
+         * @param boundary A Rect object representing the bounding square of the search circle.
+         * @param centre The centre node of the search circle.
+         * @param radius The radius of the search circle.
+         * @param found_nodes A reference to a vector of Node objects where nodes found within the radius are added.
+         * @return True if any nodes are found within the radius, False otherwise.
+         */
+        void query_filled(float& filled_cell_count)
+        {
+                if (boundary.w <= sensor_range_map_res) 
+                {
+                    if (this->filled_val > 2) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
+                    {
+                        filled_cell_count += 1;
+                    }
+                } 
+                else 
+                {
+                    // Still need to divide further to go all the way to the last node.
+                    if (!divided) {
+                        divide(); // Divide the node if it has not been divided yet.
+                    }
+
+                    nw->query_filled(filled_cell_count);
+                    ne->query_filled(filled_cell_count);
+                    se->query_filled(filled_cell_count);
+                    sw->query_filled(filled_cell_count);
+                    
+                }
+        }
 
 
         /**

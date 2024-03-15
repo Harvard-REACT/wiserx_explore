@@ -27,6 +27,7 @@ namespace wsr_state_estimation
         double dt; // Time step
 
         ExtendedKalmanFilter(){}
+        ~ExtendedKalmanFilter(){}
         ExtendedKalmanFilter(VectorXd x_val, double interval);
         VectorXd get_covariance();
         void predict();

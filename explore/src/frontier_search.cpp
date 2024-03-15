@@ -200,7 +200,7 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
   {
     Frontier frontier = fq.front();
     fq.pop();
-    if (frontier.size * costmap_->getResolution() > max_frontier_size_)
+    if (frontier.size * costmap_->getResolution() > max_frontier_size_*1.25)
     {
       //Split into two
       std::vector<Frontier> temp;
@@ -224,7 +224,8 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
 */
 std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                                              quadmap::QuadMap& base_quadmap,
-                                                             int& robot_id, bool use_relative_positions)
+                                                             int& robot_id, bool use_relative_positions,
+                                                             bool __FLAG_can_stop_now__)
 {
   std::vector<Frontier> final_frontier_list;
   float f_cost_min = 100000, f_cost_max = 0;
@@ -269,11 +270,21 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     frontier.neighbors_count = neighboring_robots_positions.size();
     frontier.information_gain = info_gain_uexp_cell_count;
 
-    if(info_gain_uexp_cell_count > 0 && frontier.cost > 1) //meters
-    { 
+    // if(frontier.cost > 1)
+    // {
+    //   final_frontier_list.push_back(frontier);
+    // }
+    if(__FLAG_can_stop_now__ && frontier.information_gain < 10)
+    {
+      ROS_INFO("Discarding frontier");
+    }
+    else
+    {
       final_frontier_list.push_back(frontier);
     }
+    // final_frontier_list.push_back(frontier);
   }
+
 
   // For frontier Utility, the frontier with highest utility should be the first
   std::sort(

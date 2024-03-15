@@ -156,7 +156,7 @@ namespace frontier_exploration
 
     float dist_i = 0;
     float dist_j = 0;
-    float sigmoid_cost_midpoint_ = sensor_range; //Note that since the sigmoid is still based on the sensor range only
+    float sigmoid_cost_midpoint_ = sensor_range*0.5; //Note that since the sigmoid is still based on the sensor range only
     // float sigmoid_cost_steepness_ = 0.1; //0.75 //0.1 ==> almost uniform (for older sigmoid formualation)
     float sigmoid_cost_steepness_ = 0.1; 
     float sigmoid_cost_amplitude_ = 1.0;
@@ -292,7 +292,9 @@ namespace frontier_exploration
               //NJ modified - new sigmoid function
               info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
               // info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/std::max(sigmoid_cost_steepness_,neighboring_robot_val.omega)));
-              info_loss_with_time = exp(-2*iterator)*info_loss_with_distance;
+              // info_loss_with_time = exp(-2*iterator)*info_loss_with_distance;
+              // info_loss_with_time = neighboring_robot_val.omega*exp(-0.1*iterator)*info_loss_with_distance; //Scale the loss with convariance info also
+              info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance; //Scale the loss with convariance info also
               // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
               // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
               E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
