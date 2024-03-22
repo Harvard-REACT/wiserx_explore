@@ -188,13 +188,13 @@ namespace frontier_exploration
     //   unsigned int idx_rel_position;
     //   for (auto neighboring_robot_val : neighboring_robots_positions) 
     //   {
-    //     costmap.mapToWorld(neighboring_robot_val.est_x, neighboring_robot_val.est_y, rwx, rwy);
+    //     costmap.mapToWorld(neighboring_robot_val.est_mx, neighboring_robot_val.est_my, rwx, rwy);
     //     dist_j = sqrt(pow((rwx-swx),2) + pow((rwy-swy),2));
         
     //     if(dist_j <= sensor_range) //Checking closer proximity than when computing overlap
     //     {
     //       ROS_INFO("[Frontier Info gain] Found a position in known region at distance %f", dist_j);
-    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.est_x, neighboring_robot_val.est_y);
+    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.est_mx, neighboring_robot_val.est_my);
     //       if(map[idx_rel_position] != cell_val) rel_positions_in_known_region+=1;
     //     }
     //   }
@@ -226,8 +226,8 @@ namespace frontier_exploration
     //   unsigned int idx_rel_position;
     //   for (auto neighboring_robot_val : neighboring_robots_positions) 
     //     {
-    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.true_x, neighboring_robot_val.true_y);
-    //       costmap.mapToWorld(neighboring_robot_val.true_x, neighboring_robot_val.true_y, rwx, rwy);
+    //       idx_rel_position = costmap.getIndex(neighboring_robot_val.true_mx, neighboring_robot_val.true_my);
+    //       costmap.mapToWorld(neighboring_robot_val.true_mx, neighboring_robot_val.true_my, rwx, rwy);
     //       std::queue<unsigned int> bfs_rel;
     //       bfs_rel.push(idx_rel_position);
 
@@ -275,13 +275,13 @@ namespace frontier_exploration
         int iterator = 0;
         for (auto neighboring_robot_val : neighboring_robots_positions) 
         {
-            costmap.mapToWorld(neighboring_robot_val.est_x, neighboring_robot_val.est_y, rwx, rwy);
-            // costmap.mapToWorld(neighboring_robot_val.true_x, neighboring_robot_val.true_y, rwx, rwy);
+            costmap.mapToWorld(neighboring_robot_val.est_mx, neighboring_robot_val.est_my, rwx, rwy);
+            // costmap.mapToWorld(neighboring_robot_val.true_mx, neighboring_robot_val.true_my, rwx, rwy);
             dist_j = sqrt(pow((rwx-wx),2) + pow((rwy-wy),2));
             
             // if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
-            if(dist_j <= sensor_range)
-            {
+            // if(dist_j <= sensor_range)
+            // {
               // ROS_INFO("Distance to rel position (meters): %f", dist_j);
               // info_loss_with_distance = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
               // E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
@@ -295,15 +295,16 @@ namespace frontier_exploration
               // info_loss_with_time = exp(-2*iterator)*info_loss_with_distance;
               // info_loss_with_time = neighboring_robot_val.omega*exp(-0.1*iterator)*info_loss_with_distance; //Scale the loss with convariance info also
               info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance; //Scale the loss with convariance info also
+              // info_loss_with_time = neighboring_robot_val.omega*(exp(-iterator))*info_loss_with_distance; //We might want to sort the position estimates in the order of their covariance values.
               // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
               // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
               E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
               iterator+=1;
-            }
+            // }
         }
         // ROS_INFO("--------------------------------------------------");
 
-        // //Decay with time instead of using average         
+        // //
         // if(neighboring_robots_positions.size()>0) 
         // {
         //   E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss
@@ -334,6 +335,7 @@ namespace frontier_exploration
 
     return true;
   }
+
 
 }
 

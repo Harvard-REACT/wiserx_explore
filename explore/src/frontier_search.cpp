@@ -234,48 +234,88 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
   
   for(int i=0; i<frontier_list.size(); i++)
   {
+    float info_gain_uexp_cell_count_max = -100000000;
     Frontier frontier = frontier_list[i];
     info_gain_uexp_cell_count = 0;
-    costmap_->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
-    unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
-    
-    ROS_INFO("***************************************************");
-    // ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
-    ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
-    // ROS_INFO("Frontier centroid index= %d", frontier_pos);
-    // ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
-    
-    // bool val = nearestCellsWithinRange(uexp_cell_count, frontier_pos, NO_INFORMATION, FREE_SPACE,
-    //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
-    
-    //Get relative positions around a frontier centroid by searching the quadmap and update the vector neighboring_robots_positions
-    int ts=0;
-    quadmap::Node center(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
+    std::vector<geometry_msgs::Point> start_vec{frontier.centroid};
     std::vector<quadmap::Node> neighboring_robots_positions;
+    bool Flag_use_view_points = true;
+    int max_neighbor_count = 0;
     
-    if(use_relative_positions)
+    if(Flag_use_view_points)
     {
-      base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
+      start_vec.push_back(frontier.initial);
+      start_vec.push_back(frontier.end);
     }
 
-    ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
-    bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
-                                           neighboring_robots_positions);
+    int choice = 0;
+    int itr = 0;
+    for(auto const start : start_vec)
+    {
+      itr+=1;
+      costmap_->worldToMap(start.x, start.y, fmx, fmy);
+      unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
+      
+      ROS_INFO("***************************************************");
+      // ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
+      ROS_INFO("Frontier Map pos: %d, %d", fmx, fmy);
+      // ROS_INFO("Frontier centroid index= %d", frontier_pos);
+      // ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
+      
+      // bool val = nearestCellsWithinRange(uexp_cell_count, frontier_pos, NO_INFORMATION, FREE_SPACE,
+      //                                    LETHAL_OBSTACLE, *costmap_, sensor_range_);
+      
+      //Get relative positions around a frontier centroid by searching the quadmap and update the vector neighboring_robots_positions
+      int ts=0;
+      quadmap::Node center(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
+      neighboring_robots_positions.clear();
+      if(use_relative_positions)
+      {
+        // base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
+        base_quadmap.query_radius(center,sensor_range_,neighboring_robots_positions);
+      }
+      ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+      bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
+                                             neighboring_robots_positions);
+    
+      
+      ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
 
+      if(info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
+      {
+        info_gain_uexp_cell_count_max = info_gain_uexp_cell_count;
+        frontier.pos_id = frontier_pos;
+        ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
+        max_neighbor_count = neighboring_robots_positions.size();
+        choice=itr;
+      }
+    }
 
     
-    // ROS_INFO("****** Unexplored cells around frontier: %d ***********", uexp_cell_count);
+    ROS_INFO("****** Max Info gain around frontier: %f ***********", info_gain_uexp_cell_count_max);
+    if(choice == 1) 
+    {
+      ROS_INFO("Navigating to centroid of frontier");
+    }
+    else if(choice == 2) 
+    {
+      ROS_INFO("Navigating to left extreme of the frontier");
+    }
+    else if(choice == 3) 
+    {
+      ROS_INFO("Navigating to right extreme of the frontier");
+    }
 
-    frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count); //New cost function
-    frontier.pos_id = frontier_pos;
-    frontier.neighbors_count = neighboring_robots_positions.size();
-    frontier.information_gain = info_gain_uexp_cell_count;
+    frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
+    frontier.neighbors_count = max_neighbor_count;
+    frontier.information_gain = info_gain_uexp_cell_count_max;
 
     // if(frontier.cost > 1)
     // {
     //   final_frontier_list.push_back(frontier);
     // }
-    if(__FLAG_can_stop_now__ && frontier.information_gain < 10)
+    // if(__FLAG_can_stop_now__ && frontier.information_gain < 10)
+    if(__FLAG_can_stop_now__ && frontier.cost < 5)
     {
       ROS_INFO("Discarding frontier");
     }
@@ -374,7 +414,66 @@ Frontier FrontierSearch::buildNewFrontier(unsigned int initial_cell,
   //This distance is already in world coordinates.
   output.centroid_distance = sqrt(pow((double(reference_x) - double(output.centroid.x)), 2.0) +
                                   pow((double(reference_y) - double(output.centroid.y)), 2.0));
+  
+  
+  std::vector<geometry_msgs::Point> extreme_vals = getFrontierSegmentExtremes(output.points, output.centroid);
+  
+  output.initial = extreme_vals[0];
+  output.end = extreme_vals[1];
+  
   return output;
+}
+
+
+double FrontierSearch::calculateYawAngle(double x1, double y1, double x2, double y2) 
+{
+    // Calculate the difference in coordinates
+    double deltaX = x2 - x1;
+    double deltaY = y2 - y1;
+
+    // Calculate the angle in radians
+    double angleRadians = atan2(deltaY, deltaX);
+
+    // Convert the angle to degrees
+    double angleDegrees = angleRadians * (180.0 / M_PI);
+
+    return angleDegrees;
+}
+
+
+/*
+* Get the exteme points of the frontier.
+*/
+std::vector<geometry_msgs::Point> FrontierSearch::getFrontierSegmentExtremes
+                                                    (std::vector<geometry_msgs::Point>Points, 
+                                                    geometry_msgs::Point centroid) 
+{   
+    double maxYawAngle = -180;
+    double minYawAngle = 180;
+    geometry_msgs::Point left_extreme;
+    geometry_msgs::Point right_extreme;
+
+    for (const auto& point : Points) 
+    {
+      double yawAngle = calculateYawAngle(centroid.x, centroid.y, point.x, point.y);
+      // ROS_INFO("Yaw angele %f deg", yawAngle);  
+
+      if(yawAngle > maxYawAngle)
+      { 
+        maxYawAngle = yawAngle;
+        left_extreme = point;
+      }
+      
+      if(yawAngle <= minYawAngle)
+      { 
+        minYawAngle = yawAngle;
+        right_extreme = point;
+      }
+    }
+
+    // ROS_INFO("Yaw angele max - left: %f deg, min - right: %f deg", maxYawAngle, minYawAngle);
+    std::vector<geometry_msgs::Point> output{left_extreme, right_extreme};
+    return output;
 }
 
 
@@ -425,7 +524,7 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
   // ROS_INFO("Information gain based on unexplored cell count = %f", information_gain);
   // ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
   ROS_INFO("frontier Utility = %f", res);
-  
+  ROS_INFO("***************************************************");  
   return res;
 }
 

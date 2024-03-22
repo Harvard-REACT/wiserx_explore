@@ -146,7 +146,7 @@ private:
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
-  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_;
+  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
   ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
   tf::TransformListener tf_listener_;
 
@@ -227,6 +227,8 @@ private:
   double measurement_interval__ = 0;
   std::vector<frontier_exploration::Frontier> frontiers__, frontier_temp__;
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
+  std::vector<double> cov_array_prev{0, 0};
+
 };
 }
 

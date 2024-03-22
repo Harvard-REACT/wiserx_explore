@@ -170,36 +170,36 @@ namespace explore
             // costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
             // position_node.add_position_noise(mx__, my__);            
             // std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
-             std::vector<double> cov_array{0, 0};
+            std::vector<double> cov_array{0, 0, 0, 0};
             
             //Set omega to 1
-            position_node.updateOmega(cov_array[0], cov_array[1]); //With true positions, omega should be 0
+            position_node.updateOmega(cov_array[0], cov_array[3]); //With true positions, omega should be 0
 
-            // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);          
+            // costmap2d->mapToWorld(position_node.true_mx, position_node.true_my, world_x, world_y);          
             // neighboring_robot.true_position.x = world_x;
             // neighboring_robot.true_position.y = world_y;
             
-            // costmap2d->mapToWorld(position_node.est_x, position_node.est_y, world_x, world_y);          
+            // costmap2d->mapToWorld(position_node.est_mx, position_node.est_my, world_x, world_y);          
             // neighboring_robot.estimated_position.x = world_x;
             // neighboring_robot.estimated_position.y = world_y;
     
-            neighboring_robot.true_position.x = position_node.true_x;
-            neighboring_robot.true_position.y = position_node.true_y;        
-            neighboring_robot.estimated_position.x = position_node.est_x;
-            neighboring_robot.estimated_position.y = position_node.est_y;
+            neighboring_robot.true_map_position.x = position_node.true_mx;
+            neighboring_robot.true_map_position.y = position_node.true_my;        
+            neighboring_robot.estimated_map_position.x = position_node.est_mx;
+            neighboring_robot.estimated_map_position.y = position_node.est_my;
 
-            neighboring_robot.covariance = cov_array;
+            neighboring_robot.covariance_meter_sq = cov_array;
             neighboring_robot.status = 1;
             neighboring_robot.robot_id = position_node.getRobotID();
             msg.other_robots.push_back(neighboring_robot);
           }
           else
           {
-            // costmap2d->mapToWorld(position_node.true_x, position_node.true_y, world_x, world_y);  
+            // costmap2d->mapToWorld(position_node.true_mx, position_node.true_my, world_x, world_y);  
             // msg.own_position.x = world_x;
             // msg.own_position.y = world_y;
-            msg.own_position.x = position_node.true_x;
-            msg.own_position.y = position_node.true_y;
+            msg.own_position.x = position_node.true_mx;
+            msg.own_position.y = position_node.true_my;
             msg.robot_id = position_node.getRobotID();
             robot_id_ = msg.robot_id; //Not that the robot id will not change during an instance of simulation
           }
@@ -271,7 +271,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
     double world_x, world_y;
     std::vector<frontier_exploration::Frontier> frontiers_copy;
-    std::vector<double> cov_array{0,0};
+    std::vector<double> cov_array{0,0,0,0};
     
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
     if(duration.count() > measurement_interval__) // publish every 10 seconds
@@ -335,36 +335,40 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               ROS_INFO("Created Kalman filter object");
               robot_j_first_estimate << first_est_x, first_est_y, 0.15, 0.15; // x,y,vx,vy - constant velocity model
               ROS_INFO("Initializaing EKF Track");
-              wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__);
+              wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__); //Run prediction every second
               ekf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
               est_x_j = robot_j_first_estimate[0];
               est_y_j = robot_j_first_estimate[1];
+              ekf_robot_track__[name[itr].c_str()].predict(); //Prediction comes from model
               ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
-
-
+              
               // ROS_INFO("Created Particle filter object");
               // VectorXd robot_j_first_estimate(4) ;
-              // robot_j_first_estimate << first_est_x, first_est_y, 0.1, 0.1; // x,y,vx,vy - constant velocity model
+              // robot_j_first_estimate << first_est_mx, first_est_my, 0.1, 0.1; // x,y,vx,vy - constant velocity model
               // wsr_state_estimation::ParticleFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__, 0.5,0.01, 0.2,0.2);
               // pf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
-              // est_x_j = robot_j_first_estimate[0];
-              // est_y_j = robot_j_first_estimate[1];
-              // ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+              // est_mx_j = robot_j_first_estimate[0];
+              // est_my_j = robot_j_first_estimate[1];
+              // ROS_INFO("First estimate = %f, %f", est_mx_j, est_my_j);
             }
             else
             {
               //Perform state_estimation of robot j
               ROS_INFO("Found Robot j track");
-              
-              ekf_robot_track__[name[itr].c_str()].predict();
               VectorXd z(2);
               z << measurement_output__[0] , measurement_output__[1];
-              ekf_robot_track__[name[itr].c_str()].update(z,robot_i_positions);
+              ekf_robot_track__[name[itr].c_str()].update(z,robot_i_positions); //Correct the prediction based on the new measurement
               est_x_j = ekf_robot_track__[name[itr].c_str()].x[0];
               est_y_j = ekf_robot_track__[name[itr].c_str()].x[1];
-              cov_array[0] = ekf_robot_track__[name[itr].c_str()].P(0,0); //cov_x
-              cov_array[1] = ekf_robot_track__[name[itr].c_str()].P(1,1); //cov_y
 
+              //Get covariance
+              cov_array[0] = ekf_robot_track__[name[itr].c_str()].P(0,0); //cov_x
+              cov_array[1] = ekf_robot_track__[name[itr].c_str()].P(0,1); //cov_xy
+              cov_array[2] = ekf_robot_track__[name[itr].c_str()].P(1,0); //cov_yx
+              cov_array[3] = ekf_robot_track__[name[itr].c_str()].P(1,1); //cov_y
+
+              //Predict for next timestep
+              ekf_robot_track__[name[itr].c_str()].predict();
 
               // pf_robot_track__[name[itr].c_str()].predict();
               // VectorXd z(2);
@@ -372,14 +376,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               // pf_robot_track__[name[itr].c_str()].updateWeights(z,robot_i_positions);
               // VectorXd est_j(4); 
               // est_j =  pf_robot_track__[name[itr].c_str()].getEstimate();
-              // est_x_j = est_j(0);
-              // est_y_j = est_j(1);
+              // est_mx_j = est_j(0);
+              // est_my_j = est_j(1);
               // MatrixXd cov = pf_robot_track__[name[itr].c_str()].computeCovariance(est_j);
               // cov_array[0] = cov(0,0); //cov_x
               // cov_array[1] = cov(1,1); //cov_y
 
               ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
-              ROS_INFO("Predicate estimate = %f, %f", est_x_j, est_y_j);
+              ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
 
             }
 
@@ -394,19 +398,20 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             //Add estimated position
             costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
             position_node.add_position_noise(mx__, my__);            
-            position_node.updateOmega(cov_array[0], cov_array[1]); //Update the term based on the covariance
+            position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
             robot_information__[name[itr]].node_information.push(position_node);
             base_quadmap_.insert_till_end(position_node); 
             // base_quadmap_.update_quadmap_ID(itr);
 
             //Publisher message
             ROS_INFO("Adding neighbor info");
-            neighboring_robot.true_position.x = position_node.true_x;
-            neighboring_robot.true_position.y = position_node.true_y;        
-            neighboring_robot.estimated_position.x = position_node.est_x;
-            neighboring_robot.estimated_position.y = position_node.est_y;
+            neighboring_robot.true_map_position.x = position_node.true_mx;
+            neighboring_robot.true_map_position.y = position_node.true_my;        
+            neighboring_robot.estimated_map_position.x = position_node.est_mx;
+            neighboring_robot.estimated_map_position.y = position_node.est_my;
+            neighboring_robot.error_meters = sqrt(pow((pose_vec[itr].position.x-est_x_j),2) + pow((pose_vec[itr].position.y-est_y_j),2));
 
-            neighboring_robot.covariance = cov_array;
+            neighboring_robot.covariance_meter_sq = cov_array;
             neighboring_robot.status = 1;
             neighboring_robot.robot_id = position_node.getRobotID();
             msg.other_robots.push_back(neighboring_robot);
@@ -439,7 +444,19 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
       start_val = std::chrono::high_resolution_clock::now();
     }
-    
+    else if(duration.count() > 1)
+    {
+      //Just run prediction
+      for(int itr=0; itr<name.size(); itr++)
+      {
+        auto search_val = robot_information__.find(name[itr].c_str());
+        if( search_val != robot_information__.end())
+        {
+          ekf_robot_track__[name[itr].c_str()].predict();
+        }
+      }
+    }
+
     stop_val = std::chrono::high_resolution_clock::now();
 
   }
@@ -494,12 +511,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
             //Publisher message
             ROS_INFO("Adding neighbor info");
-            neighboring_robot.true_position.x = position_node.true_x;
-            neighboring_robot.true_position.y = position_node.true_y;        
-            neighboring_robot.estimated_position.x = position_node.est_x;
-            neighboring_robot.estimated_position.y = position_node.est_y;
+            neighboring_robot.true_map_position.x = position_node.true_mx;
+            neighboring_robot.true_map_position.y = position_node.true_my;        
+            neighboring_robot.estimated_map_position.x = position_node.est_mx;
+            neighboring_robot.estimated_map_position.y = position_node.est_my;
 
-            neighboring_robot.covariance = cov_array;
+            neighboring_robot.covariance_meter_sq = cov_array;
             neighboring_robot.status = 1;
             neighboring_robot.robot_id = position_node.getRobotID();
             msg.other_robots.push_back(neighboring_robot);
@@ -614,7 +631,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("WSR_utility_beta_parameter", utility_beta_parameter_, 1.0); 
     private_nh_.param("Quadmap_width", Quadmap_width_, 20.0); 
     private_nh_.param("Quadmap_height", Quadmap_height, 20.0);
-    private_nh_.param("measurement_interval", measurement_interval__, 5.0);
+    private_nh_.param("ekf_predict_interval", measurement_interval__, 1.0);
     private_nh_.param("quadmap_fill_percentage", fill_percentage_threshold__, 90.0); 
     private_nh_.param("map_resolution", map_resolution__, 0.15); 
  
@@ -635,6 +652,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     move_bas_path_client__ = private_nh_.serviceClient<nav_msgs::GetPlan>("/"+robot_name_+"/move_base_node/make_plan");
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
+    exploration_eval_stop_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/stop_evaluation", 10);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
     __dim_object_name = "mailbox_blue_clone";
 
@@ -799,7 +817,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     //   ROS_INFO("[Explore.cpp] query result %d", op_val);
     //   for(auto val : neighboring_robots_positions)
     //   {
-    //     ROS_INFO("Node position %f, %f", val.true_x, val.true_y);
+    //     ROS_INFO("Node position %f, %f", val.true_mx, val.true_my);
     //   }
     //   ROS_INFO("[Explore.cpp] Query Check: Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
     // }
@@ -843,28 +861,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
         ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
       }
-    
-      //Get estimated fill percentage of the quadmap
-      if(FLAG_WSR_)
-      {
-        filled_cell_count__ = 0;
-        base_quadmap_.query_filled(filled_cell_count__);
-        ROS_INFO("******* Total cells = %f", cell_count__);
-        ROS_INFO("******* Filled cells = %f", filled_cell_count__);
-        ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
-
-        if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-15)
-        { 
-          __FLAG_can_stop_now__ = true;
-          ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
-        }
-
-        if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
-        { 
-          ROS_INFO("******* Hard Termination stop ******************");
-          final_sorted_frontiers.clear();
-        }
-      }
 
       //TODO: Update this to store utility without using the relative positions
       end_exploration = std::chrono::high_resolution_clock::now();
@@ -887,6 +883,38 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         visualizeFrontiers(final_sorted_frontiers);
       }
+
+      
+      //Randomly choose a frontier
+      // std::random_device rd; // obtain a random number from hardware
+      // std::mt19937 gen(rd()); // seed the generator
+      // std::uniform_int_distribution<> distr(0, int(final_sorted_frontiers.size())-1); // define the range
+      // int rval = distr(gen); // generate numbers
+      
+      // frontier_exploration::Frontier frontier;
+      // if(final_sorted_frontiers.size() > 0) frontier = final_sorted_frontiers[rval];
+      // else 
+      // {
+      //     stop();
+      //     return;
+      // }
+      
+      // // time out if we are not making any progress
+      // geometry_msgs::Point target_position = frontier.centroid;
+      // bool same_goal = prev_goal_ == target_position;
+      // prev_goal_ = target_position;
+      // if (!same_goal || prev_distance_ > frontier.min_distance) 
+      // {
+      //   last_progress_ = ros::Time::now(); // we have different goal or we made some progress
+      //   prev_distance_ = frontier.min_distance;
+      // }
+      // if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
+      // {
+      //   frontier_blacklist_.push_back(target_position);
+      //   ROS_DEBUG("Adding current goal to black list");
+      //   makePlan();
+      //   return;
+      // }
 
       // find non blacklisted frontier
       auto frontier =
@@ -939,7 +967,31 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                           reachedGoal(status, result, target_position);
                         });
     
+    }
+
+    //Get estimated fill percentage of the quadmap
+    if(FLAG_WSR_)
+    {
+      filled_cell_count__ = 0;
+      base_quadmap_.query_filled(filled_cell_count__);
+      ROS_INFO("******* Total cells = %f", cell_count__);
+      ROS_INFO("******* Filled cells = %f", filled_cell_count__);
+      ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
+
+      if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-10)
+      { 
+        __FLAG_can_stop_now__ = true;
+        ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
       }
+
+      if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
+      { 
+        ROS_INFO("******* Hard Termination stop ******************");
+        final_sorted_frontiers.clear();
+        stop();
+      }
+    }
+
   
   }
 
@@ -1052,6 +1104,15 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   {
     move_base_client_.cancelAllGoals();
     exploring_timer_.stop();
+    
+    std_msgs::Bool msg_val;
+    msg_val.data=true;
+
+    for(int ii=0; ii<2; ii++)
+      exploration_eval_stop_.publish(msg_val); //This is to also trigger stopping of collection of merged map for evaluation
+    
+    sleep(3); //make sure that the exploration evaluation stops
+
     exploration_completed_ = true;
     ROS_INFO("Exploration stopped.");
   }

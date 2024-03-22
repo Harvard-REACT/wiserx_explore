@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include "Eigen/Eigen"
 #include <explore/quadmap.h>
+#include <utility>
 
 namespace frontier_exploration
 {
@@ -21,7 +22,7 @@ struct Frontier {
   geometry_msgs::Point initial;
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
-  geometry_msgs::Point furthest;
+  geometry_msgs::Point end;
   std::vector<geometry_msgs::Point> points;
   int pos_id;
   int neighbors_count;
@@ -126,6 +127,14 @@ protected:
 
   void updateInfo(Frontier& frontier,
                   unsigned int reference);                                        
+
+
+ std::vector<geometry_msgs::Point> getFrontierSegmentExtremes
+                                  (std::vector<geometry_msgs::Point>Points, 
+                                  geometry_msgs::Point centroid); 
+
+  double calculateYawAngle(double x1, double y1, double x2, double y2) ;
+
 
   private:
     costmap_2d::Costmap2D* costmap_;
