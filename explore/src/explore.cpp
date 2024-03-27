@@ -58,9 +58,14 @@ auto start_exploration = std::chrono::high_resolution_clock::now();
 auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
 
-static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters
-static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.08); //bearing noise mean and stddev in meters
+static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise 0  mean and 10cm stddev in meters 
+static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.1); //bearing noise  0 mean and 5 deg stddev in radians
 
+// static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters 
+// static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
+
+// static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.05); //range noise mean and stddev in meters 
+// static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
 
 namespace explore
 {
@@ -305,7 +310,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         if(IsMatch(name[itr]))
         {
           wsr_exploration::RelativeEstimate neighboring_robot;             
-          double est_x_j,est_y_j;
+          double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
         
           if(name[itr]!=robot_name_) //Only do this for robot j in the neighborhood of robot i
           {
@@ -333,15 +338,17 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               
               VectorXd robot_j_first_estimate(4) ;
               ROS_INFO("Created Kalman filter object");
-              robot_j_first_estimate << first_est_x, first_est_y, 0.15, 0.15; // x,y,vx,vy - constant velocity model
+              robot_j_first_estimate << first_est_x, first_est_y, 0.2, 0.2; // x,y,vx,vy - constant velocity model
               ROS_INFO("Initializaing EKF Track");
               wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__); //Run prediction every second
               ekf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
               est_x_j = robot_j_first_estimate[0];
               est_y_j = robot_j_first_estimate[1];
-              ekf_robot_track__[name[itr].c_str()].predict(); //Prediction comes from model
               ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
-              
+
+              ekf_robot_track__[name[itr].c_str()].predict(); //Prediction comes from model
+
+                      
               // ROS_INFO("Created Particle filter object");
               // VectorXd robot_j_first_estimate(4) ;
               // robot_j_first_estimate << first_est_mx, first_est_my, 0.1, 0.1; // x,y,vx,vy - constant velocity model
@@ -353,11 +360,16 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             }
             else
             {
+                            
               //Perform state_estimation of robot j
               ROS_INFO("Found Robot j track");
               VectorXd z(2);
+              //Predict for next timestep
+              ekf_robot_track__[name[itr].c_str()].predict();
+              
               z << measurement_output__[0] , measurement_output__[1];
               ekf_robot_track__[name[itr].c_str()].update(z,robot_i_positions); //Correct the prediction based on the new measurement
+                
               est_x_j = ekf_robot_track__[name[itr].c_str()].x[0];
               est_y_j = ekf_robot_track__[name[itr].c_str()].x[1];
 
@@ -366,9 +378,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               cov_array[1] = ekf_robot_track__[name[itr].c_str()].P(0,1); //cov_xy
               cov_array[2] = ekf_robot_track__[name[itr].c_str()].P(1,0); //cov_yx
               cov_array[3] = ekf_robot_track__[name[itr].c_str()].P(1,1); //cov_y
-
-              //Predict for next timestep
-              ekf_robot_track__[name[itr].c_str()].predict();
+              
 
               // pf_robot_track__[name[itr].c_str()].predict();
               // VectorXd z(2);
@@ -391,7 +401,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             unsigned int sizeY = costmap2d->getSizeInCellsY();
             ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
             
-            //Add true position
+            //Initialize node with true relative position of the other robot
             costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
             quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
 
@@ -401,14 +411,28 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
             robot_information__[name[itr]].node_information.push(position_node);
             base_quadmap_.insert_till_end(position_node); 
-            // base_quadmap_.update_quadmap_ID(itr);
-
-            //Publisher message
-            ROS_INFO("Adding neighbor info");
+            
+            
+            
             neighboring_robot.true_map_position.x = position_node.true_mx;
-            neighboring_robot.true_map_position.y = position_node.true_my;        
+            neighboring_robot.true_map_position.y = position_node.true_my; 
             neighboring_robot.estimated_map_position.x = position_node.est_mx;
             neighboring_robot.estimated_map_position.y = position_node.est_my;
+            // base_quadmap_.update_quadmap_ID(itr);
+
+
+            one_shot_position_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
+            one_shot_position_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
+            costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
+            neighboring_robot.one_shot_map_position.x = mx__;
+            neighboring_robot.one_shot_map_position.y = my__;
+
+            //Publisher message
+            ROS_INFO("Adding other neighbor info");       
+            neighboring_robot.true_range_bearing = measurement_output__;
+            neighboring_robot.est_range_bearing = measurement_output__;
+            neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name[itr].c_str()].range_bearing__;
+            neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name[itr].c_str()].residual_error__;
             neighboring_robot.error_meters = sqrt(pow((pose_vec[itr].position.x-est_x_j),2) + pow((pose_vec[itr].position.y-est_y_j),2));
 
             neighboring_robot.covariance_meter_sq = cov_array;
@@ -444,18 +468,18 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
       start_val = std::chrono::high_resolution_clock::now();
     }
-    else if(duration.count() > 1)
-    {
-      //Just run prediction
-      for(int itr=0; itr<name.size(); itr++)
-      {
-        auto search_val = robot_information__.find(name[itr].c_str());
-        if( search_val != robot_information__.end())
-        {
-          ekf_robot_track__[name[itr].c_str()].predict();
-        }
-      }
-    }
+    // else if(duration.count() > 1)
+    // {
+    //   //Just run prediction
+    //   for(int itr=0; itr<name.size(); itr++)
+    //   {
+    //     auto search_val = robot_information__.find(name[itr].c_str());
+    //     if( search_val != robot_information__.end())
+    //     {
+    //       ekf_robot_track__[name[itr].c_str()].predict();
+    //     }
+    //   }
+    // }
 
     stop_val = std::chrono::high_resolution_clock::now();
 
@@ -641,8 +665,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     
     if(FLAG_WSR_)
     {
-      // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
-      modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+      modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
+      // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     }
     else
     {

@@ -25,6 +25,8 @@ namespace wsr_state_estimation
         MatrixXd Q; // Process noise covariance matrix
         MatrixXd R; // Measurement noise covariance matrix
         double dt; // Time step
+        std::vector<double> residual_error__ {0.0,0.0};
+        std::vector<double> range_bearing__ {0.0,0.0};
 
         ExtendedKalmanFilter(){}
         ~ExtendedKalmanFilter(){}
@@ -33,7 +35,8 @@ namespace wsr_state_estimation
         void predict();
         void update(const VectorXd &z, geometry_msgs::Pose &robot_i_position );
         VectorXd h(const VectorXd &state, geometry_msgs::Pose &robot_i_position);
-        MatrixXd calculateJacobian(const VectorXd &state);
+        MatrixXd calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position);
+        MatrixXd calculateJacobianV2(const VectorXd &measurement);
     };
 
 
@@ -71,6 +74,7 @@ namespace wsr_state_estimation
         VectorXd getEstimate() ;
 
         MatrixXd computeCovariance(Eigen::VectorXd& estimate) ;
+
     };
 
     
