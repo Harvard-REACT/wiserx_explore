@@ -32,8 +32,8 @@ namespace quadmap
             Node* prev_node = NULL; // Might not be useful for now
             Node* next_node = NULL;
             
-            float cov_x = 0;
-            float cov_y = 0;
+            double cov_x = 0;
+            double cov_y = 0;
             float omega = 0;
             //TODO update this 
             float gamma_val = 1;
@@ -66,10 +66,10 @@ namespace quadmap
                 return std::hypot(true_mx - other.true_mx, true_my - other.true_my);
             }
 
-            void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
+            void updateOmega(double cov_x, double cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                omega = exp(-gamma_val*(cov_x+cov_y));
-                // omega = cov_x+cov_y; //Trace of the covariance matrix
+                // omega = exp(-gamma_val*(cov_x+cov_y));
+                omega = std::min(1.0,1/(cov_x+cov_y)); //Inverse of the Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }
 
@@ -353,7 +353,7 @@ namespace quadmap
         {
                 if (boundary.w <= sensor_range_map_res) 
                 {
-                    if (this->filled_val > 0) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
+                    if (this->filled_val > 1) //Atleast 2 position estimates inside it, since sometimes ekf will generate spurious measurements
                     {
                         filled_cell_count += 1;
                     }

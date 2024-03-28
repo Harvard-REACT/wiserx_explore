@@ -228,6 +228,7 @@ private:
   std::vector<frontier_exploration::Frontier> frontiers__, frontier_temp__;
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
   std::vector<double> cov_array_prev{0, 0};
+  std::vector<geometry_msgs::Point> current_rel_positions__;
 
 };
 }

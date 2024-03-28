@@ -225,7 +225,8 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
 std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                                              quadmap::QuadMap& base_quadmap,
                                                              int& robot_id, bool use_relative_positions,
-                                                             bool __FLAG_can_stop_now__)
+                                                             bool __FLAG_can_stop_now__,
+                                                             std::vector<geometry_msgs::Point>& latest_relative_positions)
 {
   std::vector<Frontier> final_frontier_list;
   float f_cost_min = 100000, f_cost_max = 0;
@@ -234,14 +235,17 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
   
   for(int i=0; i<frontier_list.size(); i++)
   {
-    float info_gain_uexp_cell_count_max = -100000000;
+    float info_gain_uexp_cell_count_max = -100000000000;
     Frontier frontier = frontier_list[i];
     info_gain_uexp_cell_count = 0;
     std::vector<geometry_msgs::Point> start_vec{frontier.centroid};
     std::vector<quadmap::Node> neighboring_robots_positions;
     bool Flag_use_view_points = true;
     int max_neighbor_count = 0;
+    double beta_parameter = 0;
+
     
+
     if(Flag_use_view_points)
     {
       start_vec.push_back(frontier.initial);
@@ -253,6 +257,18 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     for(auto const start : start_vec)
     {
       itr+=1;
+
+      double dist_sum = 0, dist_i=0;
+      
+      //Leverage the latest relative position estimates and prefer forntiers that are further away form robots latest positions
+      for(auto rel_val:latest_relative_positions)
+      {
+        dist_i = sqrt(pow((rel_val.x-start.x),2) + pow((rel_val.y-start.y),2));
+        dist_sum = dist_sum + dist_i;
+      }
+      beta_parameter = log10(dist_sum);
+      
+      
       costmap_->worldToMap(start.x, start.y, fmx, fmy);
       unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
       
@@ -281,9 +297,9 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       
       ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
 
-      if(info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
+      if(beta_parameter*info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
       {
-        info_gain_uexp_cell_count_max = info_gain_uexp_cell_count;
+        info_gain_uexp_cell_count_max = beta_parameter*info_gain_uexp_cell_count;
         frontier.pos_id = frontier_pos;
         ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
         max_neighbor_count = neighboring_robots_positions.size();
@@ -306,6 +322,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       ROS_INFO("Navigating to right extreme of the frontier");
     }
 
+    
     frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
     frontier.neighbors_count = max_neighbor_count;
     frontier.information_gain = info_gain_uexp_cell_count_max;

@@ -57,7 +57,8 @@ public:
   std::vector<Frontier> getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                               quadmap::QuadMap& base_quadmap,
                                               int& robot_id, bool use_relative_positions,
-                                              bool __FLAG_can_stop_now__);
+                                              bool __FLAG_can_stop_now__,
+                                              std::vector<geometry_msgs::Point>& latest_relative_positions);
 
 protected:
   /**

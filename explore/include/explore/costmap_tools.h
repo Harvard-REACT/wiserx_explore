@@ -172,6 +172,25 @@ namespace frontier_exploration
       return false;
     }
 
+    // //Sort the relative position nodes based on the omega
+    // std::cout << "======== Before sorting ============" << std::endl;
+    // for(int jjj = 0; jjj < neighboring_robots_positions.size(); jjj++)
+    // {
+    //   std::cout << neighboring_robots_positions[jjj].omega << std::endl;
+    // }
+    
+    // std::sort(
+    // neighboring_robots_positions.begin(), neighboring_robots_positions.end(),
+    // [](const quadmap::Node& n1, const quadmap::Node& n2) { return n1.omega > n2.omega;});
+
+
+    // std::cout << "======== After sorting ============" << std::endl;
+    // //Sort the relative position nodes based on the omega
+    // for(int jjj = 0; jjj < neighboring_robots_positions.size(); jjj++)
+    // {
+    //   std::cout << neighboring_robots_positions[jjj].omega << std::endl;
+    // }
+    
     // initialize breadth first search
     std::queue<unsigned int> bfs;
     std::vector<bool> visited_flag(size_x * size_y, false);
@@ -290,21 +309,23 @@ namespace frontier_exploration
               // info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
               
               //NJ modified - new sigmoid function
-              info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
+              // info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
+              info_loss_with_distance =  neighboring_robot_val.omega * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
               // info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/std::max(sigmoid_cost_steepness_,neighboring_robot_val.omega)));
-              // info_loss_with_time = exp(-2*iterator)*info_loss_with_distance;
+              // info_loss_with_time = exp(-iterator)*info_loss_with_distance;
               // info_loss_with_time = neighboring_robot_val.omega*exp(-0.1*iterator)*info_loss_with_distance; //Scale the loss with convariance info also
-              info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance; //Scale the loss with convariance info also
+              // info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance; //Scale the loss with convariance info also
               // info_loss_with_time = neighboring_robot_val.omega*(exp(-iterator))*info_loss_with_distance; //We might want to sort the position estimates in the order of their covariance values.
               // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
               // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
-              E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
+              // E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
+              E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
               iterator+=1;
             // }
         }
         // ROS_INFO("--------------------------------------------------");
 
-        // //
+        
         // if(neighboring_robots_positions.size()>0) 
         // {
         //   E_hat_c /= int(neighboring_robots_positions.size()); //Average out the loss

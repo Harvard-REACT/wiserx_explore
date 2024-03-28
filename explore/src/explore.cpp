@@ -58,6 +58,9 @@ auto start_exploration = std::chrono::high_resolution_clock::now();
 auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
 
+// static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.3); //range noise 0  mean and 30cm stddev in meters 
+// static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.3); //bearing noise  0 mean and 17 deg stddev in radians
+
 static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise 0  mean and 10cm stddev in meters 
 static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.1); //bearing noise  0 mean and 5 deg stddev in radians
 
@@ -135,7 +138,7 @@ namespace explore
     std::vector<frontier_exploration::Frontier> frontiers_copy;
     
     duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-    if(duration.count() > 10) // publish every 10 seconds
+    if(duration.count() > measurement_interval__) // publish every 10 seconds
     {
       timestep__+=1;
       wsr_exploration::QuadmapViz msg;
@@ -175,10 +178,10 @@ namespace explore
             // costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
             // position_node.add_position_noise(mx__, my__);            
             // std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
-            std::vector<double> cov_array{0, 0, 0, 0};
+            std::vector<double> cov_array{0.1, 0, 0, 0.1};
             
             //Set omega to 1
-            position_node.updateOmega(cov_array[0], cov_array[3]); //With true positions, omega should be 0
+            position_node.updateOmega(cov_array[0], cov_array[3]); //With true positions, omega should be 1
 
             // costmap2d->mapToWorld(position_node.true_mx, position_node.true_my, world_x, world_y);          
             // neighboring_robot.true_position.x = world_x;
@@ -188,6 +191,13 @@ namespace explore
             // neighboring_robot.estimated_position.x = world_x;
             // neighboring_robot.estimated_position.y = world_y;
     
+                //Keep track of the latest position esimates for using in beta parameter
+            geometry_msgs::Point temp;
+            temp.x = pose_vec[itr].position.x;
+            temp.y = pose_vec[itr].position.y;
+            current_rel_positions__.push_back(temp);
+
+
             neighboring_robot.true_map_position.x = position_node.true_mx;
             neighboring_robot.true_map_position.y = position_node.true_my;        
             neighboring_robot.estimated_map_position.x = position_node.est_mx;
@@ -283,6 +293,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     {
       timestep__+=1;
       wsr_exploration::QuadmapViz msg;
+      current_rel_positions__.clear();
       
       //First find the current position of the robot i
       for(int itr=0; itr<name.size(); itr++)
@@ -396,6 +407,12 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
 
             }
+            
+            //Keep track of the latest position esimates for using in beta parameter
+            geometry_msgs::Point temp;
+            temp.x = est_x_j;
+            temp.y = est_y_j;
+            current_rel_positions__.push_back(temp);
 
             unsigned int sizeX = costmap2d->getSizeInCellsX();
             unsigned int sizeY = costmap2d->getSizeInCellsY();
@@ -875,7 +892,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         ROS_INFO("*****************************************************************************");
       }   
     
-      final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, robot_id_,FLAG_WSR_,__FLAG_can_stop_now__); 
+      final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, 
+                                                              robot_id_,FLAG_WSR_,__FLAG_can_stop_now__,
+                                                              current_rel_positions__); 
       frontier_temp__ = final_sorted_frontiers;
 
       
