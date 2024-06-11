@@ -144,11 +144,13 @@ namespace frontier_exploration
    * @param neighboring_robot_status if the robot is esimated to be dead or alive
    * @param relative_position_est_trace_omega omega based on the trace of the covariance matrix relative position estimates
    * @param rel_pos_neighbors relative position estimates of the neighboring robots
+   * @param info_used_at_frontier_percent Indicates amount of info left
    * @return True if a cell with the requested value was found
    */
   bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
                                    const costmap_2d::Costmap2D& costmap, double& sensor_range,
-                                   std::vector<quadmap::Node>& neighboring_robots_positions)
+                                   std::vector<quadmap::Node>& neighboring_robots_positions,
+                                   float& info_used_at_frontier_percent)
   {
     const unsigned char* map = costmap.getCharMap();
     const unsigned int size_x = costmap.getSizeInCellsX(),
@@ -166,6 +168,8 @@ namespace frontier_exploration
     double swx, swy, wx, wy, rwx, rwy;
     float L = sensor_range;
     int rel_positions_in_known_region=0;
+    float total_info_from_a_frontier = 0;
+    float info_loss_at_a_frontier = 0;
 
     if (start >= size_x * size_y) 
     {
@@ -314,7 +318,7 @@ namespace frontier_exploration
               // info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/std::max(sigmoid_cost_steepness_,neighboring_robot_val.omega)));
               // info_loss_with_time = exp(-iterator)*info_loss_with_distance;
               // info_loss_with_time = neighboring_robot_val.omega*exp(-0.1*iterator)*info_loss_with_distance; //Scale the loss with convariance info also
-              // info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance; //Scale the loss with convariance info also
+              // info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance;s //Scale the loss with convariance info also
               // info_loss_with_time = neighboring_robot_val.omega*(exp(-iterator))*info_loss_with_distance; //We might want to sort the position estimates in the order of their covariance values.
               // info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
               // ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
@@ -332,9 +336,15 @@ namespace frontier_exploration
         // }
         
         dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2));
-        result += (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)) - E_hat_c); // Use this when sensor bounding overlapp within sensor_range only
+        
+        //Info from a cell cannot be negative. Do not consider negative values. The lowest info from a frontier should be 0 and not negative.
+        result += std::max(0.0, double((sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)) - E_hat_c))); // Use this when sensor bounding overlapp within sensor_range only
+        // result += (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)) - E_hat_c); // Use this when sensor bounding overlapp within sensor_range only
+        
         //result += 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c; // Use this when sensor bounding overlapp within sensor_range only
         // result += std::max(float(0.0), 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); //Not using negative info gain for a cell 
+        info_loss_at_a_frontier+=E_hat_c; // This will be higher than result variable.
+        total_info_from_a_frontier+= (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)));
       }
 
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)
@@ -353,6 +363,9 @@ namespace frontier_exploration
         }
       }
     }
+
+    // result = 100*total_info_loss_at_a_frontier/total_info_from_a_frontier;
+    info_used_at_frontier_percent = 100*info_loss_at_a_frontier/total_info_from_a_frontier;
 
     return true;
   }

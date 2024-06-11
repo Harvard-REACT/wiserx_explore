@@ -674,7 +674,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("Quadmap_height", Quadmap_height, 20.0);
     private_nh_.param("ekf_predict_interval", measurement_interval__, 1.0);
     private_nh_.param("quadmap_fill_percentage", fill_percentage_threshold__, 90.0); 
-    private_nh_.param("map_resolution", map_resolution__, 0.15); 
+    private_nh_.param("map_resolution", map_resolution__, 0.15);
+    private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
  
 
     //Subscribers
@@ -699,6 +700,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);
+    last_progress_ = ros::Time::now();
     
     //Since we insert in map coordinates
     float width = Quadmap_width_/map_resolution__;
@@ -865,10 +867,37 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     // final_sorted_frontiers = frontiers;
     if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
 
+    
+    // Reevaulate frontiers every progress_timeout_ seconds
+    // std::cout << last_progress_ << std::endl;
+    std::cout << ros::Time::now() - last_progress_ << std::endl;
+    std::cout << progress_timeout_ << std::endl;
+    if (ros::Time::now() - last_progress_ > progress_timeout_) 
+    {
+      move_base_client_.cancelAllGoals();
+      last_progress_ = ros::Time::now();
+      ROS_INFO("******* REVAULATING ALL FRONTIERS ******************");
+    }
+
+
+    // Reevaulate all frontiers once 50% progress has been made to the frontier to understand if its still worthwhile to 
+    //go to that frontier.
+    ros::Duration half_duration(progress_timeout_.toSec()*0.6);
+    if (ros::Time::now() - last_progress_ > half_duration) 
+    {
+      move_base_client_.cancelAllGoals();
+      ROS_INFO("******* REACHED halfway to goal ---  REVAULATING ALL FRONTIERS ******************");
+    }
+
+    
     //Need to update the frontier centroid distance based on the path length, should be in world coordinates
     actionlib::SimpleClientGoalState current_state  = move_base_client_.getState();
     if (current_state != actionlib::SimpleClientGoalState::ACTIVE)
     { 
+      
+      last_progress_ = ros::Time::now();
+      std::cout << last_progress_ << std::endl;
+      
       start__.pose = pose;
       for (size_t i = 0; i < frontiers__.size(); ++i) 
       {
@@ -959,13 +988,38 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       //   return;
       // }
 
+
       // find non blacklisted frontier
-      auto frontier =
-          std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
+      auto frontier = std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
                           [this](const frontier_exploration::Frontier& f) {
                             return goalOnBlacklist(f.centroid);
                           });
+
       
+      // //FR-1-B Baseline1-b : // Randomly choose a frontier from top 2
+      // //FR-1-B Noisy-c : // Randomly choose a frontier from top 2 - Don't use
+      if(!FLAG_WSR_)
+      {
+        //Only use for random motion baseline with close proximity initialization of robot positions.
+        if(final_sorted_frontiers.size()>1)
+        {
+          std::random_device rd; // obtain a random number from hardware
+          std::mt19937 gen(rd()); // seed the generator
+          std::uniform_int_distribution<> distr(0, 9); // define the range
+          int rval = distr(gen); // generate numbers
+
+          //Choose the first frontier with 90% probability and a second one with 10%
+          if(rval <= 8) std::advance(frontier, 0);     
+          else std::advance(frontier, 1); 
+          
+        }
+      }
+      
+      //Evaluate if its still worthwhile to go to that frontier midway
+      //0.3 is the robot speed. 
+      //Multiply by 0.90 to get the time to reach 3/4th way to the frontier
+      progress_timeout_ = ros::Duration(frontier->centroid_distance/0.3*0.95); 
+      // progress_start_time_ = ros::Time::now();
       
       if (frontier == final_sorted_frontiers.end()) 
       {
@@ -976,26 +1030,28 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       
       // time out if we are not making any progress
       geometry_msgs::Point target_position = frontier->centroid;
-      bool same_goal = prev_goal_ == target_position;
-      prev_goal_ = target_position;
-      if (!same_goal || prev_distance_ > frontier->min_distance) 
-      {
-        last_progress_ = ros::Time::now(); // we have different goal or we made some progress
-        prev_distance_ = frontier->min_distance;
-      }
-      if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
-      {
-        frontier_blacklist_.push_back(target_position);
-        ROS_DEBUG("Adding current goal to black list");
-        makePlan();
-        return;
-      }
+      // geometry_msgs::Point target_position = frontier->view_point_to_navigate_to; @BUG -some weird waypoints.
+      // bool same_goal = prev_goal_ == target_position;
+      // prev_goal_ = target_position;
+      // if (!same_goal || prev_distance_ > frontier->min_distance) 
+      // {
+      //   last_progress_ = ros::Time::now(); // we have different goal or we made some progress
+      //   prev_distance_ = frontier->min_distance;
+      // }
+      
+      // if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
+      // {
+      //   frontier_blacklist_.push_back(target_position);
+      //   ROS_DEBUG("Adding current goal to black list");
+      //   makePlan();
+      //   return;
+      // }
 
-      if (same_goal) 
-      {
-        return;     // we don't need to do anything if we still pursuing the same goal
+      // if (same_goal) 
+      // {
+      //   return;     // we don't need to do anything if we still pursuing the same goal
 
-      }
+      // }
 
       // send goal to move_base if we have something new to pursue
       move_base_msgs::MoveBaseGoal goal;
@@ -1009,7 +1065,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                         {
                           reachedGoal(status, result, target_position);
                         });
-    
     }
 
     //Get estimated fill percentage of the quadmap
@@ -1021,10 +1076,20 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       ROS_INFO("******* Filled cells = %f", filled_cell_count__);
       ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
 
-      if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-10)
+      if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-diff_between_termination_thresholds__)
       { 
         __FLAG_can_stop_now__ = true;
-        ROS_INFO("******* Exploraion Termination condition satisfied - Soft Threshold ******************");
+        ROS_INFO("******* Exploration Termination condition satisfied - Soft Threshold ******************");
+
+        if(!__FLAG_publish_once)
+        {
+          std_msgs::Bool msg_val;
+          msg_val.data=true;
+          exploration_eval_stop_.publish(msg_val); //This is to also trigger stopping of collection of merged map for evaluation
+          __FLAG_publish_once = true;
+          move_base_client_.cancelAllGoals(); // Immediate revaluate frontiers before proceeding
+        }
+
       }
 
       if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
@@ -1151,7 +1216,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     std_msgs::Bool msg_val;
     msg_val.data=true;
 
-    for(int ii=0; ii<2; ii++)
+    for(int ii=0; ii<3; ii++)
       exploration_eval_stop_.publish(msg_val); //This is to also trigger stopping of collection of merged map for evaluation
     
     sleep(3); //make sure that the exploration evaluation stops
@@ -1209,6 +1274,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           
       }
       myfile_def.close();
+      
+      std_msgs::Bool msg_val;
+      msg_val.data=true;
+
+      for(int ii=0; ii<3; ii++)
+        exploration_eval_stop_.publish(msg_val); //This is to also trigger stopping of collection of merged map for evaluation    
+      
+      exit(0);
     }
   }
 

@@ -13,7 +13,8 @@ namespace frontier_exploration
  * @brief Represents a frontier
  *
  */
-struct Frontier {
+struct Frontier 
+{
   std::uint32_t size;
   double min_distance;
   double centroid_distance;
@@ -26,6 +27,8 @@ struct Frontier {
   std::vector<geometry_msgs::Point> points;
   int pos_id;
   int neighbors_count;
+  float info_used_percent;
+  geometry_msgs::Point view_point_to_navigate_to;
 };
 
 /**

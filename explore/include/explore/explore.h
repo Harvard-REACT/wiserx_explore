@@ -162,6 +162,7 @@ private:
   geometry_msgs::Point prev_goal_;
   std_msgs::Bool get_csi_data_;
   ros::Time last_progress_;
+  ros::Time progress_start_time_;
   size_t last_markers_count_;
 
   // parameters
@@ -210,6 +211,8 @@ private:
   bool __FLAG_can_stop_now__ = false;
   double fill_percentage_threshold__ = 75;
   double map_resolution__ = 0 ;
+  bool __FLAG_publish_once = false;
+  int diff_between_termination_thresholds__ = 5;
 
   //Filter parameters
   std::vector<double> measurement_output__;

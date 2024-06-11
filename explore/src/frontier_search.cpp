@@ -232,17 +232,19 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
   float f_cost_min = 100000, f_cost_max = 0;
   float info_gain_uexp_cell_count = 0;
   unsigned fmx, fmy;
+  float info_used_at_frontier_percent = 0;;
   
   for(int i=0; i<frontier_list.size(); i++)
   {
-    float info_gain_uexp_cell_count_max = -100000000000;
+    float info_gain_uexp_cell_count_max = -1;
+    float info_used_at_frontier_percent_max = 0;
     Frontier frontier = frontier_list[i];
     info_gain_uexp_cell_count = 0;
     std::vector<geometry_msgs::Point> start_vec{frontier.centroid};
     std::vector<quadmap::Node> neighboring_robots_positions;
     bool Flag_use_view_points = true;
     int max_neighbor_count = 0;
-    double beta_parameter = 0;
+    double beta_parameter = 1;
 
     
 
@@ -258,16 +260,18 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     {
       itr+=1;
 
-      double dist_sum = 0, dist_i=0;
-      
-      //Leverage the latest relative position estimates and prefer forntiers that are further away form robots latest positions
+     
+      // Leverage the latest relative position estimates and prefer forntiers that are further away form robots latest positions
+      //Only use the distance to the closest robot to the frontier
+      double dist_sum = 10000, dist_sum_avg=0;
       for(auto rel_val:latest_relative_positions)
       {
-        dist_i = sqrt(pow((rel_val.x-start.x),2) + pow((rel_val.y-start.y),2));
-        dist_sum = dist_sum + dist_i;
+        dist_sum = std::min(dist_sum, (pow((rel_val.x-start.x),2) + pow((rel_val.y-start.y),2)));
       }
-      beta_parameter = log10(dist_sum);
       
+      // dist_sum_avg  /= int(latest_relative_positions.size());
+      beta_parameter = log10(dist_sum);
+      ROS_INFO("*************BetaParam : %f", beta_parameter);
       
       costmap_->worldToMap(start.x, start.y, fmx, fmy);
       unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
@@ -285,25 +289,29 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       int ts=0;
       quadmap::Node center(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
       neighboring_robots_positions.clear();
-      if(use_relative_positions)
+      if(use_relative_positions) //FLAG_WSR = true
       {
-        // base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
-        base_quadmap.query_radius(center,sensor_range_,neighboring_robots_positions);
+        base_quadmap.query_radius(center,2*sensor_range_,neighboring_robots_positions);
+        // base_quadmap.query_radius(center,sensor_range_,neighboring_robots_positions);
       }
+      info_used_at_frontier_percent = 0;
       ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
       bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
-                                             neighboring_robots_positions);
+                                             neighboring_robots_positions, info_used_at_frontier_percent);
     
       
       ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
+      ROS_INFO("Info loss at the frontier (percent) = %f", info_used_at_frontier_percent);
 
       if(beta_parameter*info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
       {
         info_gain_uexp_cell_count_max = beta_parameter*info_gain_uexp_cell_count;
+        info_used_at_frontier_percent_max = info_used_at_frontier_percent;
         frontier.pos_id = frontier_pos;
         ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
         max_neighbor_count = neighboring_robots_positions.size();
         choice=itr;
+        frontier.view_point_to_navigate_to = start;
       }
     }
 
@@ -326,13 +334,15 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
     frontier.neighbors_count = max_neighbor_count;
     frontier.information_gain = info_gain_uexp_cell_count_max;
+    frontier.info_used_percent = info_used_at_frontier_percent_max;
 
     // if(frontier.cost > 1)
     // {
     //   final_frontier_list.push_back(frontier);
     // }
     // if(__FLAG_can_stop_now__ && frontier.information_gain < 10)
-    if(__FLAG_can_stop_now__ && frontier.cost < 5)
+    if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 90.0)
+    // if(__FLAG_can_stop_now__ && frontier.cost < 5)
     {
       ROS_INFO("Discarding frontier");
     }

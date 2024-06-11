@@ -23,7 +23,7 @@ namespace quadmap
     class Node 
     {
         public:     
-            int tau_copy;
+            int tau_copy; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
             int robot_id_copy;   
             float true_mx=0;
             float true_my=0;
@@ -353,7 +353,7 @@ namespace quadmap
         {
                 if (boundary.w <= sensor_range_map_res) 
                 {
-                    if (this->filled_val > 1) //Atleast 2 position estimates inside it, since sometimes ekf will generate spurious measurements
+                    if (this->filled_val > 2) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
                     {
                         filled_cell_count += 1;
                     }
