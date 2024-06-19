@@ -201,7 +201,7 @@ private:
   geometry_msgs::PoseStamped start__; 
   geometry_msgs::PoseStamped goal__;
   float tolerance__ = 0.5; //in meters
-  int baseline_1_frontier_selection_threshold__ = 5;
+  int baseline_1_frontier_selection_threshold__ = 60;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
