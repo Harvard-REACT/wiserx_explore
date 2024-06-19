@@ -88,11 +88,19 @@ add_executable(realtime_range_aoa
   src/realtime_range_aoa.cpp
 )
 
+add_executable(vicon_combined_state_publisher
+  src/vicon_combined_state_publisher.cpp
+)
+
 add_dependencies(explore ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(explore ${catkin_LIBRARIES})
 
 add_dependencies(realtime_range_aoa ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(realtime_range_aoa ${catkin_LIBRARIES})
+
+
+add_dependencies(vicon_combined_state_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(vicon_combined_state_publisher ${catkin_LIBRARIES})
 
 
 # add_executable(test_particle_filter

@@ -70,6 +70,9 @@ static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.
 // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.05); //range noise mean and stddev in meters 
 // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
 
+
+std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
+
 namespace explore
 {
 
@@ -275,7 +278,6 @@ void get_noisy_range_and_bearing_from_groundtruth(geometry_msgs::Pose& robot_i_p
   output.push_back(noisy_bearing);
   ROS_INFO("output range (meters), bearing(degrees): = %f, %f", output[0], output[1]*180/3.14);
 }
-
 
 
 void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
@@ -502,6 +504,194 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
   }
 
+/**
+ * For vicon hardware experiments with two robots.
+ * Robot ids are number starting 1
+*/
+void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::ConstPtr& input_msg)
+{
+    // std::vector<std::string> name = input_msg->name;
+    std::vector<geometry_msgs::Pose> pose_vec = input_msg->poses;
+    geometry_msgs::Pose robot_i_positions;
+    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+    double world_x, world_y;
+    std::vector<frontier_exploration::Frontier> frontiers_copy;
+    std::vector<double> cov_array{0,0,0,0};
+    
+    duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+    if(duration.count() > measurement_interval__) // publish every 10 seconds
+    {
+      timestep__+=1;
+      wsr_exploration::QuadmapViz msg;
+      current_rel_positions__.clear();
+      
+      //First find the current position of the robot i
+      for(int itr=0; itr<pose_vec.size(); itr++)
+      {
+        if(itr==robot_id_-1)
+        {
+          robot_i_positions = pose_vec[itr];
+          // robot_id_ = itr; //Not that the robot id will not change during an instance of simulation
+          
+          //For hardware implementation using global frame, we need to start at 0,0.
+          costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+          msg.own_position.x = mx__;
+          msg.own_position.y = my__;
+          msg.robot_id = itr;
+          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          
+          //Add own's position to enable estimating of quadmap fill and terminating.
+          quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+          base_quadmap_.insert_till_end(position_node); 
+          break;
+        }
+
+      }
+      
+      for(int itr=0; itr<pose_vec.size(); itr++)
+      {
+        // if(IsMatch(name[itr]))
+        // {
+          wsr_exploration::RelativeEstimate neighboring_robot;             
+          double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
+        
+          if(itr!=robot_id_-1)
+          {
+            //Get true positions of the neighboring robot and generate range and bearing 
+            measurement_output__.clear();
+            get_noisy_range_and_bearing_from_groundtruth(robot_i_positions, pose_vec[itr], measurement_output__);
+            ROS_INFO("Got estimates");
+            ROS_INFO("Noisy range (meters), bearing(degrees): = %f, %f", measurement_output__[0], measurement_output__[1]*180/3.14);
+
+
+            auto search_val = robot_information__.find(name_vicon_hardware[robot_id_-1].c_str());
+            if( search_val == robot_information__.end())
+            {
+              ROS_INFO("Creating Robot j track");
+              quadmap::Robot new_robot_track;
+              new_robot_track.robot_id = itr;
+              robot_information__.insert({name_vicon_hardware[robot_id_-1].c_str(), new_robot_track});
+
+              double first_est_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
+              double first_est_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
+              
+              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
+              
+              
+              VectorXd robot_j_first_estimate(4) ;
+              ROS_INFO("Created Kalman filter object");
+              robot_j_first_estimate << first_est_x, first_est_y, 0.2, 0.2; // x,y,vx,vy - constant velocity model
+              ROS_INFO("Initializaing EKF Track");
+              wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__); //Run prediction every second
+              ekf_robot_track__.insert({name_vicon_hardware[robot_id_-1].c_str(),new_robot_state_estimation_track});
+              est_x_j = robot_j_first_estimate[0];
+              est_y_j = robot_j_first_estimate[1];
+              ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+
+              ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].predict(); //Prediction comes from model
+            }
+            else
+            {                            
+              //Perform state_estimation of robot j
+              ROS_INFO("Found Robot j track");
+              VectorXd z(2);
+              //Predict for next timestep
+              ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].predict();
+              
+              z << measurement_output__[0] , measurement_output__[1];
+              ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].update(z,robot_i_positions); //Correct the prediction based on the new measurement
+                
+              est_x_j = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].x[0];
+              est_y_j = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].x[1];
+
+              //Get covariance
+              cov_array[0] = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].P(0,0); //cov_x
+              cov_array[1] = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].P(0,1); //cov_xy
+              cov_array[2] = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].P(1,0); //cov_yx
+              cov_array[3] = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].P(1,1); //cov_y
+
+              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
+
+            }
+            
+            //Keep track of the latest position esimates for using in beta parameter of the information gain
+            geometry_msgs::Point temp;
+            temp.x = est_x_j;
+            temp.y = est_y_j;
+            current_rel_positions__.push_back(temp);
+
+            unsigned int sizeX = costmap2d->getSizeInCellsX();
+            unsigned int sizeY = costmap2d->getSizeInCellsY();
+            ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+            
+            //Initialize node with true relative position of the other robot
+            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+            quadmap::Node position_node(mx__, my__, robot_information__[name_vicon_hardware[robot_id_-1].c_str()].robot_tau, robot_information__[name_vicon_hardware[robot_id_-1].c_str()].robot_id,timestep__);
+
+            //Add estimated position
+            costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
+            position_node.add_position_noise(mx__, my__);            
+            position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
+            robot_information__[name_vicon_hardware[robot_id_-1]].node_information.push(position_node);
+            base_quadmap_.insert_till_end(position_node); 
+            
+            neighboring_robot.true_map_position.x = position_node.true_mx;
+            neighboring_robot.true_map_position.y = position_node.true_my; 
+            neighboring_robot.estimated_map_position.x = position_node.est_mx;
+            neighboring_robot.estimated_map_position.y = position_node.est_my;
+
+            one_shot_position_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
+            one_shot_position_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
+            costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
+            neighboring_robot.one_shot_map_position.x = mx__;
+            neighboring_robot.one_shot_map_position.y = my__;
+
+            //Publisher message
+            ROS_INFO("Adding other neighbor info");       
+            neighboring_robot.true_range_bearing = measurement_output__;
+            neighboring_robot.est_range_bearing = measurement_output__;
+            neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].range_bearing__;
+            neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name_vicon_hardware[robot_id_-1].c_str()].residual_error__;
+            neighboring_robot.error_meters = sqrt(pow((pose_vec[itr].position.x-est_x_j),2) + pow((pose_vec[itr].position.y-est_y_j),2));
+
+            neighboring_robot.covariance_meter_sq = cov_array;
+            neighboring_robot.status = 1;
+            neighboring_robot.robot_id = position_node.getRobotID();
+            msg.other_robots.push_back(neighboring_robot);
+            ROS_INFO("Added neighbor info");
+          }
+        // }
+      }
+
+      //Get frontiers centroids.
+      frontiers_copy = frontier_temp__;
+      // if(frontier_temp__.size()>0) 
+      for(auto frontier_val : frontiers_copy)
+      {
+        // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+        wsr_exploration::FrontierInfo fc_point;
+        costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+        fc_point.centroid.x = fmx__;
+        fc_point.centroid.y = fmy__;
+        fc_point.size=frontier_val.size;
+        fc_point.information_gain=frontier_val.information_gain;
+        fc_point.centroid_distance=frontier_val.centroid_distance;
+        fc_point.utility=frontier_val.cost;
+        fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+        msg.frontiers.push_back(fc_point);
+      }
+
+      msg.header.stamp = ros::Time::now();
+      msg.header.frame_id = std::to_string(frame__++);
+      quadmapPub_.publish(msg);
+
+      start_val = std::chrono::high_resolution_clock::now();
+    }
+    stop_val = std::chrono::high_resolution_clock::now();
+  }
+
 
 void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
 {
@@ -596,6 +786,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   }
 
 
+
+
   /** 
    * @brief Get positions of neighboring robots in for hardware experiments in motion capture lab
    * */
@@ -676,15 +868,24 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("quadmap_fill_percentage", fill_percentage_threshold__, 90.0); 
     private_nh_.param("map_resolution", map_resolution__, 0.15);
     private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
+    private_nh_.param("use_sim", FLAG_SIM_, true); 
  
-
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     
     if(FLAG_WSR_)
     {
+      if(FLAG_SIM_)
+      {
+      //For gazebo simulation
       modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallbackFilter, this);
       // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
+      }
+      else
+      {
+        //For vicon hardware experiments.
+        modelStateSub_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/vicon_state_topic", 10, &Explore::ViconCombinedStateCallbackFilter, this);
+      }
     }
     else
     {
@@ -1008,10 +1209,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           std::uniform_int_distribution<> distr(0, 9); // define the range
           int rval = distr(gen); // generate numbers
 
-          //Choose the first frontier with 90% probability and a second one with 10%
-          if(rval <= 8) std::advance(frontier, 0);     
+          //Choose the first frontier with x% probability and second one with x-10%
+          //Starting with 60% and then over time only the top frontier will be chosen.
+          //Just need to ensure that the robots spread out more even after close initialization
+          if(rval <= baseline_1_frontier_selection_threshold__) std::advance(frontier, 0);     
           else std::advance(frontier, 1); 
-          
+          baseline_1_frontier_selection_threshold__ +=2;
         }
       }
       

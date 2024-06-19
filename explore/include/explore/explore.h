@@ -60,6 +60,7 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseArray.h>
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
 #include <explore/quadmap.h>
@@ -113,6 +114,8 @@ private:
   void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
   void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
+
+  void ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
@@ -180,8 +183,8 @@ private:
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
   std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;
-  bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
-      ,Flag_get_range_ = false;
+  bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true,Flag_get_range_ = false;
+  bool FLAG_SIM_ = true;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1, iterations__=0;
   geometry_msgs::Twist velocity_cmd_;
@@ -198,6 +201,7 @@ private:
   geometry_msgs::PoseStamped start__; 
   geometry_msgs::PoseStamped goal__;
   float tolerance__ = 0.5; //in meters
+  int baseline_1_frontier_selection_threshold__ = 5;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
