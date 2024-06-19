@@ -1206,12 +1206,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         {
           std::random_device rd; // obtain a random number from hardware
           std::mt19937 gen(rd()); // seed the generator
-          std::uniform_int_distribution<> distr(0, 9); // define the range
+          std::uniform_int_distribution<> distr(0, 99); // define the range
           int rval = distr(gen); // generate numbers
 
           //Choose the first frontier with x% probability and second one with x-10%
           //Starting with 60% and then over time only the top frontier will be chosen.
           //Just need to ensure that the robots spread out more even after close initialization
+          if (baseline_1_frontier_selection_threshold__ >= 97) baseline_1_frontier_selection_threshold__ = 97;
+          
           if(rval <= baseline_1_frontier_selection_threshold__) std::advance(frontier, 0);     
           else std::advance(frontier, 1); 
           baseline_1_frontier_selection_threshold__ +=2;
