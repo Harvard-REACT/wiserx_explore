@@ -371,11 +371,11 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               // est_my_j = robot_j_first_estimate[1];
               // ROS_INFO("First estimate = %f, %f", est_mx_j, est_my_j);
             }
-            else
+            else if(search_val->second.robot_tau == 1) 
             {
                             
               //Perform state_estimation of robot j
-              ROS_INFO("Found Robot j track");
+              ROS_INFO("Found track for functional robot %s with tau: %d", search_val->first.c_str(), search_val->second.robot_tau);
               VectorXd z(2);
               //Predict for next timestep
               ekf_robot_track__[name[itr].c_str()].predict();
@@ -410,55 +410,59 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
             }
             
-            //Keep track of the latest position esimates for using in beta parameter
-            geometry_msgs::Point temp;
-            temp.x = est_x_j;
-            temp.y = est_y_j;
-            current_rel_positions__.push_back(temp);
+            //Only do next steps for functional robot
+            search_val = robot_information__.find(name[itr].c_str());
+            if(search_val->second.robot_tau == 1)
+            { 
+              //Keep track of the latest position esimates for using in beta weight of the infomration gain.
+              geometry_msgs::Point temp;
+              temp.x = est_x_j;
+              temp.y = est_y_j;
+              current_rel_positions__.push_back(temp);
 
-            unsigned int sizeX = costmap2d->getSizeInCellsX();
-            unsigned int sizeY = costmap2d->getSizeInCellsY();
-            ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
-            
-            //Initialize node with true relative position of the other robot
-            costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
-            quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
+              unsigned int sizeX = costmap2d->getSizeInCellsX();
+              unsigned int sizeY = costmap2d->getSizeInCellsY();
+              ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+              
+              //Initialize node with true relative position of the other robot
+              costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
+              quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
 
-            //Add estimated position
-            costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
-            position_node.add_position_noise(mx__, my__);            
-            position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
-            robot_information__[name[itr]].node_information.push(position_node);
-            base_quadmap_.insert_till_end(position_node); 
-            
-            
-            
-            neighboring_robot.true_map_position.x = position_node.true_mx;
-            neighboring_robot.true_map_position.y = position_node.true_my; 
-            neighboring_robot.estimated_map_position.x = position_node.est_mx;
-            neighboring_robot.estimated_map_position.y = position_node.est_my;
-            // base_quadmap_.update_quadmap_ID(itr);
+              //Add estimated position
+              costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
+              position_node.add_position_noise(mx__, my__);            
+              position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
+              robot_information__[name[itr]].node_information.push(position_node);
+              base_quadmap_.insert_till_end(position_node); 
+              
+                        
+              neighboring_robot.true_map_position.x = position_node.true_mx;
+              neighboring_robot.true_map_position.y = position_node.true_my; 
+              neighboring_robot.estimated_map_position.x = position_node.est_mx;
+              neighboring_robot.estimated_map_position.y = position_node.est_my;
+              // base_quadmap_.update_quadmap_ID(itr);
 
 
-            one_shot_position_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
-            one_shot_position_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
-            costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
-            neighboring_robot.one_shot_map_position.x = mx__;
-            neighboring_robot.one_shot_map_position.y = my__;
+              one_shot_position_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
+              one_shot_position_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
+              costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
+              neighboring_robot.one_shot_map_position.x = mx__;
+              neighboring_robot.one_shot_map_position.y = my__;
 
-            //Publisher message
-            ROS_INFO("Adding other neighbor info");       
-            neighboring_robot.true_range_bearing = measurement_output__;
-            neighboring_robot.est_range_bearing = measurement_output__;
-            neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name[itr].c_str()].range_bearing__;
-            neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name[itr].c_str()].residual_error__;
-            neighboring_robot.error_meters = sqrt(pow((pose_vec[itr].position.x-est_x_j),2) + pow((pose_vec[itr].position.y-est_y_j),2));
+              //Publisher message
+              ROS_INFO("Adding other neighbor info");       
+              neighboring_robot.true_range_bearing = measurement_output__;
+              neighboring_robot.est_range_bearing = measurement_output__;
+              neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name[itr].c_str()].range_bearing__;
+              neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name[itr].c_str()].residual_error__;
+              neighboring_robot.error_meters = sqrt(pow((pose_vec[itr].position.x-est_x_j),2) + pow((pose_vec[itr].position.y-est_y_j),2));
 
-            neighboring_robot.covariance_meter_sq = cov_array;
-            neighboring_robot.status = 1;
-            neighboring_robot.robot_id = position_node.getRobotID();
-            msg.other_robots.push_back(neighboring_robot);
-            ROS_INFO("Added neighbor info");
+              neighboring_robot.covariance_meter_sq = cov_array;
+              neighboring_robot.status = 1;
+              neighboring_robot.robot_id = position_node.getRobotID();
+              msg.other_robots.push_back(neighboring_robot);
+              ROS_INFO("Added neighbor info");
+            }
           }
         }
       }
@@ -786,8 +790,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   }
 
 
-
-
   /** 
    * @brief Get positions of neighboring robots in for hardware experiments in motion capture lab
    * */
@@ -827,12 +829,29 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
 
   /** 
-   * @brief Callback to set flag for stopping exploration
+   * @brief Callback for setting a failed robot tau status 
+   * */
+  void Explore::setFailedRobotStatus(const std_msgs::String::ConstPtr& msg)
+  {
+    auto search_val = robot_information__.find(msg->data);
+    search_val->second.robot_tau = 0;
+    ROS_INFO("Setting neighboring robot %s tau to zero", search_val->first.c_str());
+    
+    // search_val = robot_information__.find(msg->data);
+    // search_val->second.robot_tau = 0;
+    // ROS_INFO("Checking neighboring robot %s tau val = %d", search_val->first.c_str(), search_val->second.robot_tau);
+
+  }
+
+
+  /** 
+   * @brief Callback to set flag for stopping own exploration
    * */
   void Explore::explorationStatusCB(const std_msgs::Bool::ConstPtr& msg)
   {
     exploration_done_ = msg->data;
   }
+
 
   Explore::Explore()
     : private_nh_("~")
@@ -893,10 +912,15 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
 
     move_bas_path_client__ = private_nh_.serviceClient<nav_msgs::GetPlan>("/"+robot_name_+"/move_base_node/make_plan");
+
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
+    setFailedRobotTau_ = private_nh_.subscribe<std_msgs::String> ("/"+robot_name_+"/set_failed_neighboring_robot", 10, &Explore::setFailedRobotStatus, this);
+
     exploration_eval_stop_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/stop_evaluation", 10);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
+    
+    
     __dim_object_name = "mailbox_blue_clone";
 
     ROS_INFO("Sensor range = %f", sensor_range_);

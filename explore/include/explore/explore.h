@@ -68,6 +68,7 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
+#include "std_msgs/String.h"
 #include "tf/tf.h"
 #include <natnet_pkg/PoseArrayID.h>
 #include <wsr_exploration/QuadmapViz.h>
@@ -130,9 +131,14 @@ private:
                             std::chrono::seconds& elapsed_time__);
 
   void explorationStatusCB(const std_msgs::Bool::ConstPtr& msg);
+  
   void uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg);
+  
+  void setFailedRobotStatus(const std_msgs::String::ConstPtr& msg);
+
   std::vector<std::vector<double>> generate_range();
   std::pair<std::vector<std::string>, std::vector<std::vector<double>>> generate_aoa();
+  
   void positionCallbackT265(const nav_msgs::Odometry::ConstPtr& t265_msg);
   double quaternionToYaw(const tf::Quaternion& q);
   bool validateQuaternion(const tf::Quaternion& quat);
@@ -150,7 +156,7 @@ private:
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -207,7 +213,7 @@ private:
   quadmap::QuadMap base_quadmap_;
   double Quadmap_width_;
   double Quadmap_height;
-  std::unordered_map<std::string, quadmap::Robot> robot_information__;
+  std::unordered_map<std::string, quadmap::Robot> robot_information__; //Stores information of a neighoring robot j.
   int timestep__ = 0 ;
   float cell_count__ = 0;
   float filled_cell_count__=0;

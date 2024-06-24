@@ -23,7 +23,7 @@ namespace quadmap
     class Node 
     {
         public:     
-            int tau_copy; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
+            int* robot_j_node_tau; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
             int robot_id_copy;   
             float true_mx=0;
             float true_my=0;
@@ -41,7 +41,7 @@ namespace quadmap
                         
             // Constructors
             //Note that map coordinates are in unsigned int, but here they are stored as float
-            Node(float x, float y, int robot_tau, int robot_id, int timestep): true_mx(x), true_my(y), tau_copy(robot_tau), robot_id_copy(robot_id), timestep(timestep) 
+            Node(float x, float y, int& robot_tau, int robot_id, int timestep): true_mx(x), true_my(y), robot_j_node_tau(&robot_tau), robot_id_copy(robot_id), timestep(timestep) 
             {
                 est_mx = true_mx;
                 est_my = true_my;
@@ -75,7 +75,7 @@ namespace quadmap
 
             int getTau() const 
             {
-                return tau_copy;
+                return *robot_j_node_tau;
             }
 
             int getRobotID() const 
@@ -199,10 +199,10 @@ namespace quadmap
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
                 exit(1);
             }
-            ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
-            ROS_INFO("sensor_range %f ", sensor_range);
-            ROS_INFO("map_resolution %f ", map_resolution);
-            ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
+            // ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
+            // ROS_INFO("sensor_range %f ", sensor_range);
+            // ROS_INFO("map_resolution %f ", map_resolution);
+            // ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
         }
 
         /**
@@ -309,7 +309,10 @@ namespace quadmap
                         // {
                         //     ROS_INFO("Insert Check inserted a true point(x,y,ID) = %f,%f,%d ", ptr.true_mx, ptr.true_my, ptr.getRobotID());
                         // }
-                        this->filled_val += 1;
+                        
+                        
+                        // this->filled_val += 1;
+                        
                         return true;
                     }
                     
@@ -346,31 +349,39 @@ namespace quadmap
          * @param boundary A Rect object representing the bounding square of the search circle.
          * @param centre The centre node of the search circle.
          * @param radius The radius of the search circle.
-         * @param found_nodes A reference to a vector of Node objects where nodes found within the radius are added.
          * @return True if any nodes are found within the radius, False otherwise.
          */
         void query_filled(float& filled_cell_count)
         {
-                if (boundary.w <= sensor_range_map_res) 
+            if (boundary.w <= sensor_range_map_res) 
+            {
+                
+                // Iterate through all the points for "fuctional robots" within the boundary and compute the filled_val on the fly
+                for(auto point : this->points)
                 {
-                    if (this->filled_val > 2) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
-                    {
-                        filled_cell_count += 1;
-                    }
-                } 
-                else 
-                {
-                    // Still need to divide further to go all the way to the last node.
-                    if (!divided) {
-                        divide(); // Divide the node if it has not been divided yet.
-                    }
-
-                    nw->query_filled(filled_cell_count);
-                    ne->query_filled(filled_cell_count);
-                    se->query_filled(filled_cell_count);
-                    sw->query_filled(filled_cell_count);
-                    
+                    this->filled_val += point.getTau(); // This will be 0 if a robot j becomes non-functional (dead and cannot get pings) during the middle of the exploration.
+                    ROS_INFO("%d\n", point.getTau());
                 }
+                
+                
+                if (this->filled_val > 2) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
+                {
+                    filled_cell_count += 1;
+                }
+            } 
+            else 
+            {
+                // Still need to divide further to go all the way to the last node.
+                if (!divided) {
+                    divide(); // Divide the node if it has not been divided yet.
+                }
+
+                nw->query_filled(filled_cell_count);
+                ne->query_filled(filled_cell_count);
+                se->query_filled(filled_cell_count);
+                sw->query_filled(filled_cell_count);
+                
+            }
         }
 
 
