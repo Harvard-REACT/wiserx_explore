@@ -355,15 +355,16 @@ namespace quadmap
         {
             if (boundary.w <= sensor_range_map_res) 
             {
-                
                 // Iterate through all the points for "fuctional robots" within the boundary and compute the filled_val on the fly
+                this->filled_val = 0;
                 for(auto point : this->points)
                 {
                     this->filled_val += point.getTau(); // This will be 0 if a robot j becomes non-functional (dead and cannot get pings) during the middle of the exploration.
-                    ROS_INFO("%d\n", point.getTau());
+                    ROS_INFO("Robot: %d, tau: %d\n", point.getRobotID(), point.getTau());
                 }
                 
-                
+                ROS_INFO("hgrid cell filled val: %d\n", this->filled_val);
+
                 if (this->filled_val > 2) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
                 {
                     filled_cell_count += 1;

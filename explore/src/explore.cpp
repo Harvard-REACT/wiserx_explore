@@ -833,14 +833,16 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
    * */
   void Explore::setFailedRobotStatus(const std_msgs::String::ConstPtr& msg)
   {
-    auto search_val = robot_information__.find(msg->data);
-    search_val->second.robot_tau = 0;
-    ROS_INFO("Setting neighboring robot %s tau to zero", search_val->first.c_str());
-    
-    // search_val = robot_information__.find(msg->data);
-    // search_val->second.robot_tau = 0;
-    // ROS_INFO("Checking neighboring robot %s tau val = %d", search_val->first.c_str(), search_val->second.robot_tau);
-
+    if(msg->data == robot_name_) 
+    {
+      exploration_done_ = true;
+    }
+    else
+    {
+      auto search_val = robot_information__.find(msg->data);
+      search_val->second.robot_tau = 0;
+      ROS_INFO("Setting neighboring robot %s tau to zero", search_val->first.c_str());
+    }
   }
 
 
@@ -915,8 +917,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
-    setFailedRobotTau_ = private_nh_.subscribe<std_msgs::String> ("/"+robot_name_+"/set_failed_neighboring_robot", 10, &Explore::setFailedRobotStatus, this);
-
+    setFailedRobotTau_ = private_nh_.subscribe<std_msgs::String> ("/set_failed_neighboring_robot", 10, &Explore::setFailedRobotStatus, this);
     exploration_eval_stop_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/stop_evaluation", 10);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
     
