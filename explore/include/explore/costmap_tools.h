@@ -346,13 +346,22 @@ namespace frontier_exploration
         info_loss_at_a_frontier+=E_hat_c; // This will be higher than result variable.
         total_info_from_a_frontier+= (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)));
       }
+      
 
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)
       for (unsigned nbr : nhood8(idx, costmap)) 
       {
+
         if (!visited_flag[nbr]) 
         {
+
           costmap.indexToCells(nbr, nx, ny);
+
+          // CHECKS IF CELL IS WITHIN BOUNDS
+          if(nx > size_x - 4 || ny > size_y - 4 || nx < 4 || ny < 4) {
+            continue; 
+          }
+
           costmap.mapToWorld(nx, ny, wx, wy);
           dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2)); 
           if(dist_i <= sensor_range) 
