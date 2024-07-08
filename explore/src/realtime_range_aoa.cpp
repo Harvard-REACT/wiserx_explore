@@ -4,8 +4,8 @@
 auto start_aoa_check = std::chrono::high_resolution_clock::now();
 auto end_aoa_check = std::chrono::high_resolution_clock::now();
 auto duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-std::string aoa_fn = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
-std::string aoa_profile_name = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
+std::string aoa_fn = "/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
+std::string aoa_profile_name = "/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
 std::ifstream fin, aoa_profile;
 std::vector<double> all_range_data, sampled_range_data, top_aoa_peaks;
 bool Flag_get_data_ = false, first_itr=true;
@@ -21,7 +21,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
     all_range_data.push_back(msg->data[0]);
     
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 2) //Get a position estimate every 5 seconds 
+    if(duration_aoa_check.count() > 2) //Get a position estimate every 3 seconds 
     {  
         
         sampled_range_data.clear();
@@ -33,9 +33,9 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         std::mt19937 gen(rd()); // seed the generator
         std::uniform_int_distribution<> distr(0, int(all_range_data.size())); // define the range
         
-        int points_to_sample = std::min(10,int(all_range_data.size())/2);
+        int points_to_sample = std::min(5,int(all_range_data.size())/2);
 
-        for(int n=0; n<points_to_sample; n++) //Get 20 random samples from UWB node
+        for(int n=0; n<points_to_sample; n++) //Get 5 random samples from UWB node
         {
             sampled_range_data.push_back(all_range_data[distr(gen)]);// randomly sample uwb range value
         }
@@ -112,21 +112,26 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
                 // }
                 // aoa_profile.close();
                 
-                aoa_profile.open(aoa_profile_name); 
-                if(aoa_profile.is_open())
-                {
-                    std::string line, val;                  /* string for line & value */
-                       /* vector of vector<int>  */
+                
+		
+		//Use this to publish the aoa profile also
+		//aoa_profile.open(aoa_profile_name); 
+                //if(aoa_profile.is_open())
+                //{
+                //    std::string line, val;                  /* string for line & value */
+                //       /* vector of vector<int>  */
 
-                    while (std::getline (aoa_profile, line)) 
-                    {        /* read each line */
-                        std::stringstream s (line);         /* stringstream line */
-                        while (getline (s, val, ','))       /* get each value (',' delimited) */
-                            profile_array.push_back (std::stod (val));                /* add row vector to array */
-                    }
-                    std::cout << "elements: " << profile_array.size() << std::endl;
-                }
-                aoa_profile.close();
+                //    while (std::getline (aoa_profile, line)) 
+                //    {        /* read each line */
+                //        std::stringstream s (line);         /* stringstream line */
+                //        while (getline (s, val, ','))       /* get each value (',' delimited) */
+                //            profile_array.push_back (std::stod (val));                /* add row vector to array */
+                //    }
+                //    std::cout << "elements: " << profile_array.size() << std::endl;
+               // }
+               // aoa_profile.close();
+		
+		
 
                 
                 // for (auto& row : array) {               /* iterate over rows */
@@ -152,7 +157,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             for(int i = 0; i<top_aoa_peaks.size();i++)
             {
                 ROS_INFO("AOA: %f", top_aoa_peaks[i]);
-                rbmsg.brearing_measurements.push_back(top_aoa_peaks[i]);
+                rbmsg.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
             rbmsg.bearing_profile_variance = profile_variance;
             rbmsg.aoa_profile = profile_array;
@@ -172,15 +177,15 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "range_bearing_publisher");
+  ros::init(argc, argv, "range_bearing_publisher_tb3_1");
   if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
                                      ros::console::levels::Debug)) {
     ros::console::notifyLoggerLevelsChanged();
   }
   
   ros::NodeHandle n;
-  ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("/tb3_2/distance_multi", 10, range_bearing_CB);
-  range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("/tb3_2/range_bearing_estimates", 10);
+  ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("/tb3_1/distance_multi", 10, range_bearing_CB);
+  range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("/tb3_1/range_bearing_estimates", 10);
   
   ros::spin();
 
