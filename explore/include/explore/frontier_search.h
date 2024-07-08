@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include "Eigen/Eigen"
 #include <explore/quadmap.h>
+#include <utility>
 
 namespace frontier_exploration
 {
@@ -12,7 +13,8 @@ namespace frontier_exploration
  * @brief Represents a frontier
  *
  */
-struct Frontier {
+struct Frontier 
+{
   std::uint32_t size;
   double min_distance;
   double centroid_distance;
@@ -21,10 +23,12 @@ struct Frontier {
   geometry_msgs::Point initial;
   geometry_msgs::Point centroid;
   geometry_msgs::Point middle;
-  geometry_msgs::Point furthest;
+  geometry_msgs::Point end;
   std::vector<geometry_msgs::Point> points;
   int pos_id;
   int neighbors_count;
+  float info_used_percent;
+  geometry_msgs::Point view_point_to_navigate_to;
 };
 
 /**
@@ -55,7 +59,9 @@ public:
   std::vector<Frontier> searchFrontiers(geometry_msgs::Point& position);
   std::vector<Frontier> getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                               quadmap::QuadMap& base_quadmap,
-                                              int& robot_id, bool use_relative_positions);
+                                              int& robot_id, bool use_relative_positions,
+                                              bool __FLAG_can_stop_now__,
+                                              std::vector<geometry_msgs::Point>& latest_relative_positions);
 
 protected:
   /**
@@ -125,6 +131,14 @@ protected:
 
   void updateInfo(Frontier& frontier,
                   unsigned int reference);                                        
+
+
+ std::vector<geometry_msgs::Point> getFrontierSegmentExtremes
+                                  (std::vector<geometry_msgs::Point>Points, 
+                                  geometry_msgs::Point centroid); 
+
+  double calculateYawAngle(double x1, double y1, double x2, double y2) ;
+
 
   private:
     costmap_2d::Costmap2D* costmap_;

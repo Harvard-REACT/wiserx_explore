@@ -100,7 +100,6 @@ MatrixXd wsr_state_estimation::ParticleFilter::computeCovariance(VectorXd &estim
     return covariance;
 }
 
-
 wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val, double interval): x(VectorXd(4)), P(MatrixXd(4, 4)), Q(MatrixXd(4, 4)), 
                                                                                                     R(MatrixXd(2, 2)), F(MatrixXd(4, 4))
 {
@@ -122,8 +121,23 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 0.1, 0,
         0, 0, 0, 0.1;
 
-    R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians))
-        0, 0.08;  // 5 degree error = 0.08 radians
+    // R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians))
+    //     0, 0.08;  // 30 cm and 16 degree of standard deviation for range and bearing
+
+
+    R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
+        0, 0.01;  // 10 cm and 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+
+    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
+    //     0, 0.001;  // 10cm and 1.81 degree of standard deviation for range and bearing 
+
+    // R << 0.0025, 0,   // Measurement noise covariance (range (m), bearing (radians))
+    //     0, 0.001;  // 5cm and 1.81 degree of standard deviation for range and bearing 
+
+
+    // R << 0.001, 0,   // Measurement noise covariance (range (m), bearing (radians))
+    //     0, 0.0001;  // 3cm and 0.5 degree of standard deviation for range and bearing 
+
 
 }
 
@@ -139,9 +153,19 @@ void wsr_state_estimation::ExtendedKalmanFilter::predict()
 void wsr_state_estimation::ExtendedKalmanFilter::update(const VectorXd &z, geometry_msgs::Pose& robot_i_position ) 
 {
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
-    VectorXd y = z - z_pred; // Measurement residual
+    VectorXd y =  z - z_pred ; // Measurement residual
     
-    MatrixXd H = calculateJacobian(x); // Calculate Jacobian of the measurement model
+    range_bearing__.clear();
+    range_bearing__.push_back(z_pred(0));
+    range_bearing__.push_back(z_pred(1));
+
+    residual_error__.clear();
+    residual_error__.push_back(y(0));
+    residual_error__.push_back(y(1));
+    // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+    
+    MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
+    // MatrixXd H = calculateJacobianV2(z_pred); // Calculate Jacobian of the measurement model
     MatrixXd S = H * P * H.transpose() + R;
     MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
 
@@ -164,16 +188,18 @@ VectorXd wsr_state_estimation::ExtendedKalmanFilter::h(const VectorXd &state, ge
 }
 
 // Calculate the Jacobian matrix of the measurement model
-MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const VectorXd &state) 
+MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position) 
 {
     MatrixXd Hj(2, 4);
-    double px = state(0);
-    double py = state(1);
+    // double px = state(0);
+    // double py = state(1);
+
+    double px = state(0) - robot_i_position.position.x;
+    double py = state(1) - robot_i_position.position.y;
 
     // Compute the Jacobian matrix
     double d = px * px + py * py;
     double sqrt_d = sqrt(d);
-    double d_32 = pow(d, 1.5);
     
     // Check if division by zero might occur
     if (std::abs(d) < 0.0001) {
@@ -187,6 +213,22 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const Vec
 
     return Hj;
 }
+
+
+// Calculate the Jacobian matrix of the measurement model
+MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobianV2(const VectorXd &measurement) 
+{
+    MatrixXd Hj(2, 4);
+    
+    // Recompute the Jacobian matrix with proper values
+    //Reference : https://www.cs.cmu.edu/~16385/s17/Slides/16.4_Extended_Kalman_Filter.pdf
+    Hj << cos(measurement(1)), sin(measurement(1)), 0, 0,
+        -(sin(measurement(1))/measurement(0)), (cos(measurement(1))/measurement(0)), 0, 0;
+
+    return Hj;
+}
+
+
 
 
 // int main() {

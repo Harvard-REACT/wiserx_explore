@@ -23,59 +23,59 @@ namespace quadmap
     class Node 
     {
         public:     
-            int tau_copy;
+            int* robot_j_node_tau; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
             int robot_id_copy;   
-            float true_x=0;
-            float true_y=0;
-            float est_x=0;
-            float est_y=0;
+            float true_mx=0;
+            float true_my=0;
+            float est_mx=0;
+            float est_my=0;
             Node* prev_node = NULL; // Might not be useful for now
             Node* next_node = NULL;
             
-            float cov_x = 0;
-            float cov_y = 0;
+            double cov_x = 0;
+            double cov_y = 0;
             float omega = 0;
             //TODO update this 
-            float kappa = 0.5;
+            float gamma_val = 1;
             int timestep = 0;
                         
             // Constructors
             //Note that map coordinates are in unsigned int, but here they are stored as float
-            Node(float x, float y, int robot_tau, int robot_id, int timestep): true_x(x), true_y(y), tau_copy(robot_tau), robot_id_copy(robot_id), timestep(timestep) 
+            Node(float x, float y, int& robot_tau, int robot_id, int timestep): true_mx(x), true_my(y), robot_j_node_tau(&robot_tau), robot_id_copy(robot_id), timestep(timestep) 
             {
-                est_x = true_x;
-                est_y = true_y;
+                est_mx = true_mx;
+                est_my = true_my;
             }
             
             void add_position_noise(float noisy_map_x, float noisy_map_y)
             {
-                est_x = noisy_map_x;
-                est_y = noisy_map_y;
+                est_mx = noisy_map_x;
+                est_my = noisy_map_y;
             }
 
             // Member functions
             float distanceTo(const Node& other) const
             {
-                // ROS_INFO("Function: est_x, est_y : %f, %f", est_x, est_y);
-                // ROS_INFO("Function: Other x,y : %f, %f", other.true_x, other.true_y);
-                return std::hypot(est_x - other.true_x, est_y - other.true_y);
+                // ROS_INFO("Function: est_mx, est_my : %f, %f", est_mx, est_my);
+                // ROS_INFO("Function: Other x,y : %f, %f", other.true_mx, other.true_my);
+                return std::hypot(est_mx - other.true_mx, est_my - other.true_my);
             }
             
             float truedistanceTo(const Node& other) const
             {
-                return std::hypot(true_x - other.true_x, true_y - other.true_y);
+                return std::hypot(true_mx - other.true_mx, true_my - other.true_my);
             }
 
-            void updateOmega(float cov_x, float cov_y) //Covariance is in world coordinates as are all distance measurements
+            void updateOmega(double cov_x, double cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                // omega = exp(-kappa*(cov_x+cov_y));
-                omega = cov_x+cov_y; //Trace of the covariance matrix
+                // omega = exp(-gamma_val*(cov_x+cov_y));
+                omega = std::min(1.0,1/(cov_x+cov_y)); //Inverse of the Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }
 
             int getTau() const 
             {
-                return tau_copy;
+                return *robot_j_node_tau;
             }
 
             int getRobotID() const 
@@ -107,6 +107,9 @@ namespace quadmap
             Rect()
             {
             }
+            ~Rect()
+            {
+            }
             
             Rect(float cx, float cy, float w, float h) : cx(cx), cy(cy), w(w), h(h) 
             {
@@ -127,8 +130,8 @@ namespace quadmap
             // Returns true if the point is inside; otherwise, false.
             bool containsTrue(const Node& point) const 
             {
-                return point.true_x >= west_edge && point.true_x < east_edge &&
-                    point.true_y >= north_edge && point.true_y < south_edge;
+                return point.true_mx >= west_edge && point.true_mx < east_edge &&
+                    point.true_my >= north_edge && point.true_my < south_edge;
             }
 
             bool contains(const Node& point) const 
@@ -139,8 +142,8 @@ namespace quadmap
                 // ROS_INFO("north_edge %f", north_edge);
                 // ROS_INFO("south_edge %f", south_edge);
 
-                return point.est_x >= west_edge && point.est_x < east_edge &&
-                    point.est_y >= north_edge && point.est_y < south_edge;
+                return point.est_mx >= west_edge && point.est_mx < east_edge &&
+                    point.est_my >= north_edge && point.est_my < south_edge;
             }
 
             // Determines if another rectangle intersects with this one.
@@ -178,6 +181,8 @@ namespace quadmap
             float sensor_range_map_res = 0;
             float map_resolution = 0;
             int quadmap_ID = 0;
+            int filled_val = 0;
+            int total_cells = 0;
         
         QuadMap()
         {
@@ -187,6 +192,8 @@ namespace quadmap
         : boundary(boundary), sensor_range(sensor_range), map_resolution(map_resolution), depth(depth), divided(false)
         {
             sensor_range_map_res = sensor_range/map_resolution;
+            total_cells = (boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res);
+
             if (boundary.w != boundary.h) 
             {
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
@@ -281,7 +288,7 @@ namespace quadmap
                 //     }
                 //     return false;
                 // }
-                if (boundary.w <= 2*sensor_range_map_res) 
+                if (boundary.w <= sensor_range_map_res) 
                 {
                     if (boundary.contains(point))
                     // if (boundary.containsTrue(point)) 
@@ -295,13 +302,17 @@ namespace quadmap
                         // ROS_INFO("east_edge %f", boundary.east_edge);
                         // ROS_INFO("north_edge %f", boundary.north_edge);
                         // ROS_INFO("south_edge %f", boundary.south_edge);                        
-                        // ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.true_x, point.true_y, point.getRobotID());
+                        // ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.true_mx, point.true_my, point.getRobotID());
                         // ROS_INFO("---------------------------");
                                                
                         // for (auto ptr : points)
                         // {
-                        //     ROS_INFO("Insert Check inserted a true point(x,y,ID) = %f,%f,%d ", ptr.true_x, ptr.true_y, ptr.getRobotID());
+                        //     ROS_INFO("Insert Check inserted a true point(x,y,ID) = %f,%f,%d ", ptr.true_mx, ptr.true_my, ptr.getRobotID());
                         // }
+                        
+                        
+                        // this->filled_val += 1;
+                        
                         return true;
                     }
                     
@@ -324,6 +335,55 @@ namespace quadmap
                     return false; // Return false if the point could not be inserted into any child nodes.
                 }
             }
+
+
+        /**
+         * Finds the nodes within the quadtree that lie within a specified radius of a given centre node.
+         * 
+         * The search is optimized by first considering a bounding square around the circle defined by the radius.
+         * This method checks if the quadtree node's boundary intersects with this square. If not, it concludes
+         * there are no nodes of interest in this node. If there is an intersection, it further checks each node
+         * within the node to determine if it lies within the specified radius from the centre. This method combines
+         * both rectangular boundary checks and circular distance checks to efficiently filter out nodes.
+         * 
+         * @param boundary A Rect object representing the bounding square of the search circle.
+         * @param centre The centre node of the search circle.
+         * @param radius The radius of the search circle.
+         * @return True if any nodes are found within the radius, False otherwise.
+         */
+        void query_filled(float& filled_cell_count)
+        {
+            if (boundary.w <= sensor_range_map_res) 
+            {
+                // Iterate through all the points for "fuctional robots" within the boundary and compute the filled_val on the fly
+                this->filled_val = 0;
+                for(auto point : this->points)
+                {
+                    this->filled_val += point.getTau(); // This will be 0 if a robot j becomes non-functional (dead and cannot get pings) during the middle of the exploration.
+                    // ROS_INFO("Robot: %d, tau: %d\n", point.getRobotID(), point.getTau());
+                }
+                
+                // ROS_INFO("hgrid cell filled val: %d\n", this->filled_val);
+
+                if (this->filled_val > 0) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
+                {
+                    filled_cell_count += 1;
+                }
+            } 
+            else 
+            {
+                // Still need to divide further to go all the way to the last node.
+                if (!divided) {
+                    divide(); // Divide the node if it has not been divided yet.
+                }
+
+                nw->query_filled(filled_cell_count);
+                ne->query_filled(filled_cell_count);
+                se->query_filled(filled_cell_count);
+                sw->query_filled(filled_cell_count);
+                
+            }
+        }
 
 
         /**
@@ -365,7 +425,7 @@ namespace quadmap
             {
                 // const Node point = ref.get();
 
-                // ROS_INFO(" %d) Quadmap boundary true point = %f,%f ",it_v++, point.true_x, point.true_y);
+                // ROS_INFO(" %d) Quadmap boundary true point = %f,%f ",it_v++, point.true_mx, point.true_my);
                 // ROS_INFO("Quadmap west_edge %f", this->boundary.west_edge);
                 // ROS_INFO("Quadmap east_edge %f", this->boundary.east_edge);
                 // ROS_INFO("Quadmap north_edge %f", this->boundary.north_edge);
@@ -420,8 +480,8 @@ namespace quadmap
         bool query_radius(const Node& centre, float radius, std::vector<Node>& found_nodes) 
         {
             // Calculate the bounding box for the search circle centered on robot i's frontier.
-            float centerX = centre.true_x;
-            float centerY = centre.true_y;
+            float centerX = centre.true_mx;
+            float centerY = centre.true_my;
             float rad = radius/map_resolution;
             
             // ROS_INFO("Rad : %f ", rad);

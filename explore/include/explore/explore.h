@@ -60,6 +60,7 @@
 #include <ros/ros.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseArray.h>
 #include <explore/costmap_client.h>
 #include <explore/frontier_search.h>
 #include <explore/quadmap.h>
@@ -67,13 +68,14 @@
 #include <gazebo_msgs/ModelStates.h>
 #include <std_msgs/Bool.h>
 #include <std_msgs/Float64MultiArray.h>
+#include "std_msgs/String.h"
 #include "tf/tf.h"
 #include <natnet_pkg/PoseArrayID.h>
 #include <wsr_exploration/QuadmapViz.h>
 #include <wsr_exploration/RelativeEstimate.h>
 #include <wsr_exploration/FrontierInfo.h>
-
-
+#include <nav_msgs/Path.h>
+#include <nav_msgs/GetPlan.h>
 
 namespace explore
 {
@@ -114,6 +116,10 @@ private:
 
   void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
+  void ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
+
+  void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
+
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
   bool IsMatch(std::string& val);
@@ -125,26 +131,36 @@ private:
                             std::chrono::seconds& elapsed_time__);
 
   void explorationStatusCB(const std_msgs::Bool::ConstPtr& msg);
+  
   void uwbCB(const std_msgs::Float64MultiArray::ConstPtr& msg);
+  
+  void setFailedRobotStatus(const std_msgs::String::ConstPtr& msg);
+
   std::vector<std::vector<double>> generate_range();
   std::pair<std::vector<std::string>, std::vector<std::vector<double>>> generate_aoa();
+  
   void positionCallbackT265(const nav_msgs::Odometry::ConstPtr& t265_msg);
   double quaternionToYaw(const tf::Quaternion& q);
   bool validateQuaternion(const tf::Quaternion& quat);
 
-
   double wrap0to360(double val);
+
+  bool GetPlanPath(const geometry_msgs::PoseStamped& start,
+                  const geometry_msgs::PoseStamped& goal, float tolerance,
+                  nav_msgs::Path& plan); 
+
+  double calculatePathLength(const nav_msgs::Path& path); 
+  
   void particle_filter();
 
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
-  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_;
+  ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
-  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction>
-      move_base_client_;
+  actionlib::SimpleActionClient<move_base_msgs::MoveBaseAction> move_base_client_;
   frontier_exploration::FrontierSearch search_;
   ros::Timer exploring_timer_;
   ros::Timer oneshot_;
@@ -155,6 +171,7 @@ private:
   geometry_msgs::Point prev_goal_;
   std_msgs::Bool get_csi_data_;
   ros::Time last_progress_;
+  ros::Time progress_start_time_;
   size_t last_markers_count_;
 
   // parameters
@@ -172,8 +189,8 @@ private:
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
   std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;
-  bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true
-      ,Flag_get_range_ = false;
+  bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true,Flag_get_range_ = false;
+  bool FLAG_SIM_ = true;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1, iterations__=0;
   geometry_msgs::Twist velocity_cmd_;
@@ -185,14 +202,27 @@ private:
   geometry_msgs::Point  __left_bottom, __right_bottom, __left_top, __right_top;
   std::vector<geometry_msgs::Point> __envBoundary;
   geometry_msgs::Point __home_position;
-  
+  ros::ServiceClient move_bas_path_client__; 
+  nav_msgs::Path frontier_centroid_path__;
+  geometry_msgs::PoseStamped start__; 
+  geometry_msgs::PoseStamped goal__;
+  float tolerance__ = 0.5; //in meters
+  int baseline_1_frontier_selection_threshold__ = 60;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
   double Quadmap_width_;
   double Quadmap_height;
-  std::unordered_map<std::string, quadmap::Robot> robot_information__;
+  std::unordered_map<std::string, quadmap::Robot> robot_information__; //Stores information of a neighoring robot j.
   int timestep__ = 0 ;
+  float cell_count__ = 0;
+  float filled_cell_count__=0;
+  int my_tau__ = 1;
+  bool __FLAG_can_stop_now__ = false;
+  double fill_percentage_threshold__ = 75;
+  double map_resolution__ = 0 ;
+  bool __FLAG_publish_once = false;
+  int diff_between_termination_thresholds__ = 5;
 
   //Filter parameters
   std::vector<double> measurement_output__;
@@ -210,6 +240,9 @@ private:
   double measurement_interval__ = 0;
   std::vector<frontier_exploration::Frontier> frontiers__, frontier_temp__;
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
+  std::vector<double> cov_array_prev{0, 0};
+  std::vector<geometry_msgs::Point> current_rel_positions__;
+
 };
 }
 
