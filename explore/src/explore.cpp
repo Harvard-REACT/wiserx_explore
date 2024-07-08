@@ -1246,9 +1246,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       }
       
       //Evaluate if its still worthwhile to go to that frontier midway
-      //0.3 is the robot speed. 
+      //0.15 is the robot speed. 
       //Multiply by 0.90 to get the time to reach 3/4th way to the frontier
-      progress_timeout_ = ros::Duration(frontier->centroid_distance/0.3*0.95); 
+      progress_timeout_ = ros::Duration(frontier->centroid_distance/0.01*0.95); 
       // progress_start_time_ = ros::Time::now();
       
       if (frontier == final_sorted_frontiers.end()) 

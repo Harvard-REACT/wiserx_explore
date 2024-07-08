@@ -21,7 +21,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
     all_range_data.push_back(msg->data[0]);
     
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 5) //Get a position estimate every 5 seconds 
+    if(duration_aoa_check.count() > 3) //Get a position estimate every 5 seconds 
     {  
         
         sampled_range_data.clear();
@@ -33,7 +33,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         std::mt19937 gen(rd()); // seed the generator
         std::uniform_int_distribution<> distr(0, int(all_range_data.size())); // define the range
         
-        int points_to_sample = std::min(10,int(all_range_data.size())/2);
+        int points_to_sample = std::min(5,int(all_range_data.size())/2);
 
         for(int n=0; n<points_to_sample; n++) //Get 20 random samples from UWB node
         {
