@@ -71,7 +71,8 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
 
   if (nearestCell(clear, pos, FREE_SPACE, *costmap_)) {
     bfs.push(clear);
-  } else {
+  }  
+  else {
     bfs.push(pos);
     ROS_WARN("Could not find nearby clear cell to start search");
   }
@@ -80,6 +81,14 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
   while (!bfs.empty()) {
     unsigned int idx = bfs.front();
     bfs.pop();
+
+    // FOR HARDWARE EXPERIEMNETS 
+    unsigned int idx_coord_x, idx_coord_y;
+    costmap_->indexToCells(idx, idx_coord_x, idx_coord_y); 
+
+    if(idx_coord_x > size_x_ - 4 || idx_coord_y > size_y_ - 4 || idx_coord_x < 4 || idx_coord_y < 4) {
+      continue; 
+    }
 
     // iterate over 4-connected neighbourhood
     for (unsigned nbr : nhood4(idx, *costmap_)) {

@@ -61,8 +61,8 @@ auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - star
 // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.3); //range noise 0  mean and 30cm stddev in meters 
 // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.3); //bearing noise  0 mean and 17 deg stddev in radians
 
-static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise 0  mean and 10cm stddev in meters 
-static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.1); //bearing noise  0 mean and 5 deg stddev in radians
+// static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise 0  mean and 10cm stddev in meters 
+// static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.1); //bearing noise  0 mean and 5 deg stddev in radians
 
 // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters 
 // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
@@ -70,6 +70,11 @@ static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.
 // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.05); //range noise mean and stddev in meters 
 // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
 
+// static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.01); //range noise mean and stddev in meters 
+// static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
+
+static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.2); //range noise mean and stddev in meters 20cm
+static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.17); //bearing noise mean and stddev in radians 10 deg
 
 std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
 
@@ -936,7 +941,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     
     auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
     base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
-    cell_count__ = base_quadmap_.total_cells;
+    // cell_count__ = base_quadmap_.total_cells;
+    cell_count__ = 16;
+
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
                                                   potential_scale_, gain_scale_,
