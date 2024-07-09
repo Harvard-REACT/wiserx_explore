@@ -82,14 +82,6 @@ std::vector<Frontier> FrontierSearch::searchFrom(geometry_msgs::Point position)
     unsigned int idx = bfs.front();
     bfs.pop();
 
-    // FOR HARDWARE EXPERIEMNETS 
-    unsigned int idx_coord_x, idx_coord_y;
-    costmap_->indexToCells(idx, idx_coord_x, idx_coord_y); 
-
-    if(idx_coord_x > size_x_ - 4 || idx_coord_y > size_y_ - 4 || idx_coord_x < 4 || idx_coord_y < 4) {
-      continue; 
-    }
-
     // iterate over 4-connected neighbourhood
     for (unsigned nbr : nhood4(idx, *costmap_)) {
       // add to queue all free, unvisited cells, use descending search in case
@@ -173,6 +165,16 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
   {
     unsigned int idx = bfs.front();
     bfs.pop();
+
+
+    // // FOR HARDWARE EXPERIEMNETS if environment does not match the map size
+    // unsigned int idx_coord_x, idx_coord_y;
+    // costmap_->indexToCells(idx, idx_coord_x, idx_coord_y); 
+
+    // if(idx_coord_x > size_x_ - 4 || idx_coord_y > size_y_ - 4 || idx_coord_x < 4 || idx_coord_y < 4) {
+    //   continue; 
+    // }
+
 
     // iterate over 4-connected neighbourhood
     for (unsigned nbr : nhood4(idx, *costmap_)) {

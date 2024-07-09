@@ -911,6 +911,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         //For vicon hardware experiments.
         modelStateSub_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/vicon_state_topic", 10, &Explore::ViconCombinedStateCallbackFilter, this);
+        
+        //TODO: Need a state publisher topic when using all onboard sensing
       }
     }
     else
@@ -941,8 +943,15 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     
     auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
     base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
+    
+    
+    /**
+     * This change has been made for running hardware expperiments in the flight lab
+    */
+
     // cell_count__ = base_quadmap_.total_cells;
     cell_count__ = 16;
+    //*****************************************************************
 
 
     search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
@@ -1255,7 +1264,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       //Evaluate if its still worthwhile to go to that frontier midway
       //0.15 is the robot speed. 
       //Multiply by 0.90 to get the time to reach 3/4th way to the frontier
-      progress_timeout_ = ros::Duration(frontier->centroid_distance/0.01*0.95); 
+      progress_timeout_ = ros::Duration(frontier->centroid_distance/0.1*0.95); 
       // progress_start_time_ = ros::Time::now();
       
       if (frontier == final_sorted_frontiers.end()) 

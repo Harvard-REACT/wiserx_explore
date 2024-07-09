@@ -152,7 +152,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             for(int i = 0; i<top_aoa_peaks.size();i++)
             {
                 ROS_INFO("AOA: %f", top_aoa_peaks[i]);
-                rbmsg.brearing_measurements.push_back(top_aoa_peaks[i]);
+                rbmsg.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
             rbmsg.bearing_profile_variance = profile_variance;
             rbmsg.aoa_profile = profile_array;

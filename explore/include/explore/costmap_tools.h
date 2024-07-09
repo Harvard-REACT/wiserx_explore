@@ -357,10 +357,10 @@ namespace frontier_exploration
 
           costmap.indexToCells(nbr, nx, ny);
 
-          // CHECKS IF CELL IS WITHIN BOUNDS
-          if(nx > size_x - 4 || ny > size_y - 4 || nx < 4 || ny < 4) {
-            continue; 
-          }
+          // CHECKS IF CELL IS WITHIN BOUNDS - Need more debugging
+          // if(nx > size_x - 4 || ny > size_y - 4 || nx < 4 || ny < 4) {
+          //   continue; 
+          // }
 
           costmap.mapToWorld(nx, ny, wx, wy);
           dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2)); 
