@@ -56,12 +56,20 @@ public:
    * @return List of frontiers, if any
    */
   std::vector<Frontier> searchFrom(geometry_msgs::Point position);
-  std::vector<Frontier> searchFrontiers(geometry_msgs::Point& position);
+  std::vector<Frontier> searchFrontiers(geometry_msgs::Point& position,
+                                        unsigned int x_env_map_max_limit, 
+                                        unsigned int y_env_map_max_limit,
+                                        unsigned int x_env_map_min_limit,
+                                        unsigned int y_env_map_min_limit);
   std::vector<Frontier> getMaxUtilityFrontiers(std::vector<Frontier>& frontier_list,
                                               quadmap::QuadMap& base_quadmap,
                                               int& robot_id, bool use_relative_positions,
                                               bool __FLAG_can_stop_now__,
-                                              std::vector<geometry_msgs::Point>& latest_relative_positions);
+                                              std::vector<geometry_msgs::Point>& latest_relative_positions,
+                                              unsigned int x_env_map_max_limit, 
+                                              unsigned int y_env_map_max_limit,
+                                              unsigned int x_env_map_min_limit,
+                                              unsigned int y_env_map_min_limit);
 
 protected:
   /**

@@ -118,6 +118,8 @@ private:
 
   void ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
 
+  void ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
+
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
@@ -208,6 +210,7 @@ private:
   geometry_msgs::PoseStamped goal__;
   float tolerance__ = 0.5; //in meters
   int baseline_1_frontier_selection_threshold__ = 60;
+  double robot_speed_ = 0.15;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
@@ -223,6 +226,10 @@ private:
   double map_resolution__ = 0 ;
   bool __FLAG_publish_once = false;
   int diff_between_termination_thresholds__ = 5;
+  unsigned int x_env_map_max_limit__=1000; 
+  unsigned int y_env_map_max_limit__=1000;
+  unsigned int x_env_map_min_limit__=0;
+  unsigned int y_env_map_min_limit__=0;
 
   //Filter parameters
   std::vector<double> measurement_output__;
@@ -242,7 +249,6 @@ private:
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
   std::vector<double> cov_array_prev{0, 0};
   std::vector<geometry_msgs::Point> current_rel_positions__;
-
 };
 }
 

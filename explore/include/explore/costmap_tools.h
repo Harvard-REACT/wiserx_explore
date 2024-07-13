@@ -150,7 +150,11 @@ namespace frontier_exploration
   bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
                                    const costmap_2d::Costmap2D& costmap, double& sensor_range,
                                    std::vector<quadmap::Node>& neighboring_robots_positions,
-                                   float& info_used_at_frontier_percent)
+                                   float& info_used_at_frontier_percent,
+                                   unsigned int x_env_map_max_limit, 
+                                   unsigned int y_env_map_max_limit,
+                                   unsigned int x_env_map_min_limit,
+                                   unsigned int y_env_map_min_limit)
   {
     const unsigned char* map = costmap.getCharMap();
     const unsigned int size_x = costmap.getSizeInCellsX(),
@@ -357,10 +361,19 @@ namespace frontier_exploration
 
           costmap.indexToCells(nbr, nx, ny);
 
-          // CHECKS IF CELL IS WITHIN BOUNDS - Need more debugging
+          // CHECKS IF CELL IS WITHIN BOUNDS
           // if(nx > size_x - 4 || ny > size_y - 4 || nx < 4 || ny < 4) {
           //   continue; 
           // }
+
+          //Env: approx 8 x 7, costmap initialized at point (-2,-4), map size initialized to 64x64 due to gmapping auto expansion issue.
+          //CHECKS IF CELL IS WITHIN BOUNDS For the explorer tb3 robots gmapping config. Env dim*res - 2 
+          // if(nx > 40 || ny > 36  || nx < 10 || ny < 4) {
+          if(nx > x_env_map_max_limit || ny > y_env_map_max_limit  || nx < x_env_map_min_limit || ny < y_env_map_min_limit) {
+            // std::cout << "********************** X coord: " << nx << " size_x " << size_x << std::endl;
+            // std::cout << "********************** Y coord: " << ny << " size_y " << size_y << std::endl;
+            continue; 
+          }
 
           costmap.mapToWorld(nx, ny, wx, wy);
           dist_i = sqrt(pow((swx-wx),2) + pow((swy-wy),2)); 

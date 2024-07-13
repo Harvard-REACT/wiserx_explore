@@ -302,7 +302,7 @@ namespace quadmap
                         // ROS_INFO("east_edge %f", boundary.east_edge);
                         // ROS_INFO("north_edge %f", boundary.north_edge);
                         // ROS_INFO("south_edge %f", boundary.south_edge);                        
-                        // ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.true_mx, point.true_my, point.getRobotID());
+                        // ROS_INFO("Successfully inserted a true point(x,y,ID) = %f,%f,%d ", point.est_mx, point.est_my, point.getRobotID());
                         // ROS_INFO("---------------------------");
                                                
                         // for (auto ptr : points)
@@ -365,7 +365,7 @@ namespace quadmap
                 
                 // ROS_INFO("hgrid cell filled val: %d\n", this->filled_val);
 
-                if (this->filled_val > 0) //Atleast 3 position estimates inside it, since sometimes ekf will generate spurious measurements
+                if (this->filled_val > 0) //Atleast 1 position estimates inside it, since sometimes ekf will generate spurious measurements
                 {
                     filled_cell_count += 1;
                 }
