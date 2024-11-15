@@ -587,9 +587,16 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
 
   //Note: the centroid distance does not account for the map resoulution, but since its just a scaler multiplier. 
   // res = (alpha_parameter_*frontier.size *information_gain)/(beta_parameter_*frontier.centroid_distance);
-  res = (information_gain)/(frontier.centroid_distance);
-  // ROS_INFO("Information gain based on unexplored cell count = %f", information_gain);
-  // ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
+  if(frontier.centroid_distance == 0) 
+    res = information_gain;
+  else
+    res = (information_gain)/(frontier.centroid_distance);
+
+  ROS_INFO("Information gain based on unexplored cell count and beta parameter = %f", information_gain);
+  ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
+
+  
+
   ROS_INFO("frontier Utility = %f", res);
   ROS_INFO("***************************************************");  
   return res;

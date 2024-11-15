@@ -76,6 +76,7 @@
 #include <wsr_exploration/FrontierInfo.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/GetPlan.h>
+#include <explore_lite/RangeBearing.h>
 
 namespace explore
 {
@@ -84,6 +85,7 @@ namespace explore
  * @brief A class adhering to the robot_actions::Action interface that moves the
  * robot base to explore its environment.
  */
+
 class Explore
 {
 public:
@@ -122,6 +124,8 @@ private:
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
+  void AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg);
+
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
   bool IsMatch(std::string& val);
@@ -142,10 +146,7 @@ private:
   std::pair<std::vector<std::string>, std::vector<std::vector<double>>> generate_aoa();
   
   void positionCallbackT265(const nav_msgs::Odometry::ConstPtr& t265_msg);
-  double quaternionToYaw(const tf::Quaternion& q);
-  bool validateQuaternion(const tf::Quaternion& quat);
 
-  double wrap0to360(double val);
 
   bool GetPlanPath(const geometry_msgs::PoseStamped& start,
                   const geometry_msgs::PoseStamped& goal, float tolerance,
@@ -211,6 +212,8 @@ private:
   float tolerance__ = 0.5; //in meters
   int baseline_1_frontier_selection_threshold__ = 60;
   double robot_speed_ = 0.15;
+  float bearing_angle_radians__ = 0;
+  float own_orientation_deg__ = 0;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
@@ -249,6 +252,68 @@ private:
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
   std::vector<double> cov_array_prev{0, 0};
   std::vector<geometry_msgs::Point> current_rel_positions__;
+  int other_robot_id__=-1;
+  float min_diff__ = 0;
+  float diff__ = 0;
+  float previous_angle__ = 0;
+  float current_angle__ = 0;
+  bool __FLAG_first_measurement = true;
+  geometry_msgs::Pose prev_neighboring_position;
+
+
+
+  double wrap0to360(double val) 
+  {
+    val = fmod(val, 360);
+
+    if (val < 0)
+        val += 360;
+
+    return val;
+  }
+
+  double diff_360(double a, double b) 
+  {
+    double tmp = a-b;
+
+    if(tmp > 180)
+      tmp -=360;
+    else if (tmp < -180)
+      tmp += 360;
+    
+    return tmp;
+  }
+
+
+  double quaternionToYaw(const tf::Quaternion& q) 
+  {
+    double yaw = 0.0;
+
+    if (validateQuaternion(q)) {
+        tf::Matrix3x3 m(q);
+
+        double roll, pitch;
+        m.getRPY(roll, pitch, yaw);
+    }
+
+    return yaw;
+  }
+
+  double warptoPi(double angle)
+  {
+    angle = fmod(angle + M_PI, 2*M_PI);
+    if (angle < 0)
+      angle+= 2*M_PI;
+
+    return angle - M_PI;
+
+  }
+
+  bool validateQuaternion(const tf::Quaternion& quat) 
+  {
+    return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
+  }
+
 };
 }
 

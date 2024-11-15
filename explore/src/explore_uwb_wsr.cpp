@@ -1204,35 +1204,6 @@ void Explore::writeToFile(std::vector<frontier_exploration::Frontier>& default_f
 
   }
 
-  double Explore::wrap0to360(double val) 
-  {
-    val = fmod(val, 360);
-
-    if (val < 0)
-        val += 360;
-
-    return val;
-  }
-
-  double Explore::quaternionToYaw(const tf::Quaternion& q) 
-  {
-    double yaw = 0.0;
-
-    if (validateQuaternion(q)) {
-        tf::Matrix3x3 m(q);
-
-        double roll, pitch;
-        m.getRPY(roll, pitch, yaw);
-    }
-
-    return yaw;
-  }
-
-  bool Explore::validateQuaternion(const tf::Quaternion& quat) 
-  {
-    return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
-  }
-
   /**
    * 
    * */

@@ -19,7 +19,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 2) //Get a position estimate every 5 seconds 
+    if(duration_aoa_check.count() > 1) //Get a measurement estimate every 5 seconds 
     {  
         
         sampled_range_data.clear();
@@ -85,7 +85,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             }
 
             current_time_val = strtoul( tokens[0].c_str(), NULL, 0 );
-            if( current_time_val > last_time )
+            if( current_time_val > last_time-2 )
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
                 profile_variance = stod(tokens[2]);
