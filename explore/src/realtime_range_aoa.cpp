@@ -19,7 +19,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 1) //Get a measurement estimate every 5 seconds 
+    if(duration_aoa_check.count() > 2) //Get a measurement estimate every 5 seconds 
     {  
         
         sampled_range_data.clear();
@@ -31,7 +31,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         std::mt19937 gen(rd()); // seed the generator
         std::uniform_int_distribution<> distr(0, int(all_range_data.size())); // define the range
         
-        int points_to_sample = std::min(5,int(all_range_data.size())/2);
+        int points_to_sample = std::min(3,int(all_range_data.size()));
 
         for(int n=0; n<points_to_sample; n++) //Get 5 random samples from UWB node
         {
@@ -85,7 +85,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             }
 
             current_time_val = strtoul( tokens[0].c_str(), NULL, 0 );
-            if( current_time_val > last_time-2 )
+            if( current_time_val > last_time)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
                 profile_variance = stod(tokens[2]);

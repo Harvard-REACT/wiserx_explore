@@ -781,6 +781,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     if(__FLAG_first_measurement)
     {
       previous_angle__ = wrap0to360(input_msg->bearing_measurements[0]);
+      _previous_range_measurement = input_msg->range_measurements[0];
       current_angle__ = previous_angle__;
       __FLAG_first_measurement = false;
     }
@@ -790,13 +791,14 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       min_diff__ = 1000;
       for(int angle_vals = 0; angle_vals<input_msg->bearing_measurements.size(); angle_vals++)
       {
-        diff__ = abs(previous_angle__ - input_msg->bearing_measurements[angle_vals]);
+        diff__ = abs(previous_angle__ - wrap0to360(input_msg->bearing_measurements[angle_vals]));
         if(diff__ < min_diff__)
         {
          min_diff__ = diff__;
-         current_angle__ = wrap0to360(input_msg->bearing_measurements[0]);
+         current_angle__ = wrap0to360(input_msg->bearing_measurements[angle_vals]);
         }
       }
+      previous_angle__ = current_angle__;
     }
     
     
@@ -809,11 +811,11 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     ROS_INFO("Range (meters), bearing(degrees): = %f, %f", input_msg->range_measurements[0], bearing_angle_radians__*180/3.14);
 
 
-    //Tempoarary workaround
+    //Workaround for issues in range measurements
     __range_to_use = input_msg->range_measurements[0];
     __bearing_to_use = bearing_angle_radians__;
     
-    if(input_msg->range_measurements[0] == 0.0)
+    if(input_msg->range_measurements[0] == 0.0 || abs(_previous_range_measurement-input_msg->range_measurements[0]) > 2.0)
     {
      __range_to_use = _previous_range_measurement;
     }
@@ -1741,17 +1743,17 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
 
       //Commented out for Debugging
-      move_base_msgs::MoveBaseGoal goal;
-      goal.target_pose.pose.position = target_position;
-      goal.target_pose.pose.orientation.w = 1.;
-      goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
-      goal.target_pose.header.stamp = ros::Time::now();
-      move_base_client_.sendGoal(goal, [this, target_position]
-                        ( const actionlib::SimpleClientGoalState& status,
-                          const move_base_msgs::MoveBaseResultConstPtr& result) 
-                        {
-                          reachedGoal(status, result, target_position);
-                        });
+      // move_base_msgs::MoveBaseGoal goal;
+      // goal.target_pose.pose.position = target_position;
+      // goal.target_pose.pose.orientation.w = 1.;
+      // goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
+      // goal.target_pose.header.stamp = ros::Time::now();
+      // move_base_client_.sendGoal(goal, [this, target_position]
+      //                   ( const actionlib::SimpleClientGoalState& status,
+      //                     const move_base_msgs::MoveBaseResultConstPtr& result) 
+      //                   {
+      //                     reachedGoal(status, result, target_position);
+      //                   });
 
 
     }
