@@ -17,9 +17,9 @@ std::vector<double> profile_array;
 
 void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
-    
+    all_range_data.push_back(msg->data[0]); 
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 2) //Get a measurement estimate every 5 seconds 
+    if(duration_aoa_check.count() > 1) //Get a measurement estimate every 5 seconds 
     {  
         
         sampled_range_data.clear();
@@ -31,7 +31,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         std::mt19937 gen(rd()); // seed the generator
         std::uniform_int_distribution<> distr(0, int(all_range_data.size())); // define the range
         
-        int points_to_sample = std::min(3,int(all_range_data.size()));
+        int points_to_sample = std::min(2,int(all_range_data.size())/2);
 
         for(int n=0; n<points_to_sample; n++) //Get 5 random samples from UWB node
         {
@@ -85,10 +85,11 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             }
 
             current_time_val = strtoul( tokens[0].c_str(), NULL, 0 );
-            if( current_time_val > last_time)
+            if( current_time_val > last_time-2)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
-                profile_variance = stod(tokens[2]);
+                ROS_INFO("reading from aoa file");
+		profile_variance = stod(tokens[2]);
                 for(int i = 3; i < tokens.size(); i++) //The first two values are timestamp and TX ID
                     top_aoa_peaks.push_back(stod(tokens[i]));
                 
@@ -143,6 +144,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         }
         
         //Publish the range and bearing AOA
+	ROS_INFO("Ranged sample size: %f", sampled_range_data.size());
+	ROS_INFO("Top AOA peak size: %f", top_aoa_peaks.size());
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
             explore_lite::RangeBearing rbmsg;

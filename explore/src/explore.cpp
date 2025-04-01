@@ -1549,7 +1549,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
     // Reevaulate all frontiers once 50% progress has been made to the frontier to understand if its still worthwhile to 
     //go to that frontier.
-    ros::Duration half_duration(progress_timeout_.toSec()*0.6);
+    ros::Duration half_duration(progress_timeout_.toSec()*0.5);
     if (ros::Time::now() - last_progress_ > half_duration) 
     {
       move_base_client_.cancelAllGoals();
@@ -1634,30 +1634,30 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       // std::uniform_int_distribution<> distr(0, int(final_sorted_frontiers.size())-1); // define the range
       // int rval = distr(gen); // generate numbers
       
-      // frontier_exploration::Frontier frontier;
-      // if(final_sorted_frontiers.size() > 0) frontier = final_sorted_frontiers[rval];
-      // else 
-      // {
-      //     stop();
-      //     return;
-      // }
+      //frontier_exploration::Frontier frontier;
+      //if(final_sorted_frontiers.size() > 0) frontier = final_sorted_frontiers[rval];
+      //else 
+      //{
+      //    stop();
+      //    return;
+      //}
       
-      // // time out if we are not making any progress
-      // geometry_msgs::Point target_position = frontier.centroid;
-      // bool same_goal = prev_goal_ == target_position;
-      // prev_goal_ = target_position;
-      // if (!same_goal || prev_distance_ > frontier.min_distance) 
-      // {
-      //   last_progress_ = ros::Time::now(); // we have different goal or we made some progress
-      //   prev_distance_ = frontier.min_distance;
-      // }
-      // if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
-      // {
-      //   frontier_blacklist_.push_back(target_position);
-      //   ROS_DEBUG("Adding current goal to black list");
-      //   makePlan();
-      //   return;
-      // }
+      // time out if we are not making any progress
+      //geometry_msgs::Point target_position = frontier.centroid;
+      //bool same_goal = prev_goal_ == target_position;
+      //prev_goal_ = target_position;
+      //if (!same_goal || prev_distance_ > frontier.min_distance) 
+      //{
+      //  last_progress_ = ros::Time::now(); // we have different goal or we made some progress
+      //  prev_distance_ = frontier.min_distance;
+      //}
+      //if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
+      //{
+      //  frontier_blacklist_.push_back(target_position);
+      //  ROS_DEBUG("Adding current goal to black list");
+      //  makePlan();
+      //  return;
+      //}
 
 
       // find non blacklisted frontier
@@ -1698,8 +1698,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       //Multiply by 0.90 to get the time to reach greater than 3/4th way to the frontier. Division by 3 is for hardware experiments sinec our distances are small
       try
       {
-        // progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 0.90); 
-        progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_/3)); 
+        // progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 0.90); //For simulation 
+        progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_/3)); //For hardware
       }
       catch(...)
       {
@@ -1708,7 +1708,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       
       
       // progress_start_time_ = ros::Time::now();
-      
       if (frontier == final_sorted_frontiers.end()) 
       {
         //TODO add navigation to home position.
@@ -1716,8 +1715,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         return;
       }
       
-      // time out if we are not making any progress
+      
       geometry_msgs::Point target_position = frontier->centroid;
+      
+      /* === This is deprecated code from original repo, we do not use it anymore=====
+      //timeout if we are not making any progress
       // geometry_msgs::Point target_position = frontier->view_point_to_navigate_to; @BUG -some weird waypoints.
       // bool same_goal = prev_goal_ == target_position;
       // prev_goal_ = target_position;
@@ -1740,6 +1742,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       //   return;     // we don't need to do anything if we still pursuing the same goal
       // }
       // send goal to move_base if we have something new to pursue
+      ========================================================================================*/
 
 
       move_base_msgs::MoveBaseGoal goal;
@@ -1748,11 +1751,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
       goal.target_pose.header.stamp = ros::Time::now();
       move_base_client_.sendGoal(goal, [this, target_position]
-                        ( const actionlib::SimpleClientGoalState& status,
-                          const move_base_msgs::MoveBaseResultConstPtr& result) 
-                        {
-                          reachedGoal(status, result, target_position);
-                        });
+                      ( const actionlib::SimpleClientGoalState& status,
+                        const move_base_msgs::MoveBaseResultConstPtr& result) 
+                       {
+                        reachedGoal(status, result, target_position);
+                     });
 
 
     }
