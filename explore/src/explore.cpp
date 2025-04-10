@@ -86,6 +86,21 @@ std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
 float ekf_velocity_x = 0.1;
 float ekf_velocity_y = 0.1;
 
+
+std::string exec(const char* cmd) {
+  char buffer[128];
+  std::string result = "";
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) {
+      throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+      result += buffer;
+  }
+  return result;
+}
+
+
 namespace explore
 {
 
@@ -321,7 +336,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           
           //Add own's position to enable estimating of quadmap fill and terminating.
           quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
@@ -738,8 +753,6 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 */
 void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg)
 {
-    //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
-    geometry_msgs::Pose robot_i_positions, robot_i_positions_during_measurement;
 
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap(); 
     double world_x, world_y;
@@ -751,22 +764,15 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     wsr_exploration::QuadmapViz msg;
     current_rel_positions__.clear();
     
-    //=========== Add own position estimate from SLAM ==============
-    ROS_INFO("robot_id_: %d", robot_id_);
-    robot_i_positions = costmap_client_.getRobotPose();
-    costmap2d->worldToMap(robot_i_positions.position.x, robot_i_positions.position.y, mx__, my__);
-    msg.own_position.x = mx__;
-    msg.own_position.y = my__;
-    msg.robot_id = robot_id_;
-    ROS_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_positions.position.x,robot_i_positions.position.y, msg.robot_id);
-    ROS_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
-    
-    //Add own's position to enable estimating of quadmap fill and terminating.
-    quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
-    base_quadmap_.insert_till_end(my_position_node); ;
-      
 
-    //=========== Estimate neighboring robot position ==============
+    // === Fetch the closes pose to the time when the first CSI sample was take ====
+    own_pose_mutex.lock();
+    std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history_vector = {own_pose_deque_.begin(), own_pose_deque_.end()};
+    own_pose_mutex.unlock();
+     //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
+    geometry_msgs::Pose robot_i_positions = findClosestPoseToFirstSample(input_msg->csi_timestamp, own_pose_history_vector);
+
+    //=========== Pre-process the measurements ==============
     wsr_exploration::RelativeEstimate neighboring_robot;             
     double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
 
@@ -826,10 +832,21 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       _previous_range_measurement = __range_to_use;
     }
     
-    /* TODO
-    robot_i_positions_during_measurement = Fetch based on matching closest timestamp pose
-    */
+    //=========== Add own position estimate from SLAM ==============
+    ROS_INFO("robot_id_: %d", robot_id_);
+    costmap2d->worldToMap(robot_i_positions.position.x, robot_i_positions.position.y, mx__, my__);
+    msg.own_position.x = mx__;
+    msg.own_position.y = my__;
+    msg.robot_id = robot_id_;
+    ROS_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_positions.position.x,robot_i_positions.position.y, msg.robot_id);
+    ROS_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
+    
+    //Add own's position to enable estimating of quadmap fill and terminating.
+    quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+    base_quadmap_.insert_till_end(my_position_node);
+    
 
+    //=========== Estimate neighboring robot position ==============
     //Estimate the relative position of the neighboring robot
     auto search_val = robot_information__.find(name_vicon_hardware[other_robot_id__-1].c_str());
     if( search_val == robot_information__.end())
@@ -839,10 +856,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       quadmap::Robot new_robot_track;
       new_robot_track.robot_id = other_robot_id__;
       robot_information__.insert({name_vicon_hardware[other_robot_id__-1].c_str(), new_robot_track});
-      
-      //TODO
-      double first_est_x = robot_i_positions_during_measurement.position.x + __range_to_use*cos(__bearing_to_use);
-      double first_est_y = robot_i_positions_during_measurement.position.y + __range_to_use*sin(__bearing_to_use);        
+      double first_est_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
+      double first_est_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);        
       ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
       
       
@@ -1136,7 +1151,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           break;
         }
       }
@@ -1270,10 +1285,23 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
  /**
   *@brief Collect own pose when CSI data is being collected
   * */
-  void Explore::CollectOwnPoseCB(const std::msgs::Bool::ConstPtr& msg){
+  void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
     if(msg->data){
-    //Get filename of the csi data file
-    while{}
+      //Get filename of the csi data file
+      std::time_t current_epoch_time;
+      std::string command = "stat ~/catkin_ws/src/wsr_exploration/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";
+      std::string orig_output = exec(command.c_str());
+      std::string new_output = orig_output;
+
+      while(new_output == orig_output){
+        auto current_pose = costmap_client_.getRobotPose();
+        const auto now = std::chrono::system_clock::now();
+        current_epoch_time = std::chrono::system_clock::to_time_t(now); 
+        if(own_pose_deque_.size() > 100) own_pose_deque_.pop_front();
+        own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
+        sleep(0.2);
+        new_output = exec(command.c_str());
+      }
     }
   }
 
@@ -1330,7 +1358,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         //For all onboard sensing
         modelStateSub_ =  private_nh_.subscribe<explore_lite::RangeBearing>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
-	saveRobotPose_ =  private_nh_.subscribe<std::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);
+        saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);
 
         //For vicon hardware experiments.
         // modelStateSub_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/vicon_state_topic", 10, &Explore::ViconCombinedStateCallbackFilter, this);

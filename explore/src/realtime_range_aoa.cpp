@@ -144,8 +144,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         }
         
         //Publish the range and bearing AOA
-	ROS_INFO("Ranged sample size: %f", sampled_range_data.size());
-	ROS_INFO("Top AOA peak size: %f", top_aoa_peaks.size());
+	ROS_INFO("Ranged sample size: %lu", sampled_range_data.size());
+	ROS_INFO("Top AOA peak size: %lu", top_aoa_peaks.size());
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
             explore_lite::RangeBearing rbmsg;
