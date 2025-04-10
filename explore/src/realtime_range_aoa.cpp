@@ -4,8 +4,8 @@
 auto start_aoa_check = std::chrono::high_resolution_clock::now();
 auto end_aoa_check = std::chrono::high_resolution_clock::now();
 auto duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-std::string aoa_fn = "/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
-std::string aoa_profile_name = "/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
+std::string aoa_fn = "/home/explorer-2/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
+std::string aoa_profile_name = "/home/explorer-2/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
 std::ifstream fin, aoa_profile;
 std::vector<double> all_range_data, sampled_range_data, top_aoa_peaks;
 bool Flag_get_data_ = false, first_itr=true;
@@ -17,9 +17,9 @@ std::vector<double> profile_array;
 
 void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
-    
+    all_range_data.push_back(msg->data[0]);
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 2) //Get a measurement estimate every 5 seconds 
+    if(duration_aoa_check.count() > 0.5) //Get a measurement estimate every 4 seconds 
     {  
         
         sampled_range_data.clear();
@@ -31,7 +31,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         std::mt19937 gen(rd()); // seed the generator
         std::uniform_int_distribution<> distr(0, int(all_range_data.size())); // define the range
         
-        int points_to_sample = std::min(3,int(all_range_data.size()));
+        int points_to_sample = std::min(2,int(all_range_data.size())/2);
 
         for(int n=0; n<points_to_sample; n++) //Get 5 random samples from UWB node
         {
@@ -88,7 +88,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             if( current_time_val > last_time)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
-                profile_variance = stod(tokens[2]);
+                ROS_INFO("reading from aoa file");
+		profile_variance = stod(tokens[2]);
                 for(int i = 3; i < tokens.size(); i++) //The first two values are timestamp and TX ID
                     top_aoa_peaks.push_back(stod(tokens[i]));
                 
@@ -143,6 +144,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         }
         
         //Publish the range and bearing AOA
+	ROS_INFO("Ranged sample size: %f", sampled_range_data.size());
+	ROS_INFO("Top AOA peak size: %f", top_aoa_peaks.size());
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
             explore_lite::RangeBearing rbmsg;
@@ -159,7 +162,10 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             }
             rbmsg.bearing_profile_variance = profile_variance;
             rbmsg.aoa_profile = profile_array;
+	    rbmsg.header.stamp = ros::Time::now();
+	    rbmsg.csi_timestamp = current_time_val;
             range_bearing_publisher.publish(rbmsg);
+
 
         }
         else
@@ -175,15 +181,15 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "range_bearing_publisher_tb3_1");
+  ros::init(argc, argv, "range_bearing_publisher_tb3_2");
   if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
                                      ros::console::levels::Debug)) {
     ros::console::notifyLoggerLevelsChanged();
   }
   
   ros::NodeHandle n;
-  ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("/tb3_1/distance_multi", 10, range_bearing_CB);
-  range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("/tb3_1/range_bearing_estimates", 10);
+  ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("/tb3_2/distance_multi", 10, range_bearing_CB);
+  range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("/tb3_2/range_bearing_estimates", 10);
   
   ros::spin();
 
