@@ -159,7 +159,7 @@ private:
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_,saveRobotPose__;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;

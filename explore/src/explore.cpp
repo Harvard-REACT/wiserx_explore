@@ -738,7 +738,9 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 */
 void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg)
 {
-    geometry_msgs::Pose robot_i_positions;
+    //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
+    geometry_msgs::Pose robot_i_positions, robot_i_positions_during_measurement;
+
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap(); 
     double world_x, world_y;
     std::vector<frontier_exploration::Frontier> frontiers_copy;
@@ -807,9 +809,9 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     // bearing_angle_radians__ = warptoPi(input_msg->bearing_measurements[0]*3.14/180);
     
     ROS_INFO("Range (meters), AOA(degrees), Own heading(degrees): = %f, %f, %f", input_msg->range_measurements[0], input_msg->bearing_measurements[0], own_orientation_deg__);
-    ROS_INFO("Range (meters), bearing(degrees): = %f, %f", input_msg->range_measurements[0], current_angle__*180/3.14);
-    ROS_INFO("Range (meters), bearing(degrees): = %f, %f", input_msg->range_measurements[0], bearing_angle_radians__*180/3.14);
-
+    ROS_INFO("Range (meters), raw_bearing(degrees): = %f, %f", input_msg->range_measurements[0], current_angle__);
+    ROS_INFO("Range (meters), AOA relative to Own heading (degrees): = %f, %f", input_msg->range_measurements[0], bearing_angle_radians__*180/3.14);
+    std::vector<double> own_pose_vec {robot_i_positions.position.x, robot_i_positions.position.y, own_orientation_deg__};
 
     //Workaround for issues in range measurements
     __range_to_use = input_msg->range_measurements[0];
@@ -824,6 +826,10 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       _previous_range_measurement = __range_to_use;
     }
     
+    /* TODO
+    robot_i_positions_during_measurement = Fetch based on matching closest timestamp pose
+    */
+
     //Estimate the relative position of the neighboring robot
     auto search_val = robot_information__.find(name_vicon_hardware[other_robot_id__-1].c_str());
     if( search_val == robot_information__.end())
@@ -833,9 +839,10 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       quadmap::Robot new_robot_track;
       new_robot_track.robot_id = other_robot_id__;
       robot_information__.insert({name_vicon_hardware[other_robot_id__-1].c_str(), new_robot_track});
-
-      double first_est_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
-      double first_est_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);        
+      
+      //TODO
+      double first_est_x = robot_i_positions_during_measurement.position.x + __range_to_use*cos(__bearing_to_use);
+      double first_est_y = robot_i_positions_during_measurement.position.y + __range_to_use*sin(__bearing_to_use);        
       ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
       
       
@@ -851,6 +858,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
 
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].predict(); //Prediction comes from model
       z << __range_to_use, __bearing_to_use;
+      
+      //TODO
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].update(z,robot_i_positions);
 
       prev_neighboring_position.position.x = first_est_x ;
@@ -866,6 +875,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].predict();
       
       z << __range_to_use, __bearing_to_use;
+      //TODO
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].update(z,robot_i_positions); //Correct the prediction based on the new measurement
         
       est_x_j = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].x[0];
@@ -903,6 +913,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       neighboring_robot.estimated_map_position.x = prev_neighboring_position.position.x;
       neighboring_robot.estimated_map_position.y = prev_neighboring_position.position.x;
 
+      //TODO
       one_shot_position_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
       one_shot_position_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);
       costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
@@ -912,6 +923,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       //Publisher message
       std::vector<double> temp_meas_vec {__range_to_use, __bearing_to_use};     
       neighboring_robot.est_range_bearing = temp_meas_vec;
+      neighboring_robot.own_position_heading = own_pose_vec;
       neighboring_robot.covariance_meter_sq = cov_array;
       neighboring_robot.status = 1;
       neighboring_robot.robot_id = other_robot_id__;
@@ -929,7 +941,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       neighboring_robot.true_map_position.y = position_node.true_my; 
       neighboring_robot.estimated_map_position.x = position_node.est_mx;
       neighboring_robot.estimated_map_position.y = position_node.est_my;
-
+      
+      //TODO
       one_shot_position_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
       one_shot_position_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);
       costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
@@ -940,6 +953,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       std::vector<double> temp_meas_vec { __range_to_use, __bearing_to_use};
       ROS_INFO("Adding other neighbor info");       
       neighboring_robot.est_range_bearing = temp_meas_vec;
+      neighboring_robot.own_position_heading = own_pose_vec;
       neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].range_bearing__;
       neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].residual_error__;
       neighboring_robot.covariance_meter_sq = cov_array;
@@ -1253,6 +1267,16 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   }
 
 
+ /**
+  *@brief Collect own pose when CSI data is being collected
+  * */
+  void Explore::CollectOwnPoseCB(const std::msgs::Bool::ConstPtr& msg){
+    if(msg->data){
+    //Get filename of the csi data file
+    while{}
+    }
+  }
+
   Explore::Explore()
     : private_nh_("~")
     , tf_listener_(ros::Duration(10.0))
@@ -1306,6 +1330,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         //For all onboard sensing
         modelStateSub_ =  private_nh_.subscribe<explore_lite::RangeBearing>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
+	saveRobotPose_ =  private_nh_.subscribe<std::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);
 
         //For vicon hardware experiments.
         // modelStateSub_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/vicon_state_topic", 10, &Explore::ViconCombinedStateCallbackFilter, this);
@@ -1365,8 +1390,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       other_robot_id__ = robot_id_ == 1 ? 2:1;
 
       x_env_map_max_limit__ = 40; 
-      y_env_map_max_limit__ = 36;
-      x_env_map_min_limit__ = 10;
+      y_env_map_max_limit__ = 40;
+      x_env_map_min_limit__ = 4;
       y_env_map_min_limit__ = 4;
     }
     //*****************************************************************
@@ -1741,7 +1766,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       // }
       // send goal to move_base if we have something new to pursue
 
-
+      
       move_base_msgs::MoveBaseGoal goal;
       goal.target_pose.pose.position = target_position;
       goal.target_pose.pose.orientation.w = 1.;
@@ -1753,7 +1778,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                         {
                           reachedGoal(status, result, target_position);
                         });
-
+      
 
     }
 
