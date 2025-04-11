@@ -764,12 +764,12 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     wsr_exploration::QuadmapViz msg;
     current_rel_positions__.clear();
     
-
     // === Fetch the closes pose to the time when the first CSI sample was take ====
     own_pose_mutex.lock();
     std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history_vector = {own_pose_deque_.begin(), own_pose_deque_.end()};
     own_pose_mutex.unlock();
-     //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
+    
+    //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
     std::pair<double, geometry_msgs::Pose> mesurement_pose_time = findClosestPoseToFirstSample(input_msg->csi_timestamp, own_pose_history_vector);
     geometry_msgs::Pose robot_i_positions = mesurement_pose_time.second;
 
@@ -821,7 +821,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       }
       previous_angle__ = current_angle__;
       */
-      current_angle__ = wrap0to360(input_msg->bearing_measurements[0]);
+      current_angle__ = input_msg->bearing_measurements[0];
     }
     
     
@@ -1309,6 +1309,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
     if(msg->data){
       //Get filename of the csi data file
+      ROS_INFO(" ========= Deque size : %u ======== ", own_pose_deque_.size());
       std::time_t current_epoch_time;
       std::string command = "stat ~/catkin_ws/src/wsr_exploration/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";
       std::string orig_output = exec(command.c_str());
@@ -1318,10 +1319,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         auto current_pose = costmap_client_.getRobotPose();
         const auto now = std::chrono::system_clock::now();
         current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-        if(own_pose_deque_.size() > 300) own_pose_deque_.pop_front();
+        if(own_pose_deque_.size() > 200) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
-        sleep(0.1);
+	ros::Duration(0.2).sleep();
         new_output = exec(command.c_str());
+      }
+
+      for(auto& elem:  own_pose_deque_) {
+	 ROS_INFO("%f", elem.first);
       }
     }
   }
