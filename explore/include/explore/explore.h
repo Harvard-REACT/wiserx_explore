@@ -324,13 +324,15 @@ private:
   }
 
 
-  geometry_msgs::Pose findClosestPoseToFirstSample(double csi_first_timestamp, std::vector<std::pair<double,geometry_msgs::Pose>>& own_pose_history_vector)
+  std::pair<double, geometry_msgs::Pose> findClosestPoseToFirstSample(double csi_first_timestamp, std::vector<std::pair<double,geometry_msgs::Pose>>& own_pose_history_vector)
   {
     size_t i = 0;
     //Since the timestamps are sorted, we just need to find a first timestamp > csi timestamp and use the pose corresponding to it.
     while(own_pose_history_vector[i].first < csi_first_timestamp && i < own_pose_history_vector.size()) i++;
-    std::cout << "The closest timestamp is : " << own_pose_history_vector[i].first << std::endl;
-    return own_pose_history_vector[i].second;
+    std::cout.precision(15);
+    std::cout << "[INFO] **** The closest timestamp is : " << own_pose_history_vector[i].first << std::endl;
+
+    return own_pose_history_vector[i];
   }
 };
 }
