@@ -86,6 +86,21 @@ std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
 float ekf_velocity_x = 0.1;
 float ekf_velocity_y = 0.1;
 
+
+std::string exec(const char* cmd) {
+  char buffer[128];
+  std::string result = "";
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) {
+      throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+      result += buffer;
+  }
+  return result;
+}
+
+
 namespace explore
 {
 
@@ -321,7 +336,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           
           //Add own's position to enable estimating of quadmap fill and terminating.
           quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
@@ -738,7 +753,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 */
 void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg)
 {
-    geometry_msgs::Pose robot_i_positions;
+
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap(); 
     double world_x, world_y;
     std::vector<frontier_exploration::Frontier> frontiers_copy;
@@ -749,22 +764,27 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     wsr_exploration::QuadmapViz msg;
     current_rel_positions__.clear();
     
-    //=========== Add own position estimate from SLAM ==============
-    ROS_INFO("robot_id_: %d", robot_id_);
-    robot_i_positions = costmap_client_.getRobotPose();
-    costmap2d->worldToMap(robot_i_positions.position.x, robot_i_positions.position.y, mx__, my__);
-    msg.own_position.x = mx__;
-    msg.own_position.y = my__;
-    msg.robot_id = robot_id_;
-    ROS_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_positions.position.x,robot_i_positions.position.y, msg.robot_id);
-    ROS_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
+    // === Fetch the closes pose to the time when the first CSI sample was take ====
+    own_pose_mutex.lock();
+    std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history_vector = {own_pose_deque_.begin(), own_pose_deque_.end()};
+    own_pose_mutex.unlock();
     
-    //Add own's position to enable estimating of quadmap fill and terminating.
-    quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
-    base_quadmap_.insert_till_end(my_position_node); ;
-      
+    //We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement by which time the robot i would have moved/rotated.
+    std::pair<double, geometry_msgs::Pose> mesurement_pose_time = findClosestPoseToFirstSample(input_msg->csi_timestamp, own_pose_history_vector);
+    geometry_msgs::Pose robot_i_positions = mesurement_pose_time.second;
 
-    //=========== Estimate neighboring robot position ==============
+    auto current_pose = costmap_client_.getRobotPose();
+    tf::Quaternion cq(
+            current_pose.orientation.x,
+            current_pose.orientation.y,
+            current_pose.orientation.z,
+            current_pose.orientation.w
+    );
+    auto curr_ori = wrap0to360(quaternionToYaw(cq)*180/3.14);
+    ROS_INFO("Current pose x, y, heading(degrees): %f, %f ,%f", current_pose.position.x, current_pose.position.y, curr_ori);
+    std::vector <double> own_current_pose_vec {current_pose.position.x, current_pose.position.y, curr_ori};
+
+    //=========== Pre-process the measurements ==============
     wsr_exploration::RelativeEstimate neighboring_robot;             
     double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
 
@@ -788,7 +808,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     else
     {
       //Pick the closest peak in AOA top peaks by comparing with previous AOA angle
-      min_diff__ = 1000;
+      /*
+       min_diff__ = 1000;
       for(int angle_vals = 0; angle_vals<input_msg->bearing_measurements.size(); angle_vals++)
       {
         diff__ = abs(previous_angle__ - wrap0to360(input_msg->bearing_measurements[angle_vals]));
@@ -799,6 +820,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
         }
       }
       previous_angle__ = current_angle__;
+      */
+      current_angle__ = input_msg->bearing_measurements[0];
     }
     
     
@@ -806,10 +829,10 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
     bearing_angle_radians__ = warptoPi(wrap0to360(own_orientation_deg__ + current_angle__)*3.14/180);
     // bearing_angle_radians__ = warptoPi(input_msg->bearing_measurements[0]*3.14/180);
     
-    ROS_INFO("Range (meters), AOA(degrees), Own heading(degrees): = %f, %f, %f", input_msg->range_measurements[0], input_msg->bearing_measurements[0], own_orientation_deg__);
-    ROS_INFO("Range (meters), bearing(degrees): = %f, %f", input_msg->range_measurements[0], current_angle__*180/3.14);
-    ROS_INFO("Range (meters), bearing(degrees): = %f, %f", input_msg->range_measurements[0], bearing_angle_radians__*180/3.14);
-
+    ROS_INFO("Pose during measurement  x, y, heading(degrees): = %f, %f, %f", robot_i_positions.position.x, robot_i_positions.position.y, input_msg->bearing_measurements[0], own_orientation_deg__);
+    ROS_INFO("Range (meters), raw_bearing(degrees): = %f, %f", input_msg->range_measurements[0], current_angle__);
+    ROS_INFO("Range (meters), AOA relative to Own heading (degrees): = %f, %f", input_msg->range_measurements[0], bearing_angle_radians__*180/3.14);
+    std::vector<double> own_measurement_pose_vec {robot_i_positions.position.x, robot_i_positions.position.y, own_orientation_deg__};
 
     //Workaround for issues in range measurements
     __range_to_use = input_msg->range_measurements[0];
@@ -824,6 +847,21 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       _previous_range_measurement = __range_to_use;
     }
     
+    //=========== Add own position estimate from SLAM ==============
+    ROS_INFO("robot_id_: %d", robot_id_);
+    costmap2d->worldToMap(robot_i_positions.position.x, robot_i_positions.position.y, mx__, my__);
+    msg.own_position.x = mx__;
+    msg.own_position.y = my__;
+    msg.robot_id = robot_id_;
+    ROS_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_positions.position.x,robot_i_positions.position.y, msg.robot_id);
+    ROS_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
+    
+    //Add own's position to enable estimating of quadmap fill and terminating.
+    quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+    base_quadmap_.insert_till_end(my_position_node);
+    
+
+    //=========== Estimate neighboring robot position ==============
     //Estimate the relative position of the neighboring robot
     auto search_val = robot_information__.find(name_vicon_hardware[other_robot_id__-1].c_str());
     if( search_val == robot_information__.end())
@@ -833,7 +871,6 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       quadmap::Robot new_robot_track;
       new_robot_track.robot_id = other_robot_id__;
       robot_information__.insert({name_vicon_hardware[other_robot_id__-1].c_str(), new_robot_track});
-
       double first_est_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
       double first_est_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);        
       ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
@@ -851,6 +888,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
 
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].predict(); //Prediction comes from model
       z << __range_to_use, __bearing_to_use;
+      
+      //TODO
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].update(z,robot_i_positions);
 
       prev_neighboring_position.position.x = first_est_x ;
@@ -866,6 +905,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].predict();
       
       z << __range_to_use, __bearing_to_use;
+      //TODO
       ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].update(z,robot_i_positions); //Correct the prediction based on the new measurement
         
       est_x_j = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].x[0];
@@ -903,6 +943,7 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       neighboring_robot.estimated_map_position.x = prev_neighboring_position.position.x;
       neighboring_robot.estimated_map_position.y = prev_neighboring_position.position.x;
 
+      //TODO
       one_shot_position_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
       one_shot_position_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);
       costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
@@ -912,6 +953,10 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       //Publisher message
       std::vector<double> temp_meas_vec {__range_to_use, __bearing_to_use};     
       neighboring_robot.est_range_bearing = temp_meas_vec;
+      neighboring_robot.own_current_pose = own_current_pose_vec;
+      neighboring_robot.own_measurement_pose = own_measurement_pose_vec;
+      neighboring_robot.first_csi_measurement_timestamp = input_msg->csi_timestamp;
+      neighboring_robot.nearest_timestamp_for_pose = mesurement_pose_time.first;
       neighboring_robot.covariance_meter_sq = cov_array;
       neighboring_robot.status = 1;
       neighboring_robot.robot_id = other_robot_id__;
@@ -929,7 +974,8 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       neighboring_robot.true_map_position.y = position_node.true_my; 
       neighboring_robot.estimated_map_position.x = position_node.est_mx;
       neighboring_robot.estimated_map_position.y = position_node.est_my;
-
+      
+      //TODO
       one_shot_position_x = robot_i_positions.position.x + __range_to_use*cos(__bearing_to_use);
       one_shot_position_y = robot_i_positions.position.y + __range_to_use*sin(__bearing_to_use);
       costmap2d->worldToMap(one_shot_position_x, one_shot_position_y, mx__, my__);
@@ -937,9 +983,13 @@ void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::
       neighboring_robot.one_shot_map_position.y = my__;
 
       //Publisher message
-      std::vector<double> temp_meas_vec { __range_to_use, __bearing_to_use};
+      std::vector<double> temp_meas_vec { __range_to_use, current_angle__, __bearing_to_use*180/3.14}; //range, raw_closest_AOA, aoa_after_acouting_for_own_heading
       ROS_INFO("Adding other neighbor info");       
       neighboring_robot.est_range_bearing = temp_meas_vec;
+      neighboring_robot.own_current_pose = own_current_pose_vec;
+      neighboring_robot.first_csi_measurement_timestamp = input_msg->csi_timestamp;
+      neighboring_robot.own_measurement_pose = own_measurement_pose_vec;
+      neighboring_robot.nearest_timestamp_for_pose = mesurement_pose_time.first;
       neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].range_bearing__;
       neighboring_robot.filter_residual_error_range_bearing = ekf_robot_track__[name_vicon_hardware[other_robot_id__-1].c_str()].residual_error__;
       neighboring_robot.covariance_meter_sq = cov_array;
@@ -1122,7 +1172,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %f, %f, %d", mx__,my__, msg.robot_id);
+          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           break;
         }
       }
@@ -1253,6 +1303,34 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   }
 
 
+ /**
+  *@brief Collect own pose when CSI data is being collected
+  * */
+  void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
+    if(msg->data){
+      //Get filename of the csi data file
+      ROS_INFO(" ========= Deque size : %u ======== ", own_pose_deque_.size());
+      std::time_t current_epoch_time;
+      std::string command = "stat ~/catkin_ws/src/wsr_exploration/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";
+      std::string orig_output = exec(command.c_str());
+      std::string new_output = orig_output;
+
+      while(new_output == orig_output){
+        auto current_pose = costmap_client_.getRobotPose();
+        const auto now = std::chrono::system_clock::now();
+        current_epoch_time = std::chrono::system_clock::to_time_t(now); 
+        if(own_pose_deque_.size() > 200) own_pose_deque_.pop_front();
+        own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
+	ros::Duration(0.2).sleep();
+        new_output = exec(command.c_str());
+      }
+
+      for(auto& elem:  own_pose_deque_) {
+	 ROS_INFO("%f", elem.first);
+      }
+    }
+  }
+
   Explore::Explore()
     : private_nh_("~")
     , tf_listener_(ros::Duration(10.0))
@@ -1306,6 +1384,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         //For all onboard sensing
         modelStateSub_ =  private_nh_.subscribe<explore_lite::RangeBearing>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
+        saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);
 
         //For vicon hardware experiments.
         // modelStateSub_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/vicon_state_topic", 10, &Explore::ViconCombinedStateCallbackFilter, this);
@@ -1365,8 +1444,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       other_robot_id__ = robot_id_ == 1 ? 2:1;
 
       x_env_map_max_limit__ = 40; 
-      y_env_map_max_limit__ = 36;
-      x_env_map_min_limit__ = 10;
+      y_env_map_max_limit__ = 40;
+      x_env_map_min_limit__ = 4;
       y_env_map_min_limit__ = 4;
     }
     //*****************************************************************
@@ -1744,7 +1823,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       // send goal to move_base if we have something new to pursue
       ========================================================================================*/
 
-
+      /*  
       move_base_msgs::MoveBaseGoal goal;
       goal.target_pose.pose.position = target_position;
       goal.target_pose.pose.orientation.w = 1.;
@@ -1757,6 +1836,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                         reachedGoal(status, result, target_position);
                      });
 
+      */
 
     }
 

@@ -52,6 +52,9 @@
 #include <time.h>
 #include <chrono>
 #include <cmath>
+#include <deque>
+#include <mutex>
+#include <stdexcept>
 
 #include <actionlib/client/simple_action_client.h>
 #include <geometry_msgs/PoseStamped.h>
@@ -156,10 +159,12 @@ private:
   
   void particle_filter();
 
+  void CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg);
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_,saveRobotPose_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -214,6 +219,8 @@ private:
   double robot_speed_ = 0.15;
   float bearing_angle_radians__ = 0;
   float own_orientation_deg__ = 0;
+  std::deque<std::pair<double, geometry_msgs::Pose>> own_pose_deque_;
+  std::mutex own_pose_mutex;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
@@ -259,7 +266,7 @@ private:
   float current_angle__ = 0;
   bool __FLAG_first_measurement = true;
   geometry_msgs::Pose prev_neighboring_position;
-
+  
 
 
   double wrap0to360(double val) 
@@ -299,6 +306,7 @@ private:
     return yaw;
   }
 
+
   double warptoPi(double angle)
   {
     angle = fmod(angle + M_PI, 2*M_PI);
@@ -309,11 +317,23 @@ private:
 
   }
 
+
   bool validateQuaternion(const tf::Quaternion& quat) 
   {
     return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
   }
 
+
+  std::pair<double, geometry_msgs::Pose> findClosestPoseToFirstSample(double csi_first_timestamp, std::vector<std::pair<double,geometry_msgs::Pose>>& own_pose_history_vector)
+  {
+    size_t i = 0;
+    //Since the timestamps are sorted, we just need to find a first timestamp > csi timestamp and use the pose corresponding to it.
+    while(own_pose_history_vector[i].first < csi_first_timestamp && i < own_pose_history_vector.size()) i++;
+    std::cout.precision(15);
+    std::cout << "[INFO] **** The closest timestamp is : " << own_pose_history_vector[i].first << std::endl;
+
+    return own_pose_history_vector[i];
+  }
 };
 }
 
