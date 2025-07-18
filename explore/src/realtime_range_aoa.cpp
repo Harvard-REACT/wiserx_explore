@@ -4,8 +4,8 @@
 auto start_aoa_check = std::chrono::high_resolution_clock::now();
 auto end_aoa_check = std::chrono::high_resolution_clock::now();
 auto duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-std::string aoa_fn = "/home/explorer-2/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
-std::string aoa_profile_name = "/home/explorer-2/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
+std::string aoa_fn = "";
+std::string aoa_profile_name = "";
 std::ifstream fin, aoa_profile;
 std::vector<double> all_range_data, sampled_range_data, top_aoa_peaks;
 bool Flag_get_data_ = false, first_itr=true;
@@ -13,7 +13,9 @@ time_t last_time, current_time_val;
 ros::Publisher range_bearing_publisher;
 double profile_variance = 0;
 std::vector<double> profile_array;
-
+std::string tb3_name = "";
+std::string onboard_name = "" ;
+bool FLAG_publish_aoa_profile=false;
 
 void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
@@ -89,63 +91,63 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
                 ROS_INFO("reading from aoa file");
-		profile_variance = stod(tokens[2]);
+		        profile_variance = stod(tokens[2]);
                 for(int i = 3; i < tokens.size(); i++) //The first two values are timestamp and TX ID
                     top_aoa_peaks.push_back(stod(tokens[i]));
                 
-                //Read AOA profile
-                // aoa_profile.open(aoa_profile_name);
-                // if(aoa_profile.is_open())
-                // {
-                //     std::string line, val;                  /* string for line & value */
-                //     std::vector<std::vector<double>> array;    /* vector of vector<int>  */
+                if(FLAG_publish_aoa_profile){
+                    //Read AOA profile
+                    // aoa_profile.open(aoa_profile_name);
+                    // if(aoa_profile.is_open())
+                    // {
+                    //     std::string line, val;                  /* string for line & value */
+                    //     std::vector<std::vector<double>> array;    /* vector of vector<int>  */
 
-                //     while (std::getline (aoa_profile, line)) {        /* read each line */
-                //         std::vector<int> v;                 /* row vector v */
-                //         std::stringstream s (line);         /* stringstream line */
-                //         while (getline (s, val, ','))       /* get each value (',' delimited) */
-                //             v.push_back (std::stod (val));  /* add to row vector */
-                //         array.push_back (v);                /* add row vector to array */
-                //     }
-                //     std::cout << "rows: " << array.size() << " cols: " << array[0].size() << std::endl;
+                    //     while (std::getline (aoa_profile, line)) {        /* read each line */
+                    //         std::vector<int> v;                 /* row vector v */
+                    //         std::stringstream s (line);         /* stringstream line */
+                    //         while (getline (s, val, ','))       /* get each value (',' delimited) */
+                    //             v.push_back (std::stod (val));  /* add to row vector */
+                    //         array.push_back (v);                /* add row vector to array */
+                    //     }
+                    //     std::cout << "rows: " << array.size() << " cols: " << array[0].size() << std::endl;
+                    // }
+                    // aoa_profile.close();
+                    
+                    
+            
+                    //Use this to publish the aoa profile also
+                    //aoa_profile.open(aoa_profile_name); 
+                    //if(aoa_profile.is_open())
+                    //{
+                    //    std::string line, val;                  /* string for line & value */
+                    //       /* vector of vector<int>  */
+
+                    //    while (std::getline (aoa_profile, line)) 
+                    //    {        /* read each line */
+                    //        std::stringstream s (line);         /* stringstream line */
+                    //        while (getline (s, val, ','))       /* get each value (',' delimited) */
+                    //            profile_array.push_back (std::stod (val));                /* add row vector to array */
+                    //    }
+                    //    std::cout << "elements: " << profile_array.size() << std::endl;
                 // }
                 // aoa_profile.close();
-                
-                
-		
-		//Use this to publish the aoa profile also
-		//aoa_profile.open(aoa_profile_name); 
-                //if(aoa_profile.is_open())
-                //{
-                //    std::string line, val;                  /* string for line & value */
-                //       /* vector of vector<int>  */
 
-                //    while (std::getline (aoa_profile, line)) 
-                //    {        /* read each line */
-                //        std::stringstream s (line);         /* stringstream line */
-                //        while (getline (s, val, ','))       /* get each value (',' delimited) */
-                //            profile_array.push_back (std::stod (val));                /* add row vector to array */
-                //    }
-                //    std::cout << "elements: " << profile_array.size() << std::endl;
-               // }
-               // aoa_profile.close();
-		
-		
+                    // for (auto& row : array) {               /* iterate over rows */
+                    //     for (auto& val : row)               /* iterate over vals */
+                    //         std::cout << val << "  ";       /* output value      */
+                    //     std::cout << "\n";                  /* tidy up with '\n' */
+                    // }
+                }
 
-                
-                // for (auto& row : array) {               /* iterate over rows */
-                //     for (auto& val : row)               /* iterate over vals */
-                //         std::cout << val << "  ";       /* output value      */
-                //     std::cout << "\n";                  /* tidy up with '\n' */
-                // }
                                 
                 last_time = current_time_val;
             }
         }
         
         //Publish the range and bearing AOA
-	ROS_INFO("Ranged sample size: %lu", sampled_range_data.size());
-	ROS_INFO("Top AOA peak size: %lu", top_aoa_peaks.size());
+        ROS_INFO("Ranged sample size: %lu", sampled_range_data.size());
+        ROS_INFO("Top AOA peak size: %lu", top_aoa_peaks.size());
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
             explore_lite::RangeBearing rbmsg;
@@ -162,8 +164,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             }
             rbmsg.bearing_profile_variance = profile_variance;
             rbmsg.aoa_profile = profile_array;
-	    rbmsg.header.stamp = ros::Time::now();
-	    rbmsg.csi_timestamp = current_time_val;
+            rbmsg.header.stamp = ros::Time::now();
+            rbmsg.csi_timestamp = current_time_val;
             range_bearing_publisher.publish(rbmsg);
 
 
@@ -181,17 +183,26 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 
 int main(int argc, char **argv)
 {
-  ros::init(argc, argv, "range_bearing_publisher_tb3_2");
-  if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
-                                     ros::console::levels::Debug)) {
-    ros::console::notifyLoggerLevelsChanged();
-  }
-  
-  ros::NodeHandle n;
-  ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("/tb3_2/distance_multi", 10, range_bearing_CB);
-  range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("/tb3_2/range_bearing_estimates", 10);
-  
-  ros::spin();
+    ros::init(argc, argv, "range_bearing_publisher", ros::init_options::AnonymousName);
+    ros::NodeHandle nh;
+    nh.param("robot_name", tb3_name, std::string("tb3_1"));
+    nh.param("onboard_name", onboard_name, std::string("explorer-1"));
+    nh.param("pub_aoa_profile", FLAG_publish_aoa_profile, false);
 
-  return 0;
+    aoa_fn = "/home/"+onboard_name+"/catkin_ws/src/wsr_exploration/data/aoa_val.csv";
+    aoa_profile_name = "/home/"+onboard_name+"/catkin_ws/src/wsr_exploration/data/aoa_profile.csv";
+
+
+    if (ros::console::set_logger_level(ROSCONSOLE_DEFAULT_NAME,
+                                        ros::console::levels::Debug)) {
+        ros::console::notifyLoggerLevelsChanged();
+    }
+  
+    ros::NodeHandle n;
+    ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("distance_multi", 10, range_bearing_CB);
+    range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("range_bearing_estimates", 10);
+    
+    ros::spin();
+
+    return 0;
 }
