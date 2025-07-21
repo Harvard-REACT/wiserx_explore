@@ -102,6 +102,10 @@ target_link_libraries(realtime_range_aoa ${catkin_LIBRARIES})
 add_dependencies(vicon_combined_state_publisher ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries(vicon_combined_state_publisher ${catkin_LIBRARIES})
 
+add_executable(get_antenna_orientation src/get_antenna_orientation.cpp)
+target_link_libraries(get_antenna_orientation
+  ${catkin_LIBRARIES}
+)
 
 # add_executable(test_particle_filter
 #   src/costmap_client.cpp
@@ -134,30 +138,3 @@ target_link_libraries(vicon_combined_state_publisher ${catkin_LIBRARIES})
 # target_link_libraries(test_wsr ${catkin_LIBRARIES} 
 #                       lib_wsr_1.0.1_parallel.so 
 #                       OpenMP::OpenMP_CXX)
-
-
-#############
-## Install ##
-#############
-
-# # install nodes
-# install(TARGETS explore
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
-
-# # install roslaunch files
-# install(DIRECTORY launch/
-#   DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch
-# )
-
-# #############
-# ## Testing ##
-# #############
-# if(CATKIN_ENABLE_TESTING)
-#   find_package(roslaunch REQUIRED)
-
-#   # test all launch files
-#   roslaunch_add_file_check(launch)
-# endif()
