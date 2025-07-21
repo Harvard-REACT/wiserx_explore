@@ -1,1 +1,5 @@
 .vscode/*
+data/backup_data/csi_backup_data/*.dat
+data/backup_data/motor_joint_backup_data/*.csv
+data/*.csv
+data/*.dat

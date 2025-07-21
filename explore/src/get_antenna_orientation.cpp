@@ -97,7 +97,7 @@ void positionCallbackVicon(const geometry_msgs::PoseStamped::ConstPtr& msg)
     );
 
     orientation_true = quaternionToYaw(q);
-    joint_angle = orientation_true;
+    //joint_angle = orientation_true;
 
     if(__Flag_collect_ori)
     {
@@ -114,6 +114,8 @@ void positionCallbackVicon(const geometry_msgs::PoseStamped::ConstPtr& msg)
 void CallJointState(const sensor_msgs::JointState::ConstPtr& msg) 
 { 
     joint_angle = msg->position[0];
+    
+    
     if(__Flag_collect_ori)
     {
         temp_ori_joint.clear();
@@ -123,6 +125,7 @@ void CallJointState(const sensor_msgs::JointState::ConstPtr& msg)
         temp_ori_joint.push_back(msg->position[0]);
         __robot_ori_joint.push_back(temp_ori_joint);
     }
+    
 }
 
 void CallStartMotion(const std_msgs::Bool::ConstPtr& msg) 
@@ -166,9 +169,14 @@ int main(int argc, char **argv)
 {
     ros::init(argc, argv, "antenna_rotor", 1); //Option to make the node name anonymous
     ros::NodeHandle nh("~");
+    std::string robot_name;
+    std::string mocap_rigid_body_name;
+    nh.param("robot_name", robot_name, std::string("tb3"));
+    nh.param("mocap_rigid_body_name", mocap_rigid_body_name, std::string("WSR_tb3_1_antenna_1"));
     struct passwd *pw = getpwuid(getuid());
     std::string homedir = pw->pw_dir;
-    float z_vel = 0.6;
+    double z_vel = 0.0;
+    nh.param("servo_velocity", z_vel, 1.0);
     float iteration_duration = 0;
     bool flip = false;
     bool first = true;
@@ -177,11 +185,11 @@ int main(int argc, char **argv)
     geometry_msgs::Twist rotate_right, rotate_left;
     rotate_left.angular.z = -z_vel;
     rotate_right.angular.z = z_vel;
-    ros::Publisher vel_pub = nh.advertise<geometry_msgs::Twist>("/tb3_2/wsr_antenna_motor/cmd_vel", 10);
+    ros::Publisher vel_pub = nh.advertise<geometry_msgs::Twist>("/"+robot_name+"/wsr_antenna_motor/cmd_vel", 10);
     ros::Subscriber get_ori = nh.subscribe("/optitrack_pose", 10, positionCallbackMocap);
-    // ros::Subscriber joint_ori = nh.subscribe("/tb3_2/wsr_antenna_motor/joint_states", 10, CallJointState);
-    ros::Subscriber start_rotation = nh.subscribe("/tb3_2/wsr_antenna_motor/start_motion", 10, CallStartMotion);
-    ros::Subscriber joint_ori_vicon = nh.subscribe("/vrpn_client_node/WSR_tb3_1_antenna_1/pose", 10, positionCallbackVicon);
+    ros::Subscriber joint_ori = nh.subscribe("/"+robot_name+"/wsr_antenna_motor/joint_states", 10, CallJointState);
+    ros::Subscriber start_rotation = nh.subscribe("/"+robot_name+"/wsr_antenna_motor/start_motion", 10, CallStartMotion);
+    //ros::Subscriber joint_ori_vicon = nh.subscribe("/vrpn_client_node/"+mocap_rigid_body_name+"/pose", 10, positionCallbackVicon);
 
     int i = 0;
     int cmd_status = 0;
@@ -191,9 +199,9 @@ int main(int argc, char **argv)
     struct tm * timeinfo;
     char buffer[80];
 
-    std::string csi_start_local_cmd = homedir+"/catkin_ws/src/explore_lite/scripts/start_csi.sh rx &";
-    std::string csi_stop_cmd = homedir+"/catkin_ws/src/explore_lite/scripts/stop_csi.sh rx";
-    std::string csi_backup_cmd = homedir+"/catkin_ws/src/explore_lite/scripts/backup_csi_local.sh rx ";
+    std::string csi_start_local_cmd = homedir+"/catkin_ws/src/react-m_explore/explore/scripts/start_csi.sh rx &";
+    std::string csi_stop_cmd = homedir+"/catkin_ws/src/react-m_explore/explore/scripts/stop_csi.sh rx";
+    std::string csi_backup_cmd = homedir+"/catkin_ws/src/react-m_explore/explore/scripts/backup_csi_local.sh rx ";
 
     ROS_INFO("Initialized antenna rotation.");
 
@@ -210,7 +218,7 @@ int main(int argc, char **argv)
         {
             if(!__Flag_started_CSI)
             {
-                // cmd_status = system(csi_start_local_cmd.c_str());
+                cmd_status = system(csi_start_local_cmd.c_str());
                 if (cmd_status < 0)
                 {
                     std::cout << "Error: " << strerror(errno) << '\n';
@@ -228,7 +236,7 @@ int main(int argc, char **argv)
                 ROS_INFO("Starting CSI Data Collection");
             }
 
-            if(joint_angle > 2.5 || joint_angle < -2.5)
+            if(joint_angle > 2.6 || joint_angle < -2.6)
             {
                 ROS_INFO("======= Limit exceeding. Force stop =====");
                 for(i=0;i<60;i++)
@@ -264,14 +272,12 @@ int main(int argc, char **argv)
                 if(flip)
                     joint_threshold = -2.25; // -120 deg, true, rotate right
                 else
-                    joint_threshold = 2.25; // 120 deg,false, rotate left
+                    joint_threshold = 2.25; //2.75,  120 deg,false, rotate left
                 
-		        
+		ROS_INFO("Stopping CSI data collection");       
                 ROS_INFO("======= Saving antenna orientation data =====");
                 
                 //Stop before changing direction or next iteration
-		        ROS_INFO("Stopping CSI data collection");
-		        // system(csi_stop_cmd.c_str());
                 ros::spinOnce();
                 __Flag_start_motion = false;
 		        __Flag_started_CSI = false;
@@ -282,21 +288,21 @@ int main(int argc, char **argv)
                 strftime(buffer,sizeof(buffer),"%Y-%m-%d_%H%M%S",timeinfo);
                 std::string time_str(buffer);
 
-                //std::string joint_ori_gt = homedir+"/catkin_ws/src/explore_lite/data/gt_displacement_"+time_str+".csv";
+                //std::string joint_ori_gt = homedir+"/catkin_ws/src/react-m_explore/explore/data/gt_displacement_"+time_str+".csv";
                 //std::cout << "Mocap Orientation file " << std::endl;
                 //writeTrajToFile(__robot_ori_gt, joint_ori_gt);
                 
-                //std::string joint_ori_fn = homedir+"/catkin_ws/src/explore_lite/data/motorjoint_displacement_"+time_str+".csv";
-                std::string joint_ori_fn = homedir+"/catkin_ws/src/explore_lite/data/motorjoint_displacement.csv";
+                std::string joint_ori_fn = homedir+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement.csv";
                 std::cout << "Motor Joint Orientation File" << std::endl;
                 writeTrajToFile(__robot_ori_joint, joint_ori_fn);
 
                 __robot_ori_gt.clear();
                 __robot_ori_joint.clear();
 		
- 		        // system(csi_backup_cmd.c_str());
-                
-		        ROS_INFO("======= Completed =====");
+                 system(csi_stop_cmd.c_str());
+                 system(csi_backup_cmd.c_str());
+ 
+		 ROS_INFO("======= Completed =====");
 
             }
             else

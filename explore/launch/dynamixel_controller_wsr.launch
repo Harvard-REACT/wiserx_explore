@@ -1,12 +1,13 @@
 <launch>
-  <arg name="usb_port"                default="/dev/ttyUSB0"/>
+  <arg name="usb_port"                default="/dev/ttyUSB1"/>
   <arg name="dxl_baud_rate"           default="57600"/>
-  <arg name="robot_name"              default="tb3_2"/>  
+  <arg name="robot_name"              default="tb3_1"/>
   <arg name="namespace"               default="wsr_antenna_motor"/>
 
   <arg name="use_moveit"              default="false"/>
   <arg name="use_joint_state"         default="true"/>
   <arg name="use_cmd_vel"             default="true"/>
+  <arg name="servo_vel"               default="1.0"/>
 
   <group ns="$(arg robot_name)">
     <param name="dynamixel_info"          value="$(find wsr_exploration)/config/wsr.yaml"/>
@@ -24,9 +25,13 @@
           radius_of_wheel: 0.033            <!--default value is set by reference of TB3-->
       </rosparam>
     </node>
-    
+
     <!-- start wsr_antenna C++ code to collect motor joint data using back-and-forth-motion -->
-    <node name="wsr_antenna_code" pkg="wsr_exploration" type="get_antenna_orientation"/>
+    <node name="wsr_antenna_code" pkg="explore_lite" type="get_antenna_orientation" output="screen">
+       <param name="servo_velocity" value="$(arg servo_vel)"/>
+       <param name="robot_name"       value="$(arg robot_name)"/>
+       <param name="mocap_rigid_body_name"       value="Update_as_required"/>
+    </node>
   </group>
 
-</launch>
+</launch>           
