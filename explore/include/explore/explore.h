@@ -183,17 +183,37 @@ private:
   size_t last_markers_count_;
 
   // parameters
-  double planner_frequency_=0, noise_mean_=0, noise_std_=0,
-         potential_scale_, orientation_scale_=0, gain_scale_=0, sensor_range_=0,
-         robot_orientation_=0,robot_position_x_=0,robot_position_y_=0,
-         prev_distance_=0,antenna_angular_offset_=0,robot_orientation_before_=0,
-         utility_alpha_parameter_=1, utility_beta_parameter_=1;
+  double planner_frequency_=0, 
+          noise_mean_=0, 
+          noise_std_=0,
+          potential_scale_, 
+          orientation_scale_=0, 
+          gain_scale_=0, 
+          sensor_range_=0,
+          robot_orientation_=0,
+          robot_position_x_=0,
+          robot_position_y_=0,
+          prev_distance_=0,
+          antenna_angular_offset_=0,
+          robot_orientation_before_=0,
+          utility_alpha_parameter_=1, 
+          utility_beta_parameter_=1;
   float noise_x_ = 0 ;
   float noise_y_ = 0 ;
   ros::Duration progress_timeout_;
   bool visualize_;
-  std::string robot_name_, neighbor_name_, config_file_,displacement_type_, reverse_csi_, displacement_file_,output_,
-              robot_csi_,robot_displacement_, __dim_object_name;
+  std::string robot_name_, 
+              neighbor_name_, 
+              config_file_,
+              displacement_type_, 
+              reverse_csi_, 
+              displacement_file_,
+              output_,
+              robot_csi_,
+              robot_displacement_, 
+              __dim_object_name, 
+              homedir_,
+              servo_output_file_reader_command_;
   std::vector<int>neighbor_id_;
   std::vector<geometry_msgs::Point> current_neighbor_pose_vec_;
   std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;

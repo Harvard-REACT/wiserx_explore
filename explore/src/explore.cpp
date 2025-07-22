@@ -753,12 +753,12 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 */
 void Explore::AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg)
 {
-
+    ROS_INFO("****** IN ALL sensing callback***********");
     costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap(); 
     double world_x, world_y;
     std::vector<frontier_exploration::Frontier> frontiers_copy;
     std::vector<double> cov_array{0,0,0,0};
-    ROS_INFO("****** IN ALL sensing callback***********");
+    
           
     timestep__+=1;
     wsr_exploration::QuadmapViz msg;
@@ -1304,15 +1304,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
 
  /**
-  *@brief Collect own pose when CSI data is being collected
+  *@brief Robot collects own pose when CSI data is being collected
   * */
   void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
     if(msg->data){
       //Get filename of the csi data file
       ROS_INFO(" ========= Deque size : %u ======== ", own_pose_deque_.size());
       std::time_t current_epoch_time;
-      std::string command = "stat ~/catkin_ws/src/wsr_exploration/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";
-      std::string orig_output = exec(command.c_str());
+      std::string orig_output = exec(servo_output_file_reader_command_.c_str());
       std::string new_output = orig_output;
 
       while(new_output == orig_output){
@@ -1321,12 +1320,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         current_epoch_time = std::chrono::system_clock::to_time_t(now); 
         if(own_pose_deque_.size() > 200) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
-	ros::Duration(0.2).sleep();
+	      ros::Duration(0.1).sleep();
         new_output = exec(command.c_str());
       }
 
       for(auto& elem:  own_pose_deque_) {
-	 ROS_INFO("%f", elem.first);
+	      ROS_INFO("%f", elem.first);
       }
     }
   }
@@ -1407,20 +1406,18 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
 
     move_bas_path_client__ = private_nh_.serviceClient<nav_msgs::GetPlan>("/"+robot_name_+"/move_base_node/make_plan");
-
     optitrackSub_ = private_nh_.subscribe<natnet_pkg::PoseArrayID> ("/optitrack_pose", 10, &Explore::optitrackMocapCB, this);
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     setFailedRobotTau_ = private_nh_.subscribe<std_msgs::String> ("/set_failed_neighboring_robot", 10, &Explore::setFailedRobotStatus, this);
     exploration_eval_stop_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/stop_evaluation", 10);
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
-    
-    
-    __dim_object_name = "mailbox_blue_clone";
+    struct passwd *pw = getpwuid(getuid());
+    homedir_ = pw->pw_dir;
+    servo_output_file_reader_command_ = "stat"+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
+    __dim_object_name = "mailbox_blue_clone"; //Used in simulation
 
     ROS_INFO("Sensor range = %f", sensor_range_);
-    ROS_INFO("min_frontier_size = %f", min_frontier_size);
-    last_progress_ = ros::Time::now();
-  
+    ROS_INFO("min_frontier_size = %f", min_frontier_size);  
     
     //Since we insert in map coordinates
     float width = Quadmap_width_/map_resolution__;
@@ -1450,20 +1447,20 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
     //*****************************************************************
 
-    search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
-                                                  potential_scale_, gain_scale_,
-                                                  min_frontier_size, sensor_range_,
-                                                  utility_alpha_parameter_, utility_beta_parameter_);
-
     if (visualize_) {
       marker_array_publisher_ = private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
     }
 
+    search_ = frontier_exploration::FrontierSearch(costmap_client_.getCostmap(),
+                                                  potential_scale_, gain_scale_,
+                                                  min_frontier_size, sensor_range_,
+                                                  utility_alpha_parameter_, utility_beta_parameter_);
     
     ROS_INFO("Waiting to connect to move_base server");
     move_base_client_.waitForServer();
     ROS_INFO("Connected to move_base server");
 
+    last_progress_ = ros::Time::now();
     exploring_timer_ =
         relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
                                 [this](const ros::TimerEvent&) { makePlan();});
