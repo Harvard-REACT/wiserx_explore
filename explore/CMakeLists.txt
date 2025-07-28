@@ -29,6 +29,7 @@ find_package(OpenMP REQUIRED)
 add_message_files(
   FILES
   RangeBearing.msg
+  LocalMeasurement.msg
 )
 
 ## Generate added messages and services with any dependencies listed here

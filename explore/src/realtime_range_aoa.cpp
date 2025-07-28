@@ -1,5 +1,4 @@
 #include<explore/explore.h>
-#include<explore_lite/RangeBearing.h>
 
 auto start_aoa_check = std::chrono::high_resolution_clock::now();
 auto end_aoa_check = std::chrono::high_resolution_clock::now();
@@ -15,7 +14,8 @@ double profile_variance = 0;
 std::vector<double> profile_array;
 std::string tb3_name = "";
 std::string onboard_name = "" ;
-bool FLAG_publish_aoa_profile=false;
+bool FLAG_publish_aoa_profile=false; 
+int own_id=-1, other_robot_id = -1;
 
 void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
@@ -24,6 +24,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
     if(duration_aoa_check.count() > 1) //Get a measurement estimate every 5 seconds 
     {  
         
+        explore_lite::LocalMeasurement rb_msg;
         sampled_range_data.clear();
         top_aoa_peaks.clear();
         profile_array.clear();
@@ -91,14 +92,14 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
                 ROS_INFO("Reading from aoa file");
-		profile_variance = stod(tokens[2]);
+                profile_variance = stod(tokens[2]);
                 for(int i = 3; i < tokens.size(); i++) //The first two values are timestamp and TX ID
                     top_aoa_peaks.push_back(stod(tokens[i]));
                 
                 if(FLAG_publish_aoa_profile){
             
                     //Use this to publish the aoa profile also
-		    ROS_INFO("Reading AOA profile data");
+		             ROS_INFO("Reading AOA profile data");
                     aoa_profile.open(aoa_profile_name); 
                     if(aoa_profile.is_open()){
                         std::string line, val;                  /* string for line & value */
@@ -126,25 +127,24 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         ROS_INFO("Top AOA peak size: %lu", top_aoa_peaks.size());
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
-            explore_lite::RangeBearing rbmsg;
+            explore_lite::RangeBearing rb_raw;
             for(int i = 0; i<sampled_range_data.size();i++)
             {
                 ROS_INFO("Range: %f", sampled_range_data[i]);
-                rbmsg.range_measurements.push_back(sampled_range_data[i]);
+                rb_raw.range_measurements.push_back(sampled_range_data[i]);
             }
 
             for(int i = 0; i<top_aoa_peaks.size();i++)
             {
                 ROS_INFO("AOA: %f", top_aoa_peaks[i]);
-                rbmsg.bearing_measurements.push_back(top_aoa_peaks[i]);
+                rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
-            rbmsg.bearing_profile_variance = profile_variance;
-            rbmsg.aoa_profile = profile_array;
-            rbmsg.header.stamp = ros::Time::now();
-            rbmsg.csi_timestamp = current_time_val;
-            range_bearing_publisher.publish(rbmsg);
-
-
+            rb_raw.bearing_profile_variance = profile_variance;
+            rb_raw.aoa_profile = profile_array;
+            rb_raw.csi_timestamp = current_time_val;
+            rb_msg.header.stamp = ros::Time::now();
+            rb_msg.other_robots_rb.push_back(rb_raw);
+            range_bearing_publisher.publish(rb_msg);
         }
         else
         {
@@ -165,6 +165,8 @@ int main(int argc, char **argv)
     nh.param("profile_file_path", aoa_profile_name, std::string("/catkin_ws/src/wsr_exploration/data/debug/tx2_aoa_profile__0.csv"));
     nh.param("peaks_file_path", aoa_fn, std::string("/catkin_ws/src/wsr_exploration/data/aoa_val.csv"));
     nh.param("pub_aoa_profile", FLAG_publish_aoa_profile, false);
+    nh.param("own_robot_id", own_id,-1);
+    other_robot_id = own_id == 1 ? 2:1;
 
     ROS_INFO("AOA file: %s", aoa_profile_name.c_str());
     ROS_INFO("Peaks val file: %s", aoa_fn.c_str());
@@ -176,7 +178,7 @@ int main(int argc, char **argv)
   
     ros::NodeHandle n;
     ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("distance_multi", 10, range_bearing_CB);
-    range_bearing_publisher =  n.advertise<explore_lite::RangeBearing>("range_bearing_estimates", 10);
+    range_bearing_publisher =  n.advertise<explore_lite::LocalMeasurement>("range_bearing_estimates", 10);
     
     ros::spin();
 

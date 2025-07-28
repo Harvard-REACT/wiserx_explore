@@ -1,4 +1,4 @@
-Header header
+int64 robot_id
 float64[] range_measurements
 float64[] bearing_measurements
 float64 bearing_profile_variance
