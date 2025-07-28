@@ -1,6 +1,7 @@
 <launch>
   
     <arg name="robot_name"  default="tb3_1"/>
+    <arg name="robot_id"  default="1"/>
     <arg name="aoa_profile_file_path"  default="/home/explorer-1/catkin_ws/src/wsr_exploration/data/debug/tx2_aoa_profile__0.csv"/>
     <arg name="aoa_peaks_file_path"  default="/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_val.csv"/>
     <arg name="publish_aoa_profile"  default="false"/>
@@ -11,6 +12,7 @@
             <param name="profile_file_path" value="$(arg aoa_profile_file_path)"/>
             <param name="peaks_file_path" value="$(arg aoa_peaks_file_path)"/>
             <param name="pub_aoa_profile" value="$(arg publish_aoa_profile)"/>
+            <param name="robot_id" value="$(arg robot_id)"/>
         </node>
     </group>
 

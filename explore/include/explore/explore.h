@@ -79,7 +79,8 @@
 #include <wsr_exploration/FrontierInfo.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/GetPlan.h>
-#include <explore_lite/RangeBearing.h>
+#include<explore_lite/LocalMeasurement.h>
+#include<explore_lite/RangeBearing.h>
 
 namespace explore
 {
@@ -127,7 +128,7 @@ private:
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
-  void AllOnboardSensingCallbackFilter(const explore_lite::RangeBearing::ConstPtr& input_msg);
+  void AllOnboardSensingCallbackFilter(const explore_lite::LocalMeasurement::ConstPtr& input_msg);
 
   void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
@@ -241,6 +242,7 @@ private:
   float own_orientation_deg__ = 0;
   std::deque<std::pair<double, geometry_msgs::Pose>> own_pose_deque_;
   std::mutex own_pose_mutex;
+  explore_lite::RangeBearing neighbor_robot_rb__;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;
@@ -287,7 +289,6 @@ private:
   bool __FLAG_first_measurement = true;
   geometry_msgs::Pose prev_neighboring_position;
   
-
 
   double wrap0to360(double val) 
   {
