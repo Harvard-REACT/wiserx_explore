@@ -12,7 +12,7 @@
             <param name="profile_file_path" value="$(arg aoa_profile_file_path)"/>
             <param name="peaks_file_path" value="$(arg aoa_peaks_file_path)"/>
             <param name="pub_aoa_profile" value="$(arg publish_aoa_profile)"/>
-            <param name="robot_id" value="$(arg robot_id)"/>
+            <param name="own_robot_id" value="$(arg robot_id)"/>
         </node>
     </group>
 

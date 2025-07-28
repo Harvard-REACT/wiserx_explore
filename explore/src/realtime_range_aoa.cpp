@@ -139,7 +139,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
                 ROS_INFO("AOA: %f", top_aoa_peaks[i]);
                 rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
-            rb_raw.bearing_profile_variance = profile_variance;
+            rb_raw.robot_id = other_robot_id;
+	    rb_raw.bearing_profile_variance = profile_variance;
             rb_raw.aoa_profile = profile_array;
             rb_raw.csi_timestamp = current_time_val;
             rb_msg.header.stamp = ros::Time::now();
