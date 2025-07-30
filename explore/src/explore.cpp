@@ -37,9 +37,6 @@
 
 #include <explore/explore.h>
 
-#include <thread>
-#include <chrono>
-
 inline static bool operator==(const geometry_msgs::Point& one,
                               const geometry_msgs::Point& two)
 {
@@ -49,7 +46,6 @@ inline static bool operator==(const geometry_msgs::Point& one,
   return dist < 0.01;
 }
 
-std::string fn = "/home/react-ws-1/catkin_ws/src/wsr_exploration/data/mexplore_data/";
 std::default_random_engine generator;
 bool FLAG_noise = false;
 auto start_val = std::chrono::high_resolution_clock::now();
@@ -58,8 +54,6 @@ auto start_exploration = std::chrono::high_resolution_clock::now();
 auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
 double _previous_range_measurement = 2.0;
-double __range_to_use = 0.0;
-double __bearing_to_use =  0.0;
 
 // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.3); //range noise 0  mean and 30cm stddev in meters 
 // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.3); //bearing noise  0 mean and 17 deg stddev in radians
@@ -759,6 +753,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
       
       timestep__++;
       current_rel_positions__.clear();
+      current_angle_vec__.clear();
+      bearing_angle_radians_vec__.clear();
 
 
       // Get current own pose of the robot. This is mostly for debugging and can later be removed if deemed unnecessary.
@@ -793,7 +789,10 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         own_pose_mutex.lock();
         std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history = {own_pose_deque_.begin(), own_pose_deque_.end()};
         own_pose_mutex.unlock();
-        auto [matched_timestamp, closest_robot_pose_at_csi_measurement] = findClosestPoseToFirstSample(neighbor_robot_rb__.csi_timestamp, own_pose_history);
+        
+        std::pair<double, geometry_msgs::Pose> ret_val  = findClosestPoseToFirstSample(neighbor_robot_rb__.csi_timestamp, own_pose_history);
+        double matched_timestamp = ret_val.first;
+        geometry_msgs::Pose closest_robot_pose_at_csi_measurement = ret_val.second;
         tf::Quaternion measurement_quaternion(
             closest_robot_pose_at_csi_measurement.orientation.x,
             closest_robot_pose_at_csi_measurement.orientation.y,
@@ -801,64 +800,38 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
             closest_robot_pose_at_csi_measurement.orientation.w
         );
         own_orientation_deg__ = wrap0to360(quaternionToYaw(measurement_quaternion) * 180.0 / M_PI);
-        current_angle__ = neighbor_robot_rb__.bearing_measurements[0];
+        current_angle_vec__ = neighbor_robot_rb__.bearing_measurements;
         if(__FLAG_first_measurement)
         {
           _previous_range_measurement = neighbor_robot_rb__.range_measurements[0];
           __FLAG_first_measurement = false;
         }
 
-        /*// === This block of code is deprecated; the functionality should be handled by the PDAF filter ===. 
-        //Find the closest angle to previous angles among top peaks
-        if(__FLAG_first_measurement)
+        for(auto val: current_angle_vec__){
+          bearing_angle_radians_vec__.push_back(
+            wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0
+            );
+        }
+        
+        //Workaround for issues in range measurements. Handles a bug in raw range measurement
+        range_to_use__ = neighbor_robot_rb__.range_measurements[0];
+        if(neighbor_robot_rb__.range_measurements[0] == 0.0 || abs(_previous_range_measurement-neighbor_robot_rb__.range_measurements[0]) > 3.0)
         {
-          previous_angle__ = wrap0to360(input_msg->bearing_measurements[0]);
-          _previous_range_measurement = input_msg->range_measurements[0];
-          current_angle__ = previous_angle__;
-          __FLAG_first_measurement = false;
+        range_to_use__ = _previous_range_measurement; 
         }
         else
         {
-          //Pick the closest peak in AOA top peaks by comparing with previous AOA angle
-          min_diff__ = 1000;
-          for(int angle_vals = 0; angle_vals<input_msg->bearing_measurements.size(); angle_vals++)
-          {
-            diff__ = abs(previous_angle__ - wrap0to360(input_msg->bearing_measurements[angle_vals]));
-            if(diff__ < min_diff__)
-            {
-            min_diff__ = diff__;
-            current_angle__ = wrap0to360(input_msg->bearing_measurements[angle_vals]);
-            }
-          }
-          previous_angle__ = current_angle__;
-        }
-        */
-
-        bearing_angle_radians__ = warptoPi(
-            wrap0to360(own_orientation_deg__ + current_angle__) * M_PI / 180.0
-        );
-        
-        //Workaround for issues in range measurements
-        __range_to_use = neighbor_robot_rb__.range_measurements[0];
-        __bearing_to_use = bearing_angle_radians__;
-        
-        if(neighbor_robot_rb__.range_measurements[0] == 0.0 || abs(_previous_range_measurement-neighbor_robot_rb__.range_measurements[0]) > 2.0)
-        {
-        __range_to_use = _previous_range_measurement; //This handles a bug in range measurement
-        }
-        else
-        {
-          _previous_range_measurement = __range_to_use;
+          _previous_range_measurement = range_to_use__;
         }
         
         ROS_INFO("Measurement pose (x, y, heading): %.2f, %.2f, %.2f",
                 closest_robot_pose_at_csi_measurement.position.x,
                 closest_robot_pose_at_csi_measurement.position.y,
                 own_orientation_deg__);
-        ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA: %.2f",
-                __range_to_use,
+        ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA top peak: %.2f",
+                range_to_use__,
                 current_angle__,
-                __bearing_to_use * 180.0 / M_PI);
+                bearing_angle_radians_vec__[0] * 180.0 / M_PI);
         
         std::vector<double> own_measurement_pose_vec = {
             closest_robot_pose_at_csi_measurement.position.x,
@@ -889,8 +862,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         {
             ROS_INFO("Creating track for Robot ID %d", other_robot_id__);
 
-            double initial_x = closest_robot_pose_at_csi_measurement.position.x + __range_to_use * std::cos(__bearing_to_use);
-            double initial_y = closest_robot_pose_at_csi_measurement.position.y + __range_to_use * std::sin(__bearing_to_use);
+            double initial_x = closest_robot_pose_at_csi_measurement.position.x + range_to_use__ * std::cos(bearing_angle_radians_vec__[0]);
+            double initial_y = closest_robot_pose_at_csi_measurement.position.y + range_to_use__ * std::sin(bearing_angle_radians_vec__[0]);
 
             VectorXd init_state(4);
             init_state << initial_x, initial_y, ekf_velocity_x, ekf_velocity_y;
@@ -906,9 +879,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
             est_y_j = initial_y;
             ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
 
-            ekf_robot_track__[other_robot_name].predict();
-            VectorXd z(2); z << __range_to_use, __bearing_to_use;
-            ekf_robot_track__[other_robot_name].update(z, closest_robot_pose_at_csi_measurement);
+            ekf_robot_track__[other_robot_name].predict();            
+            ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement);
 
             prev_neighboring_position.position.x = est_x_j;
             prev_neighboring_position.position.y = est_y_j;
@@ -916,9 +888,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         } else {                            
           //Perform state_estimation of robot j
           ROS_INFO("Found Robot (robot id : %d) track", other_robot_id__);
-          VectorXd z(2); z << __range_to_use, __bearing_to_use;
           ekf_robot_track__[other_robot_name].predict();
-          ekf_robot_track__[other_robot_name].update(z, closest_robot_pose_at_csi_measurement); //TODO
+          ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement); 
           est_x_j = ekf_robot_track__[other_robot_name].x[0];
           est_y_j = ekf_robot_track__[other_robot_name].x[1];
           const auto& P = ekf_robot_track__[other_robot_name].P;
@@ -969,7 +940,10 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         // Final message population
         neighbor.one_shot_map_position.x = mx__;
         neighbor.one_shot_map_position.y = my__;
-        neighbor.est_range_bearing = { __range_to_use, current_angle__, __bearing_to_use * 180.0 / M_PI };
+        
+        //Update this, how??
+        neighbor.est_range_bearing = { range_to_use__, current_angle_vec__[0], bearing_angle_radians_vec__[0] * 180.0 / M_PI };
+        
         neighbor.first_csi_measurement_timestamp = neighbor_robot_rb__.csi_timestamp;
         neighbor.nearest_timestamp_for_pose = matched_timestamp;
         neighbor.covariance_meter_sq = covariance_array;
@@ -1290,7 +1264,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
     if(msg->data){
       //Get filename of the csi data file
-      ROS_INFO(" ========= Deque size : %u ======== ", own_pose_deque_.size());
+      ROS_INFO(" ========= Deque size : %d ======== ", int(own_pose_deque_.size()));
       std::time_t current_epoch_time;
       std::string orig_output = exec(servo_output_file_reader_command_.c_str());
       std::string new_output = orig_output;
@@ -1347,7 +1321,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
     private_nh_.param("use_sim", FLAG_SIM_, false);
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
-    
+    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/wsr_exploration/data/mexplore_data/"));
  
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
@@ -1665,7 +1639,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       //TODO: Update this to store utility without using the relative positions
       end_exploration = std::chrono::high_resolution_clock::now();
       std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
-      writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
+      writeToFile(final_sorted_frontiers,fn__,elapsed_time__); 
       
       
       // Stop if no more new frontiers exist or the stop flag is set.
@@ -1674,7 +1648,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         stop();
         end_exploration = std::chrono::high_resolution_clock::now();
         std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
-        writeToFile(final_sorted_frontiers,fn,elapsed_time__); 
+        writeToFile(final_sorted_frontiers,fn__,elapsed_time__); 
         return;
       }
 

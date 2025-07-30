@@ -37,50 +37,7 @@
 #ifndef NAV_EXPLORE_H_
 #define NAV_EXPLORE_H_
 
-#include <memory>
-#include <mutex>
-#include <string>
-#include <vector>
-#include <regex>
-#include <iterator>
-#include <unistd.h>
-#include <iostream>
-#include <sstream>
-#include <fstream>
-#include <random>
-#include <pwd.h>
-#include <time.h>
-#include <chrono>
-#include <cmath>
-#include <deque>
-#include <mutex>
-#include <stdexcept>
-
-#include <actionlib/client/simple_action_client.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <move_base_msgs/MoveBaseAction.h>
-#include <ros/ros.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <geometry_msgs/Pose.h>
-#include <geometry_msgs/PoseArray.h>
-#include <explore/costmap_client.h>
-#include <explore/frontier_search.h>
-#include <explore/quadmap.h>
-#include <explore/state_estimation_filter.h>
-#include <gazebo_msgs/ModelStates.h>
-#include <std_msgs/Bool.h>
-#include <std_msgs/Float64MultiArray.h>
-#include "std_msgs/String.h"
-#include "tf/tf.h"
-#include <natnet_pkg/PoseArrayID.h>
-#include <wsr_exploration/QuadmapViz.h>
-#include <wsr_exploration/RelativeEstimate.h>
-#include <wsr_exploration/FrontierInfo.h>
-#include <nav_msgs/Path.h>
-#include <nav_msgs/GetPlan.h>
-#include<explore_lite/LocalMeasurement.h>
-#include<explore_lite/RangeBearing.h>
+#include <explore/utils.h>
 
 namespace explore
 {
@@ -184,6 +141,7 @@ private:
   size_t last_markers_count_;
 
   // parameters
+  std::string fn__ = "";
   double planner_frequency_=0, 
           noise_mean_=0, 
           noise_std_=0,
@@ -239,7 +197,10 @@ private:
   int baseline_1_frontier_selection_threshold__ = 60;
   double robot_speed_ = 0.15;
   float bearing_angle_radians__ = 0;
+  std::vector<float> bearing_angle_radians_vec__;
   float own_orientation_deg__ = 0;
+  float range_to_use__ = 0.0;
+// float __bearing_to_use =  0.0;
   std::deque<std::pair<double, geometry_msgs::Pose>> own_pose_deque_;
   std::mutex own_pose_mutex;
   explore_lite::RangeBearing neighbor_robot_rb__;
@@ -281,6 +242,7 @@ private:
   std::vector<frontier_exploration::Frontier>::iterator frontier_itr;
   std::vector<double> cov_array_prev{0, 0};
   std::vector<geometry_msgs::Point> current_rel_positions__;
+  std::vector<double> current_angle_vec__;
   int other_robot_id__=-1;
   float min_diff__ = 0;
   float diff__ = 0;
@@ -289,73 +251,8 @@ private:
   bool __FLAG_first_measurement = true;
   geometry_msgs::Pose prev_neighboring_position;
   
-
-  double wrap0to360(double val) 
-  {
-    val = fmod(val, 360);
-
-    if (val < 0)
-        val += 360;
-
-    return val;
-  }
-
-  double diff_360(double a, double b) 
-  {
-    double tmp = a-b;
-
-    if(tmp > 180)
-      tmp -=360;
-    else if (tmp < -180)
-      tmp += 360;
-    
-    return tmp;
-  }
-
-
-  double quaternionToYaw(const tf::Quaternion& q) 
-  {
-    double yaw = 0.0;
-
-    if (validateQuaternion(q)) {
-        tf::Matrix3x3 m(q);
-
-        double roll, pitch;
-        m.getRPY(roll, pitch, yaw);
-    }
-
-    return yaw;
-  }
-
-
-  double warptoPi(double angle)
-  {
-    angle = fmod(angle + M_PI, 2*M_PI);
-    if (angle < 0)
-      angle+= 2*M_PI;
-
-    return angle - M_PI;
-
-  }
-
-
-  bool validateQuaternion(const tf::Quaternion& quat) 
-  {
-    return (quat.getW() != 0 || quat.getX() != 0 || quat.getY() != 0 || quat.getZ() != 0);
-  }
-
-
-  std::pair<double, geometry_msgs::Pose> findClosestPoseToFirstSample(double csi_first_timestamp, std::vector<std::pair<double,geometry_msgs::Pose>>& own_pose_history_vector)
-  {
-    size_t i = 0;
-    //Since the timestamps are sorted, we just need to find a first timestamp > csi timestamp and use the pose corresponding to it.
-    while(own_pose_history_vector[i].first < csi_first_timestamp && i < own_pose_history_vector.size()) i++;
-    std::cout.precision(15);
-    std::cout << "[INFO] **** The closest timestamp is : " << own_pose_history_vector[i].first << std::endl;
-
-    return own_pose_history_vector[i];
-  }
 };
 }
+
 
 #endif

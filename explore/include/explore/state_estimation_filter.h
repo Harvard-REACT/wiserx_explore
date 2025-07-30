@@ -1,14 +1,7 @@
 #ifndef WSR_EXPLORE_FILTER_
 #define WSR_EXPLORE_FILTER_
 
-#include <iostream>
-#include <Eigen/Dense>
-#include <iostream>
-#include <vector>
-#include <random>
-#include <cmath>
-#include <geometry_msgs/PoseStamped.h>
-#include <ros/ros.h>
+#include <explore/utils.h>
 
 
 using Eigen::MatrixXd;
@@ -27,6 +20,11 @@ namespace wsr_state_estimation
         double dt; // Time step
         std::vector<double> residual_error__ {0.0,0.0};
         std::vector<double> range_bearing__ {0.0,0.0};
+        std::vector<VectorXd> residuals__;
+        std::vector<float> likelihoods__;
+        std::vector<float> angle_val__;
+        std::vector<float> angle_pred__;
+        std::vector<float> probs_vec__;
 
         ExtendedKalmanFilter(){}
         ~ExtendedKalmanFilter(){}
@@ -34,9 +32,14 @@ namespace wsr_state_estimation
         VectorXd get_covariance();
         void predict();
         void update(const VectorXd &z, geometry_msgs::Pose &robot_i_position );
+        void updatePDAF(float& range_measurement, 
+                        std::vector<float>& bearing_measurements, 
+                        geometry_msgs::Pose& robot_i_position) ;
         VectorXd h(const VectorXd &state, geometry_msgs::Pose &robot_i_position);
         MatrixXd calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position);
         MatrixXd calculateJacobianV2(const VectorXd &measurement);
+        float MahalanobisDistance(VectorXd& measurement, MatrixXd& Covariance);
+    
     };
 
 
@@ -75,9 +78,7 @@ namespace wsr_state_estimation
 
         MatrixXd computeCovariance(Eigen::VectorXd& estimate) ;
 
-    };
-
-    
+    };    
 }
 
 

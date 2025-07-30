@@ -176,6 +176,77 @@ void wsr_state_estimation::ExtendedKalmanFilter::update(const VectorXd &z, geome
     P = (I - K * H) * P;
 }
 
+
+// Update the state by incorporating measurements
+void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measurement, 
+                                                            std::vector<float>& bearing_measurements, 
+                                                            geometry_msgs::Pose& robot_i_position) 
+{
+
+    residuals__.clear();
+    likelihoods__.clear();
+    angle_val__.clear();
+    angle_pred__.clear();
+    probs_vec__.clear();
+    residual_error__.clear();
+    range_bearing__.clear();
+    VectorXd y_bar = Eigen::Vector2d::Zero();
+    MatrixXd P_update = 0*P;
+
+
+    MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
+    MatrixXd S = H * P * H.transpose() + R;
+    VectorXd z_pred = h(x, robot_i_position); // Predict measurement
+
+    for(auto bearing_measurement : bearing_measurements){
+        VectorXd z(2); z << range_measurement, bearing_measurement;        
+        VectorXd y =  z - z_pred ; // Measurement residual
+        y[1] = wrapToPi(y[1]); 
+        float d2 = MahalanobisDistance(y, S);
+        float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
+        residuals__.push_back(y);
+        likelihoods__.push_back(gaussian_pdf);
+        angle_val__.push_back(z[1]);
+        angle_pred__.push_back(z_pred[1]);
+    }
+    
+    //Normalize the likelihoods
+    //Clutter likelihood ==> Can we use the profile variance to somehow estimate this?
+    float total = std::accumulate(likelihoods__.begin(), likelihoods__.end(), 0);
+    if(total >0){
+        for(auto prob: likelihoods__) probs_vec__.push_back(prob/total);
+    }
+    
+    //Expected residual in measurement
+    for(int i=0; i<probs_vec__.size(); i++) {
+        y_bar += probs_vec__[i] * residuals__[i];
+    }
+
+    // Update state and covariance
+    MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
+    x = x + K * y_bar;
+    for(int i=0; i<probs_vec__.size(); i++) {
+        MatrixXd outer_product = residuals__[i] * residuals__[i].transpose();
+        P_update += probs_vec__[i] * (K * outer_product * K.transpose());
+    }
+    
+    MatrixXd I = MatrixXd::Identity(P.rows(), P.cols());
+    P = (I - K * H) * P * (I - K * H).transpose() + 
+        K * R * K.transpose() +
+        P_update - P ;
+
+    range_bearing__.push_back(z_pred(0));
+    range_bearing__.push_back(z_pred(1));
+    residual_error__.push_back(y_bar(0));
+    residual_error__.push_back(y_bar(1));
+    // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+    
+}
+
+float wsr_state_estimation::ExtendedKalmanFilter::MahalanobisDistance(VectorXd& measurement, MatrixXd& Covariance){
+    return measurement.transpose() * Covariance.inverse() * measurement;
+}
+
 // Non-linear measurement model h(x)
 VectorXd wsr_state_estimation::ExtendedKalmanFilter::h(const VectorXd &state, geometry_msgs::Pose& robot_i_position) 
 {
@@ -194,11 +265,11 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const Vec
     // double px = state(0);
     // double py = state(1);
 
-    double px = state(0) - robot_i_position.position.x;
-    double py = state(1) - robot_i_position.position.y;
+    double dx = state(0) - robot_i_position.position.x;
+    double dy = state(1) - robot_i_position.position.y;
 
     // Compute the Jacobian matrix
-    double d = px * px + py * py;
+    double d = dx * dx + dy * dy;
     double sqrt_d = sqrt(d);
     
     // Check if division by zero might occur
@@ -208,8 +279,8 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const Vec
     }
 
     // Recompute the Jacobian matrix with proper values
-    Hj << (px / sqrt_d), (py / sqrt_d), 0, 0,
-            -(py / d), (px / d), 0, 0;
+    Hj << (dx / sqrt_d), (dy / sqrt_d), 0, 0,
+            -(dy / d), (dx / d), 0, 0;
 
     return Hj;
 }
