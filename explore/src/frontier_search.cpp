@@ -207,7 +207,7 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
     }
   }
   
-  ROS_INFO("Total Frontiers before splitting = %d", frontier_list.size());
+  ROS_INFO("Total Frontiers before splitting = %d", int(frontier_list.size()));
   std::queue<Frontier> fq;
   for (int i=0; i<frontier_list.size(); i++)
   {
@@ -233,7 +233,7 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
     }
         
   }
-  ROS_INFO("Total Frontiers after splitting = %d", frontier_list.size());
+  ROS_INFO("Total Frontiers after splitting = %d", int(frontier_list.size()));
   return frontier_list;
 }
 

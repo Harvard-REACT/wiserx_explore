@@ -779,9 +779,10 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
       {
         neighbor_robot_rb__ = input_msg->other_robots_rb[nr];
         other_robot_id__ = neighbor_robot_rb__.robot_id;
+	ROS_INFO("%d", other_robot_id__);
         std::string other_robot_name = name_vicon_hardware[other_robot_id__-1];
         wsr_exploration::RelativeEstimate neighbor;
-        
+        ROS_INFO("%s", other_robot_name.c_str()); 
         /* Retrieve pose history to find pose closest to the time when the first CSI sample was take.
         * We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement 
         * by which time the robot i would have moved/rotated.
@@ -790,6 +791,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history = {own_pose_deque_.begin(), own_pose_deque_.end()};
         own_pose_mutex.unlock();
         
+	ROS_INFO("Passed cp 0");
         std::pair<double, geometry_msgs::Pose> ret_val  = findClosestPoseToFirstSample(neighbor_robot_rb__.csi_timestamp, own_pose_history);
         double matched_timestamp = ret_val.first;
         geometry_msgs::Pose closest_robot_pose_at_csi_measurement = ret_val.second;
@@ -838,6 +840,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
             closest_robot_pose_at_csi_measurement.position.y,
             own_orientation_deg__
         };
+
+	ROS_INFO("Checkpoint-1 passed");
         
         //=========== Add own position estimate from SLAM ==============
         costmap->worldToMap(closest_robot_pose_at_csi_measurement.position.x, closest_robot_pose_at_csi_measurement.position.y, mx__, my__);
@@ -854,7 +858,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
         base_quadmap_.insert_till_end(my_position_node);
         
-
+	ROS_INFO("Checkpoint-2 passed");
         //=========== Estimate neighboring robot position ==============
         //Estimate the relative position of the neighboring robot
         auto robot_it = robot_information__.find(other_robot_name);
@@ -896,7 +900,8 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
           covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
           ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
         }
-        
+        ROS_INFO("Checkpoint-3 passed");
+
         //Keep track of the latest position esimates for using in beta parameter of the information gain
         geometry_msgs::Point estimated_j_position;
         estimated_j_position.x = est_x_j;
@@ -937,6 +942,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
             neighbor.estimated_map_position.y = j_position_node.est_my;
         }
 
+	ROS_INFO("Checkpoint-4 passed");
         // Final message population
         neighbor.one_shot_map_position.x = mx__;
         neighbor.one_shot_map_position.y = my__;
@@ -980,6 +986,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
       msg.header.stamp = ros::Time::now();
       msg.header.frame_id = std::to_string(frame__++);
       quadmapPub_.publish(msg);
+      ROS_INFO("Checkpoint-5 passed");
     }
 
 /**
@@ -1368,7 +1375,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
     struct passwd *pw = getpwuid(getuid());
     homedir_ = pw->pw_dir;
-    servo_output_file_reader_command_ = "stat"+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
+    servo_output_file_reader_command_ = "stat "+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
     __dim_object_name = "mailbox_blue_clone"; //Used in simulation
 
     ROS_INFO("Sensor range = %f", sensor_range_);
