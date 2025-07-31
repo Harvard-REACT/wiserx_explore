@@ -72,10 +72,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 include_directories(
   ${catkin_INCLUDE_DIRS}
   include
-  /home/react-ws-1/WSR_Project/WSR-Toolbox-cpp/include
+  $ENV{HOME}/WSR_Project/WSR-Toolbox-cpp/include
 )
 
-link_directories(/home/react-ws-1/WSR_Project/WSR-Toolbox-cpp/wsr_build)
+link_directories($ENV{HOME}/WSR_Project/WSR-Toolbox-cpp/wsr_build)
 
 
 add_executable(explore
