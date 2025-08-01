@@ -904,7 +904,10 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         current_rel_positions__.push_back(estimated_j_position);
 
         //Initialize node with estimated position of the other robot
-        costmap->worldToMap(est_x_j, est_y_j, mx__, my__);   
+        costmap->worldToMap(est_x_j, est_y_j, mx__, my__);
+        mx__ = mx__ + 12;
+        my__ = my__ + 22;
+
         unsigned int sizeX = costmap->getSizeInCellsX();
         unsigned int sizeY = costmap->getSizeInCellsY();
         ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
@@ -916,10 +919,10 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         if(out_of_bounds) 
         {
             ROS_INFO("Estimate out of bounds: (%d, %d)", mx__, my__);
-            neighbor.true_map_position.x = prev_neighboring_position.position.x;
-            neighbor.true_map_position.y = prev_neighboring_position.position.y;
-            neighbor.estimated_map_position.x = prev_neighboring_position.position.x;
-            neighbor.estimated_map_position.y = prev_neighboring_position.position.x;
+            neighbor.true_map_position.x = 0;
+            neighbor.true_map_position.y = 0;
+            neighbor.estimated_map_position.x = 0;
+            neighbor.estimated_map_position.y = 0;
         }
         else
         {
@@ -937,13 +940,11 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
             neighbor.estimated_map_position.y = j_position_node.est_my;
         }
 
-        // Final message population
-        neighbor.one_shot_map_position.x = mx__;
-        neighbor.one_shot_map_position.y = my__;
+        neighbor.one_shot_map_position.x = 0;
+        neighbor.one_shot_map_position.y = 0;
         
         //Update this, how??
-        neighbor.est_range_bearing = { range_to_use__, current_angle_vec__[0], bearing_angle_radians_vec__[0] * 180.0 / M_PI };
-        
+        neighbor.est_range_bearing = { range_to_use__, bearing_angle_radians_vec__[0] * 180.0 / M_PI };
         neighbor.first_csi_measurement_timestamp = neighbor_robot_rb__.csi_timestamp;
         neighbor.nearest_timestamp_for_pose = matched_timestamp;
         neighbor.covariance_meter_sq = covariance_array;
@@ -1368,7 +1369,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
     struct passwd *pw = getpwuid(getuid());
     homedir_ = pw->pw_dir;
-    servo_output_file_reader_command_ = "stat"+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
+    servo_output_file_reader_command_ = "stat "+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
     __dim_object_name = "mailbox_blue_clone"; //Used in simulation
 
     ROS_INFO("Sensor range = %f", sensor_range_);
