@@ -854,7 +854,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
         quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
         base_quadmap_.insert_till_end(my_position_node);
         
-
+        
         //=========== Estimate neighboring robot position ==============
         //Estimate the relative position of the neighboring robot
         auto robot_it = robot_information__.find(other_robot_name);
@@ -896,7 +896,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
           covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
           ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
         }
-        
+
         //Keep track of the latest position esimates for using in beta parameter of the information gain
         geometry_msgs::Point estimated_j_position;
         estimated_j_position.x = est_x_j;
