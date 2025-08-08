@@ -5,6 +5,8 @@
     <arg name="aoa_profile_file_path"  default="/home/explorer-1/catkin_ws/src/wsr_exploration/data/debug/tx2_aoa_profile__0.csv"/>
     <arg name="aoa_peaks_file_path"  default="/home/explorer-1/catkin_ws/src/wsr_exploration/data/aoa_val.csv"/>
     <arg name="publish_aoa_profile"  default="false"/>
+    <arg name="use_real_sensor"  default="false"/>
+    <arg name="measurement_interval"  default="4.0"/>
     
     <group ns="$(arg robot_name)">
         <node pkg="explore_lite" type="realtime_range_aoa" respawn="false" name="range_bearing_node" output="screen">
@@ -13,6 +15,8 @@
             <param name="peaks_file_path" value="$(arg aoa_peaks_file_path)"/>
             <param name="pub_aoa_profile" value="$(arg publish_aoa_profile)"/>
             <param name="own_robot_id" value="$(arg robot_id)"/>
+            <param name="use_real_sensor" value="$(arg use_real_sensor)"/>
+            <param name="measurement_interval" value="$(arg measurement_interval)"/>
         </node>
     </group>
 
