@@ -110,7 +110,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 		             ROS_INFO("Reading AOA profile data");
                     aoa_profile.open(aoa_profile_name); 
                     if(aoa_profile.is_open()){
-                        std::string line, val;                  /* string for line & value */
+                        std::string line, val;                  /* string for line & value */45
                     //       /* vector of vector<int>  */
 
                         while (std::getline (aoa_profile, line)) 

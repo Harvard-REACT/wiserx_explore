@@ -905,8 +905,13 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 
         //Initialize node with estimated position of the other robot
         costmap->worldToMap(est_x_j, est_y_j, mx__, my__);
+<<<<<<< HEAD
         mx__ = mx__ + 12; // 12,22 are robot's own position in map on initialization; parametrize.
         my__ = my__ + 22;
+=======
+        //mx__ = mx__ + 12;
+        //my__ = my__ + 22;
+>>>>>>> 06cb89cd46efa31a12d659c70c14c1c3d3d7c9f6
 
         unsigned int sizeX = costmap->getSizeInCellsX();
         unsigned int sizeY = costmap->getSizeInCellsY();
@@ -1280,9 +1285,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         new_output = exec(servo_output_file_reader_command_.c_str());
       }
 
+      /*
       for(auto& elem:  own_pose_deque_) {
 	      ROS_INFO("%f", elem.first);
       }
+      */
     }
   }
 

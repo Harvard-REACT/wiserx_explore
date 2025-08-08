@@ -111,12 +111,6 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 1, 0,
         0, 0, 0, 1;
 
-    // P << 1, 0, 0, 0, // Initial state covariance
-    //     0, 1, 0, 0,
-    //     0, 0, 1000, 0,
-    //     0, 0, 0, 1000;
-
-    //Updated P on July 31 2025
     P << 1, 0, 0, 0, // Initial state covariance
         0, 1, 0, 0,
         0, 0, 1, 0,
@@ -127,13 +121,13 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 0.1, 0,
         0, 0, 0, 0.1;
 
-    // R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians))
+    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
     //     0, 0.08;  // 30 cm and 16 degree of standard deviation for range and bearing
 
 
     //Updated R on July 31 2025
-    R << 0.00001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-        0, 0.01;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+    R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+        0, 0.008;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
     // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
     //     0, 0.01;  // 10 cm and 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
@@ -201,13 +195,13 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     residual_error__.clear();
     range_bearing__.clear();
     VectorXd y_bar = Eigen::Vector2d::Zero();
-    MatrixXd P_update = 0*P;
+    MatrixXd P_update = 0*R;
 
 
     MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
     MatrixXd S = H * P * H.transpose() + R;
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
-    
+    ROS_INFO("bearing measurements size %d", int(bearing_measurements.size()));
     for(auto bval : bearing_measurements){
         VectorXd z(2); z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
@@ -219,33 +213,32 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
         angle_val__.push_back(z[1]);
         angle_pred__.push_back(z_pred[1]);
     }
-    
     //Normalize the likelihoods
     //Clutter likelihood ==> Can we use the profile variance to somehow estimate this?
-    float total = std::accumulate(likelihoods__.begin(), likelihoods__.end(), 0);
+    float total = 0;
+    for(auto val: likelihoods__) total += val;
+    
     if(total >0){
         for(auto prob: likelihoods__) probs_vec__.push_back(prob/total);
     }
-    
+   
     //Expected residual in measurement
     for(int k=0; k<int(probs_vec__.size()); k++){
         ROS_INFO("Angle_pred (deg): %f, Angle_measured (deg): %f, residuals: %f, probs: %f",
         angle_pred__[k]*180/3.14, angle_val__[k]*180/3.14, residuals__[k][1], probs_vec__[k]);
         y_bar += probs_vec__[k] * residuals__[k];
     }
-
     // Update state and covariance
     MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
     x = x + K * y_bar;
     for(int i=0; i<probs_vec__.size(); i++) {
-        MatrixXd outer_product = (residuals__[i]-y_bar) * (residuals__[i]-y_bar).transpose();
-        P_update += probs_vec__[i] * (K * outer_product * K.transpose());
+	MatrixXd outer_product = (residuals__[i]-y_bar) * (residuals__[i]-y_bar).transpose();
+        P_update += probs_vec__[i] * outer_product;
     }
-    
+  
     MatrixXd I = MatrixXd::Identity(P.rows(), P.cols());
     P = (I - K * H) * P * (I - K * H).transpose() + 
-        K * (R+P_update) * K.transpose(); 
-
+        K * (R+P_update) * K.transpose() ; 
     range_bearing__.push_back(z_pred(0));
     range_bearing__.push_back(z_pred(1)*180.0 / M_PI);
     residual_error__.push_back(y_bar(0));
