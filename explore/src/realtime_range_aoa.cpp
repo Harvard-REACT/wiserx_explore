@@ -15,10 +15,11 @@ std::vector<double> profile_array;
 std::string tb3_name = "";
 std::string onboard_name = "" ;
 bool FLAG_publish_aoa_profile=false; 
+bool Flag_sensor_obs=false;
 int own_id=-1, other_robot_id = -1;
 std::deque<std::pair<double, std::vector<geometry_msgs::Pose>>> pose_deque_vec;
 std::mutex true_pose_mutex;
-
+double measurement_interval = 0;
 
 void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
     //ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
@@ -33,7 +34,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     all_range_data.push_back(msg->data[0]); 
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > 4) //Get a measurement estimate every 5 seconds 
+    if(duration_aoa_check.count() > measurement_interval) //Get a measurement estimate every x seconds 
     {  
         explore_lite::LocalMeasurement rb_msg;
 
@@ -136,31 +137,40 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         if(sampled_range_data.size() > 0 && top_aoa_peaks.size()>0)
         {
             explore_lite::RangeBearing rb_raw;
-            for(int i = 0; i<sampled_range_data.size();i++)
-            {
-                ROS_INFO("Range: %f", sampled_range_data[i]);
-                rb_raw.range_measurements.push_back(sampled_range_data[i]);
+            if(Flag_sensor_obs){
+                for(int i = 0; i<sampled_range_data.size();i++)
+                {
+                    ROS_INFO("Range: %f", sampled_range_data[i]);
+                    rb_raw.range_measurements.push_back(sampled_range_data[i]);
+                }
+
+                for(int i = 0; i<top_aoa_peaks.size();i++)
+                {
+                    ROS_INFO("AOA: %f", top_aoa_peaks[i]);
+                    rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
+                }
+                
+                ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
+                if(int(pose_deque_vec.size()) > 0){
+                    true_pose_mutex.lock();
+                    std::vector<std::pair<double, std::vector<geometry_msgs::Pose>>> true_pose_history = {pose_deque_vec.begin(), pose_deque_vec.end()};
+                    true_pose_mutex.unlock();
+                    std::pair<double, std::vector<geometry_msgs::Pose>> closest_vals  = findClosestPoseToFirstSample(current_time_val, true_pose_history);
+                    std::vector<geometry_msgs::Pose> closest_true_pose = closest_vals.second;
+                    rb_raw.true_pose = closest_true_pose[other_robot_id-1];
+                    rb_msg.own_true_pose = closest_true_pose[own_id-1];
+                }
             }
-
-            for(int i = 0; i<top_aoa_peaks.size();i++)
-            {
-                ROS_INFO("AOA: %f", top_aoa_peaks[i]);
-                rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
+            else{
+                auto latest_true_measurement = pose_deque_vec.back();
+                current_time_val = latest_true_measurement.first;
+                std::vector<geometry_msgs::Pose> closest_true_pose = latest_true_measurement.second;
+                rb_raw.true_pose = closest_true_pose[other_robot_id-1];
+                rb_msg.own_true_pose = closest_true_pose[own_id-1];
             }
-
-	    ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
-            if(int(pose_deque_vec.size()) > 0){
-	      true_pose_mutex.lock();
-              std::vector<std::pair<double, std::vector<geometry_msgs::Pose>>> true_pose_history = {pose_deque_vec.begin(), pose_deque_vec.end()};
-              true_pose_mutex.unlock();
-              std::pair<double, std::vector<geometry_msgs::Pose>> closest_vals  = findClosestPoseToFirstSample(current_time_val, true_pose_history);
-              std::vector<geometry_msgs::Pose> closest_true_pose = closest_vals.second;
-	      rb_raw.true_pose = closest_true_pose[other_robot_id-1];
-	      rb_msg.own_true_pose = closest_true_pose[own_id-1];
-	    }
-
+            
             rb_raw.robot_id = other_robot_id;
-	    rb_raw.bearing_profile_variance = profile_variance;
+	        rb_raw.bearing_profile_variance = profile_variance;
             rb_raw.aoa_profile = profile_array;
             rb_raw.csi_timestamp = current_time_val;
             rb_msg.header.stamp = ros::Time::now();
@@ -191,6 +201,8 @@ int main(int argc, char **argv)
     nh.param("peaks_file_path", aoa_fn, std::string("/catkin_ws/src/wsr_exploration/data/aoa_val.csv"));
     nh.param("pub_aoa_profile", FLAG_publish_aoa_profile, false);
     nh.param("own_robot_id", own_id,-1);
+    nh.param("use_real_sensor", Flag_sensor_obs, true);
+    nh.param("measurement_interval", measurement_interval,4.0);
     other_robot_id = own_id == 1 ? 2:1;
 
     ROS_INFO("AOA file: %s", aoa_profile_name.c_str());

@@ -109,9 +109,9 @@ target_link_libraries(get_antenna_orientation
   ${catkin_LIBRARIES}
 )
 
-catkin_install_python(PROGRAMS
-  scripts/visualize_aoa_profile.py
-  DESTINATION $(CATKIN_PACKAGE_BIN_DESTINATION))
+# catkin_install_python(PROGRAMS
+#   scripts/visualize_aoa_profile.py
+#   DESTINATION $(CATKIN_PACKAGE_BIN_DESTINATION))
 
 
 # add_executable(test_particle_filter

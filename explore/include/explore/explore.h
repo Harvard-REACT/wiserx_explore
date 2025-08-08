@@ -79,15 +79,11 @@ private:
 
   void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
-  void ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
-
   void ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
   void AllOnboardSensingCallbackFilter(const explore_lite::LocalMeasurement::ConstPtr& input_msg);
-
-  void optitrackMocapCB(const natnet_pkg::PoseArrayID::ConstPtr& msg);
 
   bool IsMatch(std::string& val);
 
@@ -178,6 +174,7 @@ private:
   std::vector<geometry_msgs::Point> current_neighbor_NODE_vec_;
   bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true,Flag_get_range_ = false;
   bool FLAG_SIM_ = true;
+  bool FLAG_use_real_sensors__ = true;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1, iterations__=0;
   geometry_msgs::Twist velocity_cmd_;
@@ -250,7 +247,6 @@ private:
   float current_angle__ = 0;
   bool __FLAG_first_measurement = true;
   geometry_msgs::Pose prev_neighboring_position;
-  
 };
 }
 
