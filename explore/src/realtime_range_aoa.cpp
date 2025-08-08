@@ -16,6 +16,18 @@ std::string tb3_name = "";
 std::string onboard_name = "" ;
 bool FLAG_publish_aoa_profile=false; 
 int own_id=-1, other_robot_id = -1;
+std::deque<std::pair<double, std::vector<geometry_msgs::Pose>>> pose_deque_vec;
+std::mutex true_pose_mutex;
+
+
+void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
+    ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
+    std::time_t current_epoch_time;
+    const auto now = std::chrono::system_clock::now();
+    current_epoch_time = std::chrono::system_clock::to_time_t(now); 
+    if(pose_deque_vec.size() > 50) pose_deque_vec.pop_front();
+    pose_deque_vec.push_back(std::make_pair(current_epoch_time, msg->poses));
+}
 
 void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
@@ -23,12 +35,8 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
     if(duration_aoa_check.count() > 1) //Get a measurement estimate every 5 seconds 
     {  
-        
         explore_lite::LocalMeasurement rb_msg;
-        sampled_range_data.clear();
-        top_aoa_peaks.clear();
-        profile_array.clear();
-        
+
         //Get UWB range value 
         std::random_device rd; // obtain a random number from hardware
         std::mt19937 gen(rd()); // seed the generator
@@ -139,13 +147,27 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
                 ROS_INFO("AOA: %f", top_aoa_peaks[i]);
                 rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
+
+            true_pose_mutex.lock();
+            std::vector<std::pair<double, std::vector<geometry_msgs::Pose>>> true_pose_history = {pose_deque_vec.begin(), pose_deque_vec.end()};
+            true_pose_mutex.unlock();
+            std::pair<double, std::vector<geometry_msgs::Pose>> closest_vals  = findClosestPoseToFirstSample(current_time_val, true_pose_history);
+            std::vector<geometry_msgs::Pose> closest_true_pose = closest_vals.second;
+
             rb_raw.robot_id = other_robot_id;
-	    rb_raw.bearing_profile_variance = profile_variance;
+            rb_raw.true_pose = closest_true_pose[other_robot_id-1];
+	        rb_raw.bearing_profile_variance = profile_variance;
             rb_raw.aoa_profile = profile_array;
             rb_raw.csi_timestamp = current_time_val;
+            
             rb_msg.header.stamp = ros::Time::now();
+            rb_msg.own_true_pose = closest_true_pose[own_id-1];
             rb_msg.other_robots_rb.push_back(rb_raw);
             range_bearing_publisher.publish(rb_msg);
+            
+            sampled_range_data.clear();
+            top_aoa_peaks.clear();
+            profile_array.clear();
         }
         else
         {

@@ -830,7 +830,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
                 own_orientation_deg__);
         ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA top peak: %.2f",
                 range_to_use__,
-                current_angle__,
+                current_angle_vec__[0],
                 bearing_angle_radians_vec__[0] * 180.0 / M_PI);
         
         std::vector<double> own_measurement_pose_vec = {
@@ -905,7 +905,7 @@ void Explore::ViconCombinedStateCallbackFilter(const geometry_msgs::PoseArray::C
 
         //Initialize node with estimated position of the other robot
         costmap->worldToMap(est_x_j, est_y_j, mx__, my__);
-        mx__ = mx__ + 12;
+        mx__ = mx__ + 12; // 12,22 are robot's own position in map on initialization; parametrize.
         my__ = my__ + 22;
 
         unsigned int sizeX = costmap->getSizeInCellsX();

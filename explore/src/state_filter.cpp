@@ -207,7 +207,7 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
     MatrixXd S = H * P * H.transpose() + R;
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
-
+    
     for(auto bval : bearing_measurements){
         VectorXd z(2); z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
