@@ -21,7 +21,7 @@ std::mutex true_pose_mutex;
 
 
 void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
-    ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
+    //ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
     std::time_t current_epoch_time;
     const auto now = std::chrono::system_clock::now();
     current_epoch_time = std::chrono::system_clock::to_time_t(now); 
@@ -148,20 +148,22 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
                 rb_raw.bearing_measurements.push_back(top_aoa_peaks[i]);
             }
 
-            true_pose_mutex.lock();
-            std::vector<std::pair<double, std::vector<geometry_msgs::Pose>>> true_pose_history = {pose_deque_vec.begin(), pose_deque_vec.end()};
-            true_pose_mutex.unlock();
-            std::pair<double, std::vector<geometry_msgs::Pose>> closest_vals  = findClosestPoseToFirstSample(current_time_val, true_pose_history);
-            std::vector<geometry_msgs::Pose> closest_true_pose = closest_vals.second;
+	    ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
+            if(int(pose_deque_vec.size()) > 0){
+	      true_pose_mutex.lock();
+              std::vector<std::pair<double, std::vector<geometry_msgs::Pose>>> true_pose_history = {pose_deque_vec.begin(), pose_deque_vec.end()};
+              true_pose_mutex.unlock();
+              std::pair<double, std::vector<geometry_msgs::Pose>> closest_vals  = findClosestPoseToFirstSample(current_time_val, true_pose_history);
+              std::vector<geometry_msgs::Pose> closest_true_pose = closest_vals.second;
+	      rb_raw.true_pose = closest_true_pose[other_robot_id-1];
+	      rb_msg.own_true_pose = closest_true_pose[own_id-1];
+	    }
 
             rb_raw.robot_id = other_robot_id;
-            rb_raw.true_pose = closest_true_pose[other_robot_id-1];
-	        rb_raw.bearing_profile_variance = profile_variance;
+	    rb_raw.bearing_profile_variance = profile_variance;
             rb_raw.aoa_profile = profile_array;
             rb_raw.csi_timestamp = current_time_val;
-            
             rb_msg.header.stamp = ros::Time::now();
-            rb_msg.own_true_pose = closest_true_pose[own_id-1];
             rb_msg.other_robots_rb.push_back(rb_raw);
             range_bearing_publisher.publish(rb_msg);
             
@@ -201,8 +203,8 @@ int main(int argc, char **argv)
   
     ros::NodeHandle n;
     ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("distance_multi", 10, range_bearing_CB);
-    range_bearing_publisher =  n.advertise<explore_lite::LocalMeasurement>("range_bearing_estimates", 10);
-    
+    ros::Subscriber true_positions_ = n.subscribe<geometry_msgs::PoseArray> ("/robots_groundtruth_state", 10, TruePoseCB);
+    range_bearing_publisher =  n.advertise<explore_lite::LocalMeasurement>("range_bearing_estimates", 10);    
     ros::spin();
 
     return 0;
