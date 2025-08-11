@@ -8,6 +8,7 @@
    <arg name="use_real_sensor" default="true"/>
   <arg name="min_frontier_size"  default="0.5"/>
   <arg name="sensor_range"  default="3.0"/>
+  <arg name="add_noise"  default="false"/>
 
 
     <!-- move_base -->
@@ -36,6 +37,7 @@
     <arg name="min_frontier_size_val" value="$(arg min_frontier_size)"/>
     <arg name="sensor_range_val" value="$(arg sensor_range)"/>
     <arg name="robot_base_frame_for_gmapping" value="$(arg multi_robot_name)/base_footprint" />
+    <arg name="add_noise"  default="$(arg add_noise)"/>
   </include>
 
 </launch>

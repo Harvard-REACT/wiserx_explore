@@ -92,41 +92,6 @@ namespace explore
     return (val.find(__dim_object_name) != std::string::npos);
   }
 
-  // /** 
-  //  * @brief Get positions of neighboring robots in gazebo (global frame)
-  //  * */
-  // void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
-  // {
-  //   int itr = 0, n_count = 0;
-  //   std::vector<std::string> name = msg->name;
-  //   neighbor_id_.clear();
-    
-  //   //Get the id of all other robots except itself
-  //   for(std::string& val : name)
-  //   {
-  //     if (IsMatch(val) && val!=robot_name_) 
-  //     {
-  //       neighbor_id_.push_back(n_count); 
-  //     }
-  //     n_count+=1;
-  //   }
-
-  //   //Store the positions (can be modified to add noise) of the neighboring robot
-  //   std::vector<geometry_msgs::Pose> pose_vec = msg->pose;    
-    
-  //   for (itr=0; itr<neighbor_id_.size(); itr++)
-  //   {        
-  //     if(FLAG_noise)
-  //     {
-  //       static std::normal_distribution<double> gaussian_noise_(noise_mean_, noise_std_);
-  //       pose_vec[neighbor_id_[itr]].position.x = pose_vec[neighbor_id_[itr]].position.x + gaussian_noise_(generator);
-  //       pose_vec[neighbor_id_[itr]].position.y = pose_vec[neighbor_id_[itr]].position.y + gaussian_noise_(generator);
-  //     }
-      
-  //     current_neighbor_pose_vec_.push_back(pose_vec[neighbor_id_[itr]].position );
-  //   }
-  // }
-
 
   /** 
    * @brief Get positions of neighboring robots in gazebo (global frame)
@@ -306,7 +271,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           {
             //Get true positions of the neighboring robot and generate range and bearing 
             measurement_output__.clear();
-            auto gt_obs = get_range_and_bearing_from_groundtruth(robot_i_positions, pose_vec[itr], true, 0.1, 0.1);
+            std::pair<double, double> gt_obs = get_range_and_bearing_from_groundtruth(robot_i_positions, pose_vec[itr]);
+            if(FLAG_noise) add_noise_to_groundtruth_measurements(gt_obs,0.1,0.1);
             measurement_output__.push_back(gt_obs.first);
             measurement_output__.push_back(gt_obs.second);
             ROS_INFO("Got estimates");
@@ -500,7 +466,6 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       
       timestep__++;
       current_rel_positions__.clear();
-      current_angle_vec__.clear();
       bearing_angle_radians_vec__.clear();
 
 
@@ -548,45 +513,35 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             closest_robot_pose_at_csi_measurement.orientation.w
         );
         own_orientation_deg__ = wrap0to360(quaternionToYaw(measurement_quaternion) * 180.0 / M_PI);
-
+          
         //=======================Choose the type of measurement to use========================
-	std::vector<double> bearing_measurements_to_use; //move to class
+	      std::vector<double> bearing_measurements_to_use; //move to class
         std::vector<double> range_measurements_to_use;
+        geometry_msgs::Pose own_tp = input_msg->own_true_pose;
+        std::pair<double, double> true_measurements = get_range_and_bearing_from_groundtruth(own_tp,
+                                                                        neighbor_robot_rb__.true_pose);
         if(FLAG_use_real_sensors__){
           range_measurements_to_use = neighbor_robot_rb__.range_measurements;
           bearing_measurements_to_use = neighbor_robot_rb__.bearing_measurements;
 	  
-	  //Correct by accounting for own heading
-	  for(auto val: bearing_measurements_to_use){
+	      //Correct by accounting for own heading
+	        for(auto val: bearing_measurements_to_use){
             bearing_angle_radians_vec__.push_back(
             wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0);
-          }
+          }          
         }
         else{
           ROS_INFO("Using motion capture to generate relative measurements");
-	  geometry_msgs::Pose own_tp = input_msg->own_true_pose;
-          auto measurements = get_range_and_bearing_from_groundtruth(own_tp,
-                                                                     neighbor_robot_rb__.true_pose,
-                                                                     false,0.1,0.1);
-	  
-	  //No need since the mesurements are generated in the global reference frame. 
-	  range_measurements_to_use.push_back(measurements.first);
-          bearing_measurements_to_use.push_back(measurements.second);
-	  bearing_angle_radians_vec__.push_back(wrap0to360(measurements.second) * M_PI / 180.0);
-
+          if(FLAG_noise) add_noise_to_groundtruth_measurements(true_measurements,0.1,0.1);
+	        
+          //No need since the mesurements are generated in the global reference frame. 
+	        range_measurements_to_use.push_back(true_measurements.first);
+          bearing_measurements_to_use.push_back(true_measurements.second);
+	        bearing_angle_radians_vec__.push_back(wrap0to360(true_measurements.second) * M_PI / 180.0);
         }
-        //================================================================================
-        //current_angle_vec__ = bearing_measurements_to_use;
-	
-	/*
-	for(auto val: current_angle_vec__){
-          bearing_angle_radians_vec__.push_back(
-            wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0
-            );
-        }
-	*/
+        //=======================Choose the type of measurement to use========================
         
-	//Workaround for issues in range measurements. Handles a bug in raw range measurement
+	      //Workaround for issues in range measurements. Handles a bug in raw range measurement
         if(__FLAG_first_measurement)
         {
           _previous_range_measurement = range_measurements_to_use[0];
@@ -717,11 +672,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             neighbor.estimated_map_position.x = j_position_node.est_mx;
             neighbor.estimated_map_position.y = j_position_node.est_my;
         }
-
-        neighbor.one_shot_map_position.x = 0;
-        neighbor.one_shot_map_position.y = 0;
-        
-        //Update this, how??
+        neighbor.true_range_bearing = { true_measurements.first, true_measurements.second};
         neighbor.est_range_bearing = { range_to_use__, bearing_angle_radians_vec__[0] * 180.0 / M_PI };
         neighbor.first_csi_measurement_timestamp = neighbor_robot_rb__.csi_timestamp;
         neighbor.nearest_timestamp_for_pose = matched_timestamp;
@@ -1019,12 +970,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 	      ros::Duration(0.1).sleep();
         new_output = exec(servo_output_file_reader_command_.c_str());
       }
-
-      /*
-      for(auto& elem:  own_pose_deque_) {
-	      ROS_INFO("%f", elem.first);
-      }
-      */
     }
   }
 

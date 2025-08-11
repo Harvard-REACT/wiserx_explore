@@ -134,8 +134,7 @@ inline std::pair<double, std::vector<geometry_msgs::Pose>> findClosestPoseToFirs
 
 //Generate measurements from groundtruth mocap positions
 inline std::pair<double, double> get_range_and_bearing_from_groundtruth(geometry_msgs::Pose& robot_i_positions,
-                                                                        geometry_msgs::Pose& neighbor_robot_j_positions,
-                                                                        bool add_noise, float range_noise=0.1, float bearing_noise=0.1)
+                                                                        geometry_msgs::Pose& neighbor_robot_j_positions)
 { 
 
     float diff_x = neighbor_robot_j_positions.position.x - robot_i_positions.position.x ;
@@ -143,36 +142,40 @@ inline std::pair<double, double> get_range_and_bearing_from_groundtruth(geometry
     float range = sqrt(pow((diff_x),2.0) + pow((diff_y),2.0)); // meters
     float bearing = atan2(diff_y, diff_x); // radians
     ROS_INFO("True range: %f meters, bearing: %f degrees", range, bearing*180/3.14);
-
-    if(add_noise)
-    {
-        std::default_random_engine generator;
-        // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.3); //range noise 0  mean and 30cm stddev in meters 
-        // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.3); //bearing noise  0 mean and 17 deg stddev in radians
-
-        //Used for flight lab vicon hardware experiments - somehow has issues with tb3_2
-        static std::normal_distribution<float> range_measurement_gaussian_noise_(0, range_noise); //range noise 0  mean and 10cm stddev in meters 
-        static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, bearing_noise); //bearing noise  0 mean and 5 deg stddev in radians
-
-        // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters 
-        // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
-
-        // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.05); //range noise mean and stddev in meters 
-        // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
-
-        // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.01); //range noise mean and stddev in meters 
-        // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
-
-        //Used mostly in sim
-        // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.2); //range noise mean and stddev in meters 20cm
-        // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.17); //bearing noise mean and stddev in radians 10 deg
-
-        range = range +  range_measurement_gaussian_noise_(generator); // meters
-        bearing = bearing +  bearing_measurement_gaussian_noise_(generator); // radians
-	ROS_INFO("Noisy range: %f meters, bearing: %f degrees", range, bearing*180/3.14);
-    }
-
     return std::make_pair(range, bearing);
+}
+
+
+//Generate measurements from groundtruth mocap positions
+inline void add_noise_to_groundtruth_measurements(std::pair<double, double>& measurements, 
+                                                  float range_noise=0.1, 
+                                                  float bearing_noise=0.1)
+{ 
+
+    std::default_random_engine generator;
+    // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.3); //range noise 0  mean and 30cm stddev in meters 
+    // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.3); //bearing noise  0 mean and 17 deg stddev in radians
+
+    //Used for flight lab vicon hardware experiments - somehow has issues with tb3_2
+    static std::normal_distribution<float> range_measurement_gaussian_noise_(0, range_noise); //range noise 0  mean and 10cm stddev in meters 
+    static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, bearing_noise); //bearing noise  0 mean and 5 deg stddev in radians
+
+    // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.1); //range noise mean and stddev in meters 
+    // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
+
+    // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.05); //range noise mean and stddev in meters 
+    // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
+
+    // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.01); //range noise mean and stddev in meters 
+    // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.03); //bearing noise mean and stddev in radians 2 deg
+
+    //Used mostly in sim
+    // static std::normal_distribution<float> range_measurement_gaussian_noise_(0, 0.2); //range noise mean and stddev in meters 20cm
+    // static std::normal_distribution<float> bearing_measurement_gaussian_noise_(0, 0.17); //bearing noise mean and stddev in radians 10 deg
+
+    measurements.first = measurements.first +  range_measurement_gaussian_noise_(generator); // meters
+    measurements.second = measurements.second +  bearing_measurement_gaussian_noise_(generator); // radians
+	ROS_INFO("Noisy range: %f meters, bearing: %f degrees", measurements.first, measurements.second*180/3.14);
 }
 
 

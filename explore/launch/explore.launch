@@ -16,6 +16,7 @@
 <arg name="measurement_interval" default="5.0"/>
 <arg name="map_resolution" default="0.25"/>
 <arg name="use_real_sensor" default="true"/>
+<arg name="add_noise"  default="false"/>
 
 
  <group ns="$(arg ns)">
@@ -51,7 +52,7 @@
     <param name="use_sim" value="$(arg use_sim)"/>
     <param name="robot_speed" value="$(arg robot_speed)"/>
     <param name="use_real_sensor" value="$(arg use_real_sensor)"/>
-
+    <param name="noise_WSR" value="$(arg add_noise)"/>
   </node>
 </group>
 

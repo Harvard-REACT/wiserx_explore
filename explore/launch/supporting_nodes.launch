@@ -7,7 +7,7 @@
   <!-- Mocap and Groundtruth combined state pubisher-->
   <group if="$(eval arg('groundtruth_access') == true)">
     <include file="$(find vrpn_client_ros)/launch/sample.launch">
-      <param name="server" value="$(mocap_server_ip)" />
+      <arg name="server" value="$(arg mocap_server_ip)" />
     </include>
 
     <node pkg="explore_lite" type="groundtruth_state_publisher" respawn="false" name="groundtruth_state_publisher" output="screen"/>
