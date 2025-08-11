@@ -549,6 +549,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         );
         own_orientation_deg__ = wrap0to360(quaternionToYaw(measurement_quaternion) * 180.0 / M_PI);
 
+        //=======================Choose the type of measurement to use========================
         std::vector<double> bearing_measurements_to_use;
         std::vector<double> range_measurements_to_use;
         if(FLAG_use_real_sensors__){
@@ -563,6 +564,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           range_measurements_to_use.push_back(measurements.first);
           bearing_measurements_to_use.push_back(measurements.second);
         }
+        //================================================================================
 
         current_angle_vec__ = bearing_measurements_to_use;
         for(auto val: current_angle_vec__){
@@ -1036,7 +1038,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("gain_scale", gain_scale_, 1.0);
     private_nh_.param("min_frontier_size", min_frontier_size, 0.5);
     private_nh_.param("sensor_range", sensor_range_, 1.0); 
-    private_nh_.param("use_WSR", FLAG_WSR_, true);
+    private_nh_.param("use_WSR", FLAG_WSR_, true); //Use WiSER-X algorithm
     private_nh_.param("noise_WSR", FLAG_noise, false);
     private_nh_.param("WSR_noise_mean", noise_mean_, 0.0);
     private_nh_.param("WSR_noise_std", noise_std_, 1.0); 
@@ -1051,7 +1053,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("use_sim", FLAG_SIM_, false);
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
     private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/wsr_exploration/data/mexplore_data/"));
-    private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true);
+    private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
  
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);

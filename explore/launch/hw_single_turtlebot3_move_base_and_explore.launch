@@ -1,0 +1,41 @@
+<launch>
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="multi_robot_name" default="tb3_1"/>
+  <arg name="multi_robot_id" default="1"/>
+  <arg name="move_forward_only" default="true"/>
+  <arg name="open_rviz" default="true"/>
+  <arg name="enable_WSR" default="true"/>
+   <arg name="use_real_sensor" default="true"/>
+  <arg name="min_frontier_size"  default="0.5"/>
+  <arg name="sensor_range"  default="3.0"/>
+
+
+    <!-- move_base -->
+   <group ns="$(arg multi_robot_name)">
+    <include file="$(find wsr_exploration)/launch/hw_move_base_sbpl.launch">
+      <arg name="model" value="$(arg model)" />
+      <arg name="move_forward_only" value="$(arg move_forward_only)"/>
+      <arg name="robot_name"  value="$(arg multi_robot_name)"/>
+    </include>
+   </group>
+
+  <!-- rviz -->
+  <group if="$(arg open_rviz)"> 
+    <node pkg="rviz" type="rviz" name="$(anon rviz)" required="true"
+          args="-d $(find wsr_exploration)/rviz/$(arg multi_robot_name)_navigation.rviz"/>
+  </group>
+
+
+  <!-- Start exploration -->
+  <include file="$(find explore_lite)/launch/explore.launch">
+    <arg name="ns"  value="$(arg multi_robot_name)"/>
+    <arg name="robot_id" value="$(arg multi_robot_id)"/>
+    <arg name="use_WSR"  value="$(arg enable_WSR)"/>
+    <arg name="use_sim"  value="false"/>
+    <arg name="use_real_sensor"  value="$(arg use_real_sensor)"/>
+    <arg name="min_frontier_size_val" value="$(arg min_frontier_size)"/>
+    <arg name="sensor_range_val" value="$(arg sensor_range)"/>
+    <arg name="robot_base_frame_for_gmapping" value="$(arg multi_robot_name)/base_footprint" />
+  </include>
+
+</launch>
