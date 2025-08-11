@@ -550,38 +550,50 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         own_orientation_deg__ = wrap0to360(quaternionToYaw(measurement_quaternion) * 180.0 / M_PI);
 
         //=======================Choose the type of measurement to use========================
-        std::vector<double> bearing_measurements_to_use;
+	std::vector<double> bearing_measurements_to_use; //move to class
         std::vector<double> range_measurements_to_use;
         if(FLAG_use_real_sensors__){
           range_measurements_to_use = neighbor_robot_rb__.range_measurements;
           bearing_measurements_to_use = neighbor_robot_rb__.bearing_measurements;
+	  
+	  //Correct by accounting for own heading
+	  for(auto val: bearing_measurements_to_use){
+            bearing_angle_radians_vec__.push_back(
+            wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0);
+          }
         }
         else{
-          geometry_msgs::Pose own_tp = input_msg->own_true_pose;
+          ROS_INFO("Using motion capture to generate relative measurements");
+	  geometry_msgs::Pose own_tp = input_msg->own_true_pose;
           auto measurements = get_range_and_bearing_from_groundtruth(own_tp,
                                                                      neighbor_robot_rb__.true_pose,
-                                                                     !FLAG_use_real_sensors__,0.1,0.1);
-          range_measurements_to_use.push_back(measurements.first);
+                                                                     false,0.1,0.1);
+	  
+	  //No need since the mesurements are generated in the global reference frame. 
+	  range_measurements_to_use.push_back(measurements.first);
           bearing_measurements_to_use.push_back(measurements.second);
+	  bearing_angle_radians_vec__.push_back(wrap0to360(measurements.second) * M_PI / 180.0);
+
         }
         //================================================================================
-
-        current_angle_vec__ = bearing_measurements_to_use;
-        for(auto val: current_angle_vec__){
+        //current_angle_vec__ = bearing_measurements_to_use;
+	
+	/*
+	for(auto val: current_angle_vec__){
           bearing_angle_radians_vec__.push_back(
             wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0
             );
         }
+	*/
         
-        //Workaround for issues in range measurements. Handles a bug in raw range measurement
+	//Workaround for issues in range measurements. Handles a bug in raw range measurement
         if(__FLAG_first_measurement)
         {
-          _previous_range_measurement = neighbor_robot_rb__.range_measurements[0];
+          _previous_range_measurement = range_measurements_to_use[0];
           __FLAG_first_measurement = false;
         }
-        
         range_to_use__ = range_measurements_to_use[0];
-        if(neighbor_robot_rb__.range_measurements[0] == 0.0 || abs(_previous_range_measurement-neighbor_robot_rb__.range_measurements[0]) > 3.0)
+        if(range_measurements_to_use[0] == 0.0 || abs(_previous_range_measurement-range_measurements_to_use[0]) > 3.0)
         {
         range_to_use__ = _previous_range_measurement; 
         }
@@ -596,7 +608,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
                 own_orientation_deg__);
         ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA top peak: %.2f",
                 range_to_use__,
-                current_angle_vec__[0],
+                bearing_measurements_to_use[0],
                 bearing_angle_radians_vec__[0] * 180.0 / M_PI);
         
         std::vector<double> own_measurement_pose_vec = {

@@ -142,7 +142,7 @@ inline std::pair<double, double> get_range_and_bearing_from_groundtruth(geometry
     float diff_y = neighbor_robot_j_positions.position.y - robot_i_positions.position.y;
     float range = sqrt(pow((diff_x),2.0) + pow((diff_y),2.0)); // meters
     float bearing = atan2(diff_y, diff_x); // radians
-    ROS_INFO("True range (meters), bearing (degrees) = %f, %f", range, bearing*180/3.14);
+    ROS_INFO("True range: %f meters, bearing: %f degrees", range, bearing*180/3.14);
 
     if(add_noise)
     {
@@ -169,7 +169,7 @@ inline std::pair<double, double> get_range_and_bearing_from_groundtruth(geometry
 
         range = range +  range_measurement_gaussian_noise_(generator); // meters
         bearing = bearing +  bearing_measurement_gaussian_noise_(generator); // radians
-        ROS_INFO("Noisy range (meters), bearing(degrees): = %f, %f", range, bearing*180/3.14);
+	ROS_INFO("Noisy range: %f meters, bearing: %f degrees", range, bearing*180/3.14);
     }
 
     return std::make_pair(range, bearing);
