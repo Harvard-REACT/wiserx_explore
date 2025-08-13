@@ -93,134 +93,6 @@ namespace explore
   }
 
 
-  /** 
-   * @brief Get positions of neighboring robots in gazebo (global frame)
-   * */
-  void Explore::modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg)
-  {
-    std::vector<std::string> name = msg->name;
-    std::vector<geometry_msgs::Pose> pose_vec = msg->pose;
-    costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
-    double world_x, world_y;
-    std::vector<frontier_exploration::Frontier> frontiers_copy;
-    
-    duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-    if(duration.count() > measurement_interval__) // publish every 10 seconds
-    {
-      timestep__+=1;
-      wiserx_explore_lite::QuadmapViz msg;
-      
-      for(int itr=0; itr<name.size(); itr++)
-      {
-        if(IsMatch(name[itr]))
-        {
-          wiserx_explore_lite::RelativeEstimate neighboring_robot;   
-          quadmap::Robot new_robot_track;
-
-          auto search_val = robot_information__.find(name[itr].c_str());
-          if( search_val == robot_information__.end())
-          {
-            new_robot_track.robot_id = itr;
-            robot_information__.insert({name[itr].c_str(), new_robot_track});
-            // ROS_DEBUG("NEW: Name, robot_tau, robot_id: %s, %d, %d", name[itr].c_str(), robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id);
-          }
-          
-          //TODO: The positions need to be in map coordinates
-          double cmOrigin_X = costmap2d->getOriginX();
-          double cmOrigin_Y = costmap2d->getOriginY();
-          ROS_INFO("**** Origin_X, Origin_Y: %f, %f **** ", cmOrigin_X, cmOrigin_Y);
-          costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
-          unsigned int sizeX = costmap2d->getSizeInCellsX();
-          unsigned int sizeY = costmap2d->getSizeInCellsY();
-          ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
-          quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);   
-
-          if(name[itr]!=robot_name_)
-          {
-            // static std::normal_distribution<float> gaussian_noise_(noise_mean_, noise_std_); //Noise is in world coordinates
-            // noise_x_ = gaussian_noise_(generator);
-            // noise_y_ = gaussian_noise_(generator);
-            // pose_vec[itr].position.x = pose_vec[itr].position.x + gaussian_noise_(generator);
-            // pose_vec[itr].position.y = pose_vec[itr].position.y + gaussian_noise_(generator);
-            // costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
-            // position_node.add_position_noise(mx__, my__);            
-            // std::vector<double> cov_array{pow(noise_std_,2.0), pow(noise_std_,2.0)}; //This is the covariance for the noise in world coordinates.
-            std::vector<double> cov_array{0.1, 0, 0, 0.1};
-            
-            //Set omega to 1
-            position_node.updateOmega(cov_array[0], cov_array[3]); //With true positions, omega should be 1
-
-            // costmap2d->mapToWorld(position_node.true_mx, position_node.true_my, world_x, world_y);          
-            // neighboring_robot.true_position.x = world_x;
-            // neighboring_robot.true_position.y = world_y;
-            
-            // costmap2d->mapToWorld(position_node.est_mx, position_node.est_my, world_x, world_y);          
-            // neighboring_robot.estimated_position.x = world_x;
-            // neighboring_robot.estimated_position.y = world_y;
-    
-                //Keep track of the latest position esimates for using in beta parameter
-            geometry_msgs::Point temp;
-            temp.x = pose_vec[itr].position.x;
-            temp.y = pose_vec[itr].position.y;
-            current_rel_positions__.push_back(temp);
-
-
-            neighboring_robot.true_map_position.x = position_node.true_mx;
-            neighboring_robot.true_map_position.y = position_node.true_my;        
-            neighboring_robot.estimated_map_position.x = position_node.est_mx;
-            neighboring_robot.estimated_map_position.y = position_node.est_my;
-
-            neighboring_robot.covariance_meter_sq = cov_array;
-            neighboring_robot.status = 1;
-            neighboring_robot.robot_id = position_node.getRobotID();
-            msg.other_robots.push_back(neighboring_robot);
-          }
-          else
-          {
-            // costmap2d->mapToWorld(position_node.true_mx, position_node.true_my, world_x, world_y);  
-            // msg.own_position.x = world_x;
-            // msg.own_position.y = world_y;
-            msg.own_position.x = position_node.true_mx;
-            msg.own_position.y = position_node.true_my;
-            msg.robot_id = position_node.getRobotID();
-            robot_id_ = msg.robot_id; //Not that the robot id will not change during an instance of simulation
-          }
-          
-          robot_information__[name[itr]].node_information.push(position_node);
-          base_quadmap_.insert_till_end(position_node); 
-          base_quadmap_.update_quadmap_ID(itr);
-        }
-      }
-
-      //Get frontiers centroids.
-      frontiers_copy = frontier_temp__;
-      // if(frontier_temp__.size()>0) 
-      for(auto frontier_val : frontiers_copy)
-      {
-        // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        wiserx_explore_lite::FrontierInfo fc_point;
-        costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
-        fc_point.centroid.x = fmx__;
-        fc_point.centroid.y = fmy__;
-        fc_point.size=frontier_val.size;
-        fc_point.information_gain=frontier_val.information_gain;
-        fc_point.centroid_distance=frontier_val.centroid_distance;
-        fc_point.utility=frontier_val.cost;
-        fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
-        msg.frontiers.push_back(fc_point);
-      }
-
-      msg.header.stamp = ros::Time::now();
-      msg.header.frame_id = std::to_string(frame__++);
-      quadmapPub_.publish(msg);
-
-      start_val = std::chrono::high_resolution_clock::now();
-    }
-    
-    stop_val = std::chrono::high_resolution_clock::now();
-
-  }
-
 
 void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
 {
@@ -453,9 +325,9 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
   }
 
-  void Explore::AllOnboardSensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg)
+  void Explore::SensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg)
   {
-      ROS_INFO("=== Entered AllOnboardSensingCallbackFilter ===");
+      ROS_INFO("=== Entered SensingCallbackFilter ===");
 
       std::vector<frontier_exploration::Frontier> frontiers_copy;
       wiserx_explore_lite::QuadmapViz msg;
@@ -469,7 +341,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       bearing_angle_radians_vec__.clear();
 
 
-      // Get current own pose of the robot. This is mostly for debugging and can later be removed if deemed unnecessary.
+      // Get current own pose of the robot. Only used for debugging
       auto current_pose = costmap_client_.getRobotPose();
       tf::Quaternion current_quaternion(
           current_pose.orientation.x,
@@ -495,12 +367,15 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         std::string other_robot_name = name_vicon_hardware[other_robot_id__-1];
         wiserx_explore_lite::RelativeEstimate neighbor;
           
+        // ===========================================================================================
         /* Retrieve pose history to find pose closest to the time when the first CSI sample was take.
         * We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement 
         * by which time the robot i would have moved/rotated.
         */
+        std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history;
         own_pose_mutex.lock();
-        std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history = {own_pose_deque_.begin(), own_pose_deque_.end()};
+        if(FLAG_DEBUG_OWN_TRUE_POSE__) own_pose_history.assign(own_pose_deque_.begin(), own_pose_deque_.end());
+        else own_pose_history.assign(own_true_pose_deque_.begin(), own_true_pose_deque_.end());
         own_pose_mutex.unlock();
         
         std::pair<double, geometry_msgs::Pose> ret_val  = findClosestPoseToFirstSample(neighbor_robot_rb__.csi_timestamp, own_pose_history);
@@ -513,13 +388,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             closest_robot_pose_at_csi_measurement.orientation.w
         );
         own_orientation_deg__ = wrap0to360(quaternionToYaw(measurement_quaternion) * 180.0 / M_PI);
+        // ===========================================================================================
           
         //=======================Choose the type of measurement to use========================
 	      std::vector<double> bearing_measurements_to_use; //move to class
         std::vector<double> range_measurements_to_use;
         geometry_msgs::Pose own_tp = input_msg->own_true_pose;
         std::pair<double, double> true_measurements = get_range_and_bearing_from_groundtruth(own_tp,
-                                                                        neighbor_robot_rb__.true_pose);
+                                                                        neighbor_robot_rb__.true_pose); //Returned angle is in radians 
         if(FLAG_use_real_sensors__){
           range_measurements_to_use = neighbor_robot_rb__.range_measurements;
           bearing_measurements_to_use = neighbor_robot_rb__.bearing_measurements;
@@ -535,10 +411,9 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           if(FLAG_noise) add_noise_to_groundtruth_measurements(true_measurements,0.1,0.1);
 	        
           //No need since the mesurements are generated in the global reference frame.
-	  //Returned angle is in radians 
-	  range_measurements_to_use.push_back(true_measurements.first);
+	        range_measurements_to_use.push_back(true_measurements.first);
           bearing_measurements_to_use.push_back(true_measurements.second);
-	  bearing_angle_radians_vec__.push_back(true_measurements.second);
+	        bearing_angle_radians_vec__.push_back(true_measurements.second);
         }
         //=======================Choose the type of measurement to use========================
         
@@ -974,6 +849,20 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
   }
 
+ /**
+  *@brief Robot collects own true pose (from mocap).
+  * This is for debugging the effect of error in SLAM pose on the PDAF tracking.
+  * No need to collect pose at the same rate as mocap
+  * */
+  void Explore::TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
+    ROS_INFO(" ========= True pose Deque size : %d ======== ", int(own_true_pose_deque_.size()));
+    std::time_t current_epoch_time;
+    const auto now = std::chrono::system_clock::now();
+    current_epoch_time = std::chrono::system_clock::to_time_t(now); 
+    if(own_true_pose_deque_.size() > 200) own_true_pose_deque_.pop_front();
+    own_true_pose_deque_.push_back(std::make_pair(current_epoch_time, msg->poses[robot_id_-1])); //Make note of robot_id_ which is assigned from 1,2.. and index in mocap topic which starts from 0,1...
+  }
+
   Explore::Explore()
     : private_nh_("~")
     , tf_listener_(ros::Duration(10.0))
@@ -1012,6 +901,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
     private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/react-m_explore/explore/data/wiserx_data/"));
     private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
+    private_nh_.param("debug_mocap_pose", FLAG_DEBUG_OWN_TRUE_POSE__, false); //Use mocap pose instead of SLAM pose for own 
  
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
@@ -1027,8 +917,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       else
       {
         //For all onboard sensing
-        modelStateSub_ =  private_nh_.subscribe<wiserx_explore_lite::LocalMeasurement>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
-        saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);      
+        modelStateSub_ =  private_nh_.subscribe<wiserx_explore_lite::LocalMeasurement>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::SensingCallbackFilter, this);
+        saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);  
+        true_positions_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/robots_groundtruth_state", 10, &Explore::TruePoseCB,this);
       }
     }
     else

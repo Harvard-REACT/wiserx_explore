@@ -75,15 +75,13 @@ private:
 
   bool goalOnBlacklist(const geometry_msgs::Point& goal);
 
-  void modelStateCallback(const gazebo_msgs::ModelStates::ConstPtr& msg);
-
   void modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& msg);
 
   void ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs::PoseArray::ConstPtr& input_msg); //Use for hardware experiments with Vicon
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
-  void AllOnboardSensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg);
+  void SensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg);
 
   bool IsMatch(std::string& val);
 
@@ -115,10 +113,12 @@ private:
 
   void CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg);
 
+  void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg);
+
   ros::NodeHandle private_nh_;
   ros::NodeHandle relative_nh_;
   ros::Publisher marker_array_publisher_, velocityPub_, get_csi_Pub_, quadmapPub_,exploration_eval_stop_;
-  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_,saveRobotPose_;
+  ros::Subscriber modelStateSub_, exploration_, optitrackSub_,neighbor_distance_,t265_position_,setFailedRobotTau_,saveRobotPose_, true_positions_;
   tf::TransformListener tf_listener_;
 
   Costmap2DClient costmap_client_;
@@ -175,6 +175,7 @@ private:
   bool FLAG_WSR_ = false, exploration_completed_=false, exploration_done_ = false,FLAG_GET_POS=true,Flag_get_range_ = false;
   bool FLAG_SIM_ = true;
   bool FLAG_use_real_sensors__ = true;
+  bool FLAG_DEBUG_OWN_TRUE_POSE__ = false;
   std::vector<std::vector<float>> wsr_frontiers_stats_, default_frontier_stats_;
   int robot_id_ = -1, iterations__=0;
   geometry_msgs::Twist velocity_cmd_;
@@ -199,6 +200,8 @@ private:
   float range_to_use__ = 0.0;
 // float __bearing_to_use =  0.0;
   std::deque<std::pair<double, geometry_msgs::Pose>> own_pose_deque_;
+  std::deque<std::pair<double, geometry_msgs::Pose>> own_true_pose_deque_;
+  
   std::mutex own_pose_mutex;
   wiserx_explore_lite::RangeBearing neighbor_robot_rb__;
 

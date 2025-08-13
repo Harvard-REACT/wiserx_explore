@@ -28,6 +28,9 @@
 bool got_robot_1_data = false, got_robot_2_data = false;
 geometry_msgs::Pose robot_1_pose;
 geometry_msgs::Pose robot_2_pose;
+auto start_aoa_check = std::chrono::high_resolution_clock::now();
+auto end_aoa_check = std::chrono::high_resolution_clock::now();
+auto duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
 
 /** 
  * @brief Get robot 1's pose
@@ -63,15 +66,24 @@ int main(int argc, char **argv)
   ros::Subscriber sub1 = n.subscribe("/vrpn_client_node/REACT_TB3_1/pose", 10, vicon_robot_1_cb);
   ros::Subscriber sub2 = n.subscribe("/vrpn_client_node/REACT_TB3_2/pose", 10, vicon_robot_2_cb);
 
-  ros::Rate loop_rate(2);
+  ros::Rate loop_rate(10);
   geometry_msgs::PoseArray msg;
   
   /* Publish the info together in a singel pose array topic*/
+  
   while (ros::ok())
   {
+    duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
+    
+    if(duration_aoa_check.count() > 5){
+      //Publish once every 5 seconds
+      ROS_INFO("Pubishing data");
+      start_aoa_check = std::chrono::high_resolution_clock::now();
+    }
+    end_aoa_check = std::chrono::high_resolution_clock::now();
+
     msg.poses.clear();
     ros::spinOnce();
-    ROS_INFO("Pubishing data");
     msg.poses.push_back(robot_1_pose);
     msg.poses.push_back(robot_2_pose);
     pub.publish(msg);
