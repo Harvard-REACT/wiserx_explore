@@ -73,6 +73,13 @@ inline double wrap0to360(double val)
     return val;
 }
 
+inline double wrapto180(double val)
+{
+    val = fmod(val+180.0, 360.0);
+    if(val<0) val+= 360.0;
+    return (val - 180.0);
+}
+
 inline double diff_360(double a, double b) 
 {
     double tmp = a-b;

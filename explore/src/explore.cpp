@@ -527,7 +527,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 	      //Correct by accounting for own heading
 	        for(auto val: bearing_measurements_to_use){
             bearing_angle_radians_vec__.push_back(
-            wrap0to360(own_orientation_deg__ + val) * M_PI / 180.0);
+            wrapto180(wrap0to360(own_orientation_deg__ + val)) * M_PI / 180.0);
           }          
         }
         else{
@@ -537,7 +537,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           //No need since the mesurements are generated in the global reference frame. 
 	        range_measurements_to_use.push_back(true_measurements.first);
           bearing_measurements_to_use.push_back(true_measurements.second);
-	        bearing_angle_radians_vec__.push_back(wrap0to360(true_measurements.second) * M_PI / 180.0);
+	        bearing_angle_radians_vec__.push_back(true_measurements.second * M_PI/180.0);
         }
         //=======================Choose the type of measurement to use========================
         
@@ -563,7 +563,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
                 own_orientation_deg__);
         ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA top peak: %.2f",
                 range_to_use__,
-                bearing_measurements_to_use[0],
+                bearing_measurements_to_use[0] * 180.0 / M_PI,
                 bearing_angle_radians_vec__[0] * 180.0 / M_PI);
         
         std::vector<double> own_measurement_pose_vec = {
@@ -672,7 +672,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             neighbor.estimated_map_position.x = j_position_node.est_mx;
             neighbor.estimated_map_position.y = j_position_node.est_my;
         }
-        neighbor.true_range_bearing = { true_measurements.first, true_measurements.second};
+        neighbor.true_range_bearing = { true_measurements.first, true_measurements.second * 180.0 / M_PI};
         neighbor.est_range_bearing = { range_to_use__, bearing_angle_radians_vec__[0] * 180.0 / M_PI };
         neighbor.first_csi_measurement_timestamp = neighbor_robot_rb__.csi_timestamp;
         neighbor.nearest_timestamp_for_pose = matched_timestamp;
