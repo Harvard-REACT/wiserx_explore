@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(explore_lite)
+project(wiserx_explore_lite)
 
 ## Find catkin macros and libraries
 find_package(catkin REQUIRED COMPONENTS
@@ -15,7 +15,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf
   visualization_msgs
   natnet_pkg
-  wsr_exploration
   message_generation
 )
 find_package(OpenMP REQUIRED)
@@ -30,6 +29,9 @@ add_message_files(
   FILES
   RangeBearing.msg
   LocalMeasurement.msg
+  RelativeEstimate.msg
+  FrontierInfo.msg
+  QuadmapViz.msg
 )
 
 ## Generate added messages and services with any dependencies listed here
@@ -56,7 +58,6 @@ catkin_package(
     std_msgs
     tf
     visualization_msgs
-    wsr_exploration
     message_runtime
 )
 

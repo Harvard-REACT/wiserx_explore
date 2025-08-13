@@ -83,7 +83,7 @@ private:
 
   void modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg);
 
-  void AllOnboardSensingCallbackFilter(const explore_lite::LocalMeasurement::ConstPtr& input_msg);
+  void AllOnboardSensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg);
 
   bool IsMatch(std::string& val);
 
@@ -200,7 +200,7 @@ private:
 // float __bearing_to_use =  0.0;
   std::deque<std::pair<double, geometry_msgs::Pose>> own_pose_deque_;
   std::mutex own_pose_mutex;
-  explore_lite::RangeBearing neighbor_robot_rb__;
+  wiserx_explore_lite::RangeBearing neighbor_robot_rb__;
 
   //Quadmap parameters
   quadmap::QuadMap base_quadmap_;

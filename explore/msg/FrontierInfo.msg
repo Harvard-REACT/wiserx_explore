@@ -1,0 +1,6 @@
+geometry_msgs/Point centroid
+float64 size
+float64 information_gain
+float64 utility
+float64 centroid_distance
+float64 neighboring_robot_position_count

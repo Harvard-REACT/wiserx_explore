@@ -39,13 +39,13 @@
 #include <std_msgs/Float64MultiArray.h>
 #include "std_msgs/String.h"
 #include <natnet_pkg/PoseArrayID.h>
-#include <wsr_exploration/QuadmapViz.h>
-#include <wsr_exploration/RelativeEstimate.h>
-#include <wsr_exploration/FrontierInfo.h>
 #include <nav_msgs/Path.h>
 #include <nav_msgs/GetPlan.h>
-#include<explore_lite/LocalMeasurement.h>
-#include<explore_lite/RangeBearing.h>
+#include <wiserx_explore_lite/QuadmapViz.h>
+#include <wiserx_explore_lite/RelativeEstimate.h>
+#include <wiserx_explore_lite/FrontierInfo.h>
+#include<wiserx_explore_lite/LocalMeasurement.h>
+#include<wiserx_explore_lite/RangeBearing.h>
 #include <ros/ros.h>
 #include "tf/tf.h"
 

@@ -108,13 +108,13 @@ namespace explore
     if(duration.count() > measurement_interval__) // publish every 10 seconds
     {
       timestep__+=1;
-      wsr_exploration::QuadmapViz msg;
+      wiserx_explore_lite::QuadmapViz msg;
       
       for(int itr=0; itr<name.size(); itr++)
       {
         if(IsMatch(name[itr]))
         {
-          wsr_exploration::RelativeEstimate neighboring_robot;   
+          wiserx_explore_lite::RelativeEstimate neighboring_robot;   
           quadmap::Robot new_robot_track;
 
           auto search_val = robot_information__.find(name[itr].c_str());
@@ -198,7 +198,7 @@ namespace explore
       for(auto frontier_val : frontiers_copy)
       {
         // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        wsr_exploration::FrontierInfo fc_point;
+        wiserx_explore_lite::FrontierInfo fc_point;
         costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
         fc_point.centroid.x = fmx__;
         fc_point.centroid.y = fmy__;
@@ -236,7 +236,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
     if(duration.count() > measurement_interval__) // publish every 10 seconds
     {
       timestep__+=1;
-      wsr_exploration::QuadmapViz msg;
+      wiserx_explore_lite::QuadmapViz msg;
       current_rel_positions__.clear();
       
       //First find the current position of the robot i
@@ -264,7 +264,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       {
         if(IsMatch(name[itr]))
         {
-          wsr_exploration::RelativeEstimate neighboring_robot;             
+          wiserx_explore_lite::RelativeEstimate neighboring_robot;             
           double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
         
           if(name[itr]!=robot_name_) //Only do this for robot j in the neighborhood of robot i
@@ -418,7 +418,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       for(auto frontier_val : frontiers_copy)
       {
         // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        wsr_exploration::FrontierInfo fc_point;
+        wiserx_explore_lite::FrontierInfo fc_point;
         costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
         fc_point.centroid.x = fmx__;
         fc_point.centroid.y = fmy__;
@@ -453,15 +453,15 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
   }
 
-  void Explore::AllOnboardSensingCallbackFilter(const explore_lite::LocalMeasurement::ConstPtr& input_msg)
+  void Explore::AllOnboardSensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg)
   {
       ROS_INFO("=== Entered AllOnboardSensingCallbackFilter ===");
 
       std::vector<frontier_exploration::Frontier> frontiers_copy;
-      wsr_exploration::QuadmapViz msg;
+      wiserx_explore_lite::QuadmapViz msg;
       costmap_2d::Costmap2D* costmap = costmap_client_.getCostmap();
       std::vector<double> covariance_array = {0, 0, 0, 0};
-      wsr_exploration::RelativeEstimate neighboring_robot;             
+      wiserx_explore_lite::RelativeEstimate neighboring_robot;             
       double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
       
       timestep__++;
@@ -493,7 +493,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         neighbor_robot_rb__ = input_msg->other_robots_rb[nr];
         other_robot_id__ = neighbor_robot_rb__.robot_id;
         std::string other_robot_name = name_vicon_hardware[other_robot_id__-1];
-        wsr_exploration::RelativeEstimate neighbor;
+        wiserx_explore_lite::RelativeEstimate neighbor;
           
         /* Retrieve pose history to find pose closest to the time when the first CSI sample was take.
         * We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement 
@@ -694,7 +694,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       // for(auto frontier_val : frontiers_copy)
       // {
       //   // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-      //   wsr_exploration::FrontierInfo fc_point;
+      //   wiserx_explore_lite::FrontierInfo fc_point;
       //   costmap->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
       //   fc_point.centroid.x = fmx__;
       //   fc_point.centroid.y = fmy__;
@@ -730,7 +730,7 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
     if(duration.count() > measurement_interval__) // publish every 10 seconds
     {
       timestep__+=1;
-      wsr_exploration::QuadmapViz msg;
+      wiserx_explore_lite::QuadmapViz msg;
       current_rel_positions__.clear();
       
       //First find the current position of the robot i
@@ -761,7 +761,7 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
       
       for(int itr=0; itr<pose_vec.size(); itr++)
       {
-          wsr_exploration::RelativeEstimate neighboring_robot;             
+          wiserx_explore_lite::RelativeEstimate neighboring_robot;             
           double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
         
           if(itr!=robot_id_-1)
@@ -808,7 +808,7 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
       for(auto frontier_val : frontiers_copy)
       {
         // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        wsr_exploration::FrontierInfo fc_point;
+        wiserx_explore_lite::FrontierInfo fc_point;
         costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
         fc_point.centroid.x = fmx__;
         fc_point.centroid.y = fmy__;
@@ -844,7 +844,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     if(duration.count() > measurement_interval__) // publish every 10 seconds
     {
       timestep__+=1;
-      wsr_exploration::QuadmapViz msg;
+      wiserx_explore_lite::QuadmapViz msg;
       
       //First find the current position of the robot i
       for(int itr=0; itr<name.size(); itr++)
@@ -868,7 +868,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         {        
           if(name[itr]!=robot_name_) //Only do this for robot j in the neighborhood of robot i
           {
-            wsr_exploration::RelativeEstimate neighboring_robot;
+            wiserx_explore_lite::RelativeEstimate neighboring_robot;
             unsigned int sizeX = costmap2d->getSizeInCellsX();
             unsigned int sizeY = costmap2d->getSizeInCellsY();
             ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
@@ -899,7 +899,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       for(auto frontier_val : frontiers_copy)
       {
         // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        wsr_exploration::FrontierInfo fc_point;
+        wiserx_explore_lite::FrontierInfo fc_point;
         costmap2d->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
         fc_point.centroid.x = fmx__;
         fc_point.centroid.y = fmy__;
@@ -1009,7 +1009,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
     private_nh_.param("use_sim", FLAG_SIM_, false);
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
-    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/wsr_exploration/data/mexplore_data/"));
+    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/react-m_explore/explore/data/wiserx_data/"));
     private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
  
     //Subscribers
@@ -1026,7 +1026,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       else
       {
         //For all onboard sensing
-        modelStateSub_ =  private_nh_.subscribe<explore_lite::LocalMeasurement>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
+        modelStateSub_ =  private_nh_.subscribe<wiserx_explore_lite::LocalMeasurement>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::AllOnboardSensingCallbackFilter, this);
         saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);      
       }
     }
@@ -1043,7 +1043,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     exploration_ = private_nh_.subscribe<std_msgs::Bool> ("/true_exploration_status", 10, &Explore::explorationStatusCB, this);
     setFailedRobotTau_ = private_nh_.subscribe<std_msgs::String> ("/set_failed_neighboring_robot", 10, &Explore::setFailedRobotStatus, this);
     exploration_eval_stop_ = private_nh_.advertise<std_msgs::Bool> ("/"+robot_name_+"/stop_evaluation", 10);
-    quadmapPub_ =  private_nh_.advertise<wsr_exploration::QuadmapViz>("node_list", 10);
+    quadmapPub_ =  private_nh_.advertise<wiserx_explore_lite::QuadmapViz>("node_list", 10);
     struct passwd *pw = getpwuid(getuid());
     homedir_ = pw->pw_dir;
     servo_output_file_reader_command_ = "stat "+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
