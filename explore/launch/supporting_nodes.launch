@@ -10,19 +10,19 @@
       <arg name="server" value="$(arg mocap_server_ip)" />
     </include>
 
-    <node pkg="explore_lite" type="groundtruth_state_publisher" respawn="false" name="groundtruth_state_publisher" output="screen"/>
+    <node pkg="wiserx_explore_lite" type="groundtruth_state_publisher" respawn="false" name="groundtruth_state_publisher" output="screen"/>
   </group>
 
   <!-- AOA Profile visualizations-->
   <group if="$(eval arg('viz_aoa_profiles') == true)">
     <group ns="tb3_1">
-        <node pkg="explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
+        <node pkg="wiserx_explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
             <param name="robot_name" value="tb3_1"/>
         </node>
     </group>
 
     <group ns="tb3_2">
-        <node pkg="explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
+        <node pkg="wiserx_explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
             <param name="robot_name" value="tb3_2"/>
         </node>
     </group>

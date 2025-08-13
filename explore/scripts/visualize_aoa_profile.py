@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import rospy
-from explore_lite.msg import RangeBearing, LocalMeasurement
+from wiserx_explore_lite.msg import RangeBearing, LocalMeasurement
 import numpy as np
 import tkinter as tk
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Parameters
 MATRIX_ROWS = 360
-MATRIX_COLS = 45
+MATRIX_COLS = 60
 
 class MatrixViewer:
     def __init__(self, root):

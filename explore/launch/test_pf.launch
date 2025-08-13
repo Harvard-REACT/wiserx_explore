@@ -4,7 +4,7 @@
 <arg name="robot_id"  default="2"/>
 
  <group ns="$(arg ns)">
-  <node pkg="explore_lite" type="test_particle_filter" respawn="false" name="test_particle_filter_node" output="screen">
+  <node pkg="wiserx_explore_lite" type="test_particle_filter" respawn="false" name="test_particle_filter_node" output="screen">
     <param name="robot_name" value="$(arg ns)"/>
     <param name="robot_id" value="$(arg robot_id)"/>
     <param name="neighbor_name" value="$(arg neighbor_ns)"/>

@@ -27,7 +27,7 @@
     </node>
 
     <!-- start wsr_antenna C++ code to collect motor joint data using back-and-forth-motion -->
-    <node name="wsr_antenna_code" pkg="explore_lite" type="get_antenna_orientation" output="screen">
+    <node name="wsr_antenna_code" pkg="wiserx_explore_lite" type="get_antenna_orientation" output="screen">
        <param name="servo_velocity" value="$(arg servo_vel)"/>
        <param name="robot_name"       value="$(arg robot_name)"/>
        <param name="mocap_rigid_body_name"       value="Update_as_required"/>

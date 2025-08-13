@@ -9,7 +9,7 @@
     <arg name="measurement_interval"  default="4.0"/>
     
     <group ns="$(arg robot_name)">
-        <node pkg="explore_lite" type="realtime_range_aoa" respawn="false" name="range_bearing_node" output="screen">
+        <node pkg="wiserx_explore_lite" type="realtime_range_aoa" respawn="false" name="range_bearing_node" output="screen">
             <param name="robot_name" value="$(arg robot_name)"/>
             <param name="profile_file_path" value="$(arg aoa_profile_file_path)"/>
             <param name="peaks_file_path" value="$(arg aoa_peaks_file_path)"/>
