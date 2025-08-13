@@ -14,10 +14,10 @@
     <param name="controller_patience" value="15.0" /> <!--NJ changed from 100-->
     <param name="base_global_planner" value="SBPLLatticePlanner" />
     <!-- Use for higher res-->
-    <param name="SBPLLatticePlanner/primitive_filename" value="$(find wsr_exploration)/param/tb3_res_25cm_new.mprim" />
+    <param name="SBPLLatticePlanner/primitive_filename" value="$(find explore_lite)/param/tb3_res_25cm_new.mprim" />
 
     <!-- Use for lower res-->
-    <!-- <param name="SBPLLatticePlanner/primitive_filename" value="$(find wsr_exploration)/param/tb3_res_10cm.mprim" /> -->
+    <!-- <param name="SBPLLatticePlanner/primitive_filename" value="$(find explore_lite)/param/tb3_res_10cm.mprim" /> -->
 
     <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" /> <!-- waffle for hw only -->
     <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" /> <!-- waffle for hw only -->

@@ -6,7 +6,7 @@
   <arg name="ymax" default="13"/>
 
   <!-- Launch the gmapping SLAM packages for the robots -->
-  <include file="$(find wsr_exploration)/launch/one_tb3_gmapping.launch">
+  <include file="$(find explore_lite)/launch/one_tb3_gmapping.launch">
     <arg name="multi_robot_name" value="$(arg robot_name)" />
     <arg name="maxUrange_val" value="2.25"/>
     <arg name="maxRange_val" value="16"/>
