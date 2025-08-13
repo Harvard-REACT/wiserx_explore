@@ -10,7 +10,7 @@
   <arg name="servo_vel"               default="1.0"/>
 
   <group ns="$(arg robot_name)">
-    <param name="dynamixel_info"          value="$(find explore_lite)/config/wsr.yaml"/>
+    <param name="dynamixel_info"          value="$(find wiserx_explore_lite)/config/wsr.yaml"/>
     <node name="$(arg namespace)" pkg="dynamixel_workbench_controllers" type="dynamixel_workbench_controllers"
           required="true" output="screen" args="$(arg usb_port) $(arg dxl_baud_rate)">
       <param name="use_moveit"              value="$(arg use_moveit)"/>
