@@ -1,0 +1,36 @@
+<launch>
+  <!-- Arguments -->
+  <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="robot_name"  default="tb3_2"/>
+  <arg name="cmd_vel_topic" default="cmd_vel" />
+  <arg name="odom_topic" default="odom" />
+  <arg name="move_forward_only" default="false"/>
+  <arg name = "robot_base_frame" default = "$(arg robot_name)/base_footprint"/>
+
+  <!-- Include the parameter to load the sbpl global planner-->
+
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+    <param name="controller_frequency" value="20.0" />
+    <param name="controller_patience" value="15.0" /> <!--NJ changed from 100-->
+    <param name="base_global_planner" value="SBPLLatticePlanner" />
+    <!-- Use for higher res-->
+    <param name="SBPLLatticePlanner/primitive_filename" value="$(find wsr_exploration)/param/tb3_res_25cm_new.mprim" />
+
+    <!-- Use for lower res-->
+    <!-- <param name="SBPLLatticePlanner/primitive_filename" value="$(find wsr_exploration)/param/tb3_res_10cm.mprim" /> -->
+
+    <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" /> <!-- waffle for hw only -->
+    <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" /> <!-- waffle for hw only -->
+    <rosparam file="$(find explore_lite)/param/hw_local_costmap_params_$(arg robot_name).yaml" command="load" />  <!--the tb3 name is hardcoded in the yaml file-->
+    <rosparam file="$(find explore_lite)/param/hw_global_costmap_params_$(arg robot_name).yaml" command="load" /> <!--the tb3 name is hardcoded in the yaml file-->
+    <rosparam file="$(find explore_lite)/param/sbpl_global_params.yaml" command="load" />
+    <rosparam file="$(find explore_lite)/param/base_local_planner_params_close.yaml" command="load" />
+    <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+    <remap from="odom" to="$(arg robot_name)/$(arg odom_topic)"/>
+    <remap from="robot_base_frame" to="$(arg robot_name)/base_footprint"/>
+    <remap from="/map" to="$(arg robot_name)/map"/>
+    <remap from="/scan" to="$(arg robot_name)/scan"/>
+    <remap from="base_scan" to="$(arg robot_name)/scan" />
+  </node>
+
+</launch>

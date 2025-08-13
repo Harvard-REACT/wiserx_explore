@@ -1,0 +1,21 @@
+<launch>
+  <arg name="robot_name" default="tb3_1"/>
+  <arg name="xmin" default="-3.0"/>
+  <arg name="ymin" default="-5.75"/>
+  <arg name="xmax" default="14"/>
+  <arg name="ymax" default="13"/>
+
+  <!-- Launch the gmapping SLAM packages for the robots -->
+  <include file="$(find wsr_exploration)/launch/one_tb3_gmapping.launch">
+    <arg name="multi_robot_name" value="$(arg robot_name)" />
+    <arg name="maxUrange_val" value="2.25"/>
+    <arg name="maxRange_val" value="16"/>
+    <arg name="map_update_interval_val" value="1"/>
+    <arg name="scan_topic" value="scan"/> 
+    <arg name="xmin_val" value="$(arg xmin)"/>
+    <arg name="ymin_val" default="$(arg ymin)"/>
+    <arg name="xmax_val" default="$(arg xmax)"/>
+    <arg name="ymax_val" default="$(arg ymax)"/>
+  </include>
+
+</launch>
