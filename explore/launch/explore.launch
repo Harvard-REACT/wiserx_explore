@@ -20,7 +20,7 @@
 
 
  <group ns="$(arg ns)">
-  <node pkg="explore_lite" type="explore" respawn="false" name="explore" output="screen">
+  <node pkg="wiserx_explore_lite" type="explore" respawn="false" name="explore" output="screen">
     <param name="robot_name" value="$(arg ns)"/>
     <param name="robot_id" value="$(arg robot_id)"/>
     <param name="neighbor_name" value="$(arg neighbor_ns)"/>

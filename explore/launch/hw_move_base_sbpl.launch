@@ -14,17 +14,17 @@
     <param name="controller_patience" value="15.0" /> <!--NJ changed from 100-->
     <param name="base_global_planner" value="SBPLLatticePlanner" />
     <!-- Use for higher res-->
-    <param name="SBPLLatticePlanner/primitive_filename" value="$(find explore_lite)/param/tb3_res_25cm_new.mprim" />
+    <param name="SBPLLatticePlanner/primitive_filename" value="$(find wiserx_explore_lite)/param/tb3_res_25cm_new.mprim" />
 
     <!-- Use for lower res-->
-    <!-- <param name="SBPLLatticePlanner/primitive_filename" value="$(find explore_lite)/param/tb3_res_10cm.mprim" /> -->
+    <!-- <param name="SBPLLatticePlanner/primitive_filename" value="$(find wiserx_explore_lite)/param/tb3_res_10cm.mprim" /> -->
 
-    <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" /> <!-- waffle for hw only -->
-    <rosparam file="$(find explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" /> <!-- waffle for hw only -->
-    <rosparam file="$(find explore_lite)/param/hw_local_costmap_params_$(arg robot_name).yaml" command="load" />  <!--the tb3 name is hardcoded in the yaml file-->
-    <rosparam file="$(find explore_lite)/param/hw_global_costmap_params_$(arg robot_name).yaml" command="load" /> <!--the tb3 name is hardcoded in the yaml file-->
-    <rosparam file="$(find explore_lite)/param/sbpl_global_params.yaml" command="load" />
-    <rosparam file="$(find explore_lite)/param/base_local_planner_params_close.yaml" command="load" />
+    <rosparam file="$(find wiserx_explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" /> <!-- waffle for hw only -->
+    <rosparam file="$(find wiserx_explore_lite)/param/costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" /> <!-- waffle for hw only -->
+    <rosparam file="$(find wiserx_explore_lite)/param/hw_local_costmap_params_$(arg robot_name).yaml" command="load" />  <!--the tb3 name is hardcoded in the yaml file-->
+    <rosparam file="$(find wiserx_explore_lite)/param/hw_global_costmap_params_$(arg robot_name).yaml" command="load" /> <!--the tb3 name is hardcoded in the yaml file-->
+    <rosparam file="$(find wiserx_explore_lite)/param/sbpl_global_params.yaml" command="load" />
+    <rosparam file="$(find wiserx_explore_lite)/param/base_local_planner_params_close.yaml" command="load" />
     <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
     <remap from="odom" to="$(arg robot_name)/$(arg odom_topic)"/>
     <remap from="robot_base_frame" to="$(arg robot_name)/base_footprint"/>

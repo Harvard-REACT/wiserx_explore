@@ -10,7 +10,7 @@
   <arg name="servo_vel"               default="1.0"/>
 
   <group ns="$(arg robot_name)">
-    <param name="dynamixel_info"          value="$(find explore_lite)/config/wsr.yaml"/>
+    <param name="dynamixel_info"          value="$(find wiserx_explore_lite)/config/wsr.yaml"/>
     <node name="$(arg namespace)" pkg="dynamixel_workbench_controllers" type="dynamixel_workbench_controllers"
           required="true" output="screen" args="$(arg usb_port) $(arg dxl_baud_rate)">
       <param name="use_moveit"              value="$(arg use_moveit)"/>
@@ -27,7 +27,7 @@
     </node>
 
     <!-- start wsr_antenna C++ code to collect motor joint data using back-and-forth-motion -->
-    <node name="wsr_antenna_code" pkg="explore_lite" type="get_antenna_orientation" output="screen">
+    <node name="wsr_antenna_code" pkg="wiserx_explore_lite" type="get_antenna_orientation" output="screen">
        <param name="servo_velocity" value="$(arg servo_vel)"/>
        <param name="robot_name"       value="$(arg robot_name)"/>
        <param name="mocap_rigid_body_name"       value="Update_as_required"/>

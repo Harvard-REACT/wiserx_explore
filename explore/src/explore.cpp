@@ -534,10 +534,11 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           ROS_INFO("Using motion capture to generate relative measurements");
           if(FLAG_noise) add_noise_to_groundtruth_measurements(true_measurements,0.1,0.1);
 	        
-          //No need since the mesurements are generated in the global reference frame. 
-	        range_measurements_to_use.push_back(true_measurements.first);
+          //No need since the mesurements are generated in the global reference frame.
+	  //Returned angle is in radians 
+	  range_measurements_to_use.push_back(true_measurements.first);
           bearing_measurements_to_use.push_back(true_measurements.second);
-	        bearing_angle_radians_vec__.push_back(true_measurements.second * M_PI/180.0);
+	  bearing_angle_radians_vec__.push_back(true_measurements.second);
         }
         //=======================Choose the type of measurement to use========================
         
@@ -561,7 +562,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
                 closest_robot_pose_at_csi_measurement.position.x,
                 closest_robot_pose_at_csi_measurement.position.y,
                 own_orientation_deg__);
-        ROS_INFO("Range: %.2f, Raw AOA: %.2f, Adjusted AOA top peak: %.2f",
+        ROS_INFO("Range (meter): %.2f, Raw AOA (degrees): %.2f, Adjusted AOA top peak (degrees): %.2f",
                 range_to_use__,
                 bearing_measurements_to_use[0] * 180.0 / M_PI,
                 bearing_angle_radians_vec__[0] * 180.0 / M_PI);
@@ -610,7 +611,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
             est_x_j = initial_x;
             est_y_j = initial_y;
-            ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+            ROS_INFO("First estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
 
             ekf_robot_track__[other_robot_name].predict();            
             ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement);
@@ -627,7 +628,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           est_y_j = ekf_robot_track__[other_robot_name].x[1];
           const auto& P = ekf_robot_track__[other_robot_name].P;
           covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
-          ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
+          ROS_INFO("Predicted estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
         }
 
         //Keep track of the latest position esimates for using in beta parameter of the information gain
