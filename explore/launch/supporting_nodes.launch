@@ -1,0 +1,32 @@
+<launch>
+  <arg name="groundtruth_access" default="false"/>
+  <arg name="viz_aoa_profiles" default="false"/>
+  <arg name="mocap_server_ip" default="192.168.1.8"/>
+
+
+  <!-- Mocap and Groundtruth combined state pubisher-->
+  <group if="$(eval arg('groundtruth_access') == true)">
+    <include file="$(find vrpn_client_ros)/launch/sample.launch">
+      <arg name="server" value="$(arg mocap_server_ip)" />
+    </include>
+
+    <node pkg="wiserx_explore_lite" type="groundtruth_state_publisher" respawn="false" name="groundtruth_state_publisher" output="screen"/>
+  </group>
+
+  <!-- AOA Profile visualizations-->
+  <group if="$(eval arg('viz_aoa_profiles') == true)">
+    <group ns="tb3_1">
+        <node pkg="wiserx_explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
+            <param name="robot_name" value="tb3_1"/>
+        </node>
+    </group>
+
+    <group ns="tb3_2">
+        <node pkg="wiserx_explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
+            <param name="robot_name" value="tb3_2"/>
+        </node>
+    </group>
+  </group>
+
+
+</launch>

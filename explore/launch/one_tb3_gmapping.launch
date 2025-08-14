@@ -1,0 +1,75 @@
+<launch>
+
+  <arg name="multi_robot_name" default="tb3_0"/>
+  <arg name="maxUrange_val" default="9.9"/>
+  <arg name="maxRange_val" default="11.25"/>
+
+  <!-- For hardware experiments with vicon -->
+  <!-- <arg name="maxUrange_val" default="1.9"/>  -->
+  <!-- <arg name="maxRange_val" default="2.25"/>  -->
+  <!-- For hardware experiments with vicon -->
+  
+  <!-- <arg name="maxUrange_val" default="4.9"/>
+  <arg name="maxRange_val" default="5.625"/> -->
+  <arg name="scan_topic" default="scan_new"/>
+  <!-- <arg name="xmin_val" default="-22"/>  -->
+  <!-- <arg name="ymin_val" default="-22"/> -->
+  <!-- <arg name="xmax_val" default="26"/> -->
+  <!-- <arg name="ymax_val" default="25"/> -->
+  <arg name="xmin_val" default="-23"/> 
+  <arg name="ymin_val" default="-23"/>
+  <arg name="xmax_val" default="25"/>
+  <arg name="ymax_val" default="25"/>
+  <arg name="map_update_interval_val" default="2"/>  
+
+
+  <group ns="$(arg multi_robot_name)">
+    <node pkg="gmapping" type="slam_gmapping" name="slam_gmapping" output="screen">
+        <param name="base_frame" value="$(arg multi_robot_name)/base_footprint"/>
+        <param name="odom_frame" value="$(arg multi_robot_name)/odom"/>
+        <param name="map_frame"  value="/$(arg multi_robot_name)/map"/>
+        <param name="map_update_interval" value="$(arg map_update_interval_val)"/>
+        <param name="maxUrange" value="$(arg maxUrange_val)"/> 
+        <param name="maxRange" value="$(arg maxRange_val)"/>
+        <param name="sigma" value="0.05"/>
+        <param name="kernelSize" value="1"/>
+        <param name="lstep" value="0.05"/>
+        <param name="astep" value="0.05"/>
+        <param name="iterations" value="5"/>
+        <param name="lsigma" value="0.075"/>
+        <param name="ogain" value="3.0"/>
+        <param name="lskip" value="0"/>
+        <param name="minimumScore" value="100"/>
+        <!-- <param name="minimumScore" value="100"/> -->
+        <param name="srr" value="0.01"/>
+        <param name="srt" value="0.02"/>
+        <param name="str" value="0.01"/>
+        <param name="stt" value="0.02"/>
+        <!-- <param name="srr" value="0.0"/>
+        <param name="srt" value="0.0"/>
+        <param name="str" value="0.0"/>
+        <param name="stt" value="0.0"/> -->
+        <param name="linearUpdate" value="0.1"/>
+        <param name="angularUpdate" value="0.1"/>
+        <param name="temporalUpdate" value="0.5"/>
+        <param name="resampleThreshold" value="1"/>
+        <param name="particles" value="70"/>
+        <!-- <param name="particles" value="1"/> -->
+        <param name="xmin" value="$(arg xmin_val)"/>
+        <param name="ymin" value="$(arg ymin_val)"/>
+        <param name="xmax" value="$(arg xmax_val)"/>
+        <param name="ymax" value="$(arg ymax_val)"/>
+
+        <param name="delta" value="0.25"/> <!-- default 0.05 NJ:changed to match mprim file for SBPL planner-->
+        <param name="occ_thresh" value="0.5"/>
+        <param name="llsamplerange" value="0.01"/>
+        <param name="llsamplestep" value="0.01"/>
+        <param name="lasamplerange" value="0.005"/>
+        <param name="lasamplestep" value="0.005"/>
+        <remap from="scan" to="$(arg scan_topic)"/>
+
+    </node>
+   </group>
+
+
+</launch>

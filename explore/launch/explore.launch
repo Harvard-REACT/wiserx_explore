@@ -1,0 +1,60 @@
+<launch>
+<arg name="ns"  default="tb3_1"/>
+<arg name="neighbor_ns"  default="tb3_"/>
+<arg name="robot_id"  default="1"/>
+<arg name="use_WSR"  default="false"/>
+<arg name="robot_base_frame_for_gmapping"  default="base_link"/> 
+<arg name="use_sim"  default="true"/> 
+<arg name="diff_between_termination_thresholds"  default="10"/> 
+<arg name="quadmap_fill_percentage"  default="95"/> 
+<arg name="sensor_range_val"  default="11.25"/>
+<arg name="min_frontier_size_val"  default="0.75"/>
+<arg name="progress_timeout_val" default="20"/>
+<arg name="robot_speed" default="0.15"/>
+<arg name="hgrid_width" default="45"/>
+<arg name="hgrid_height" default="45"/>
+<arg name="measurement_interval" default="5.0"/>
+<arg name="map_resolution" default="0.25"/>
+<arg name="use_real_sensor" default="true"/>
+<arg name="add_noise"  default="false"/>
+<arg name="debug_mocap_pose"  default="false"/>
+
+
+ <group ns="$(arg ns)">
+  <node pkg="wiserx_explore_lite" type="explore" respawn="false" name="explore" output="screen">
+    <param name="robot_name" value="$(arg ns)"/>
+    <param name="robot_id" value="$(arg robot_id)"/>
+    <param name="neighbor_name" value="$(arg neighbor_ns)"/>
+    <param name="robot_base_frame" value="$(arg robot_base_frame_for_gmapping)"/>   <!-- do not change this value for simulation-->
+    <param name="costmap_topic" value="/$(arg ns)/map"/>
+    <param name="costmap_updates_topic" value="/$(arg ns)/map_updates"/>
+    <param name="visualize" value="true"/>
+    <param name="planner_frequency" value="1"/> <!--default = 1-->
+    <param name="progress_timeout" value="$(arg progress_timeout_val)"/>
+    <param name="potential_scale" value="2.0"/>
+    <param name="orientation_scale" value="0.0"/>
+    <param name="gain_scale" value="1.0"/>
+    <param name="transform_tolerance" value="0.3"/>
+    <param name="min_frontier_size" value="$(arg min_frontier_size_val)"/> <!-- meters default 0.75-->
+    <param name="sensor_range" value="$(arg sensor_range_val)"/> <!--wsr_env_1: 10-->
+    <param name="decay_rate" value="1"/>
+    <param name="use_WSR" value="$(arg use_WSR)"/>
+    <param name="WSR_noise_mean" value="0.0"/>
+    <param name="WSR_noise_std" value="1"/>
+    <param name="WSR_utility_alpha_parameter" value="1.0"/>
+    <param name="WSR_utility_beta_parameter" value="1.0"/>
+    <param name="Quadmap_width" value="$(arg hgrid_width)"/> 
+    <param name="Quadmap_height" value="$(arg hgrid_height)"/>
+    <param name="quadmap_fill_percentage" value="$(arg quadmap_fill_percentage)"/>  <!-- this sets the hard threshold-->
+    <param name="ekf_predict_interval" value="$(arg measurement_interval)"/>
+    <param name="map_resolution" value="$(arg map_resolution)"/>
+    <param name="diff_between_termination_thresholds" value="$(arg diff_between_termination_thresholds)"/>
+    <param name="use_sim" value="$(arg use_sim)"/>
+    <param name="robot_speed" value="$(arg robot_speed)"/>
+    <param name="use_real_sensor" value="$(arg use_real_sensor)"/>
+    <param name="noise_WSR" value="$(arg add_noise)"/> 
+    <param name="debug_mocap_pose" value="$(arg debug_mocap_pose)"/>
+  </node>
+</group>
+
+</launch>

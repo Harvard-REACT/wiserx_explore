@@ -1,0 +1,45 @@
+obstacle_range: 2.2 #NJ modified for sensing range of 10 meters
+raytrace_range: 2.2 #NJ modified for sensing range of 10 meters
+# obstacle_range: 5.0 #NJ modified for sensing range of 10 meters
+# raytrace_range: 5.625 #NJ modified for sensing range of 10 meters
+track_unknown_space: false #NJ modified - default false
+footprint_clearing_enabled: true
+max_obstacle_height: 1 #NJ added default 2.0
+
+# footprint: [[-0.240, -0.240], [-0.240, 0.240], [0.240, 0.240], [0.240, -0.240]]
+footprint: [[-0.115, -0.115], [-0.115, 0.115], [0.115, 0.115], [0.115, -0.115]]
+# robot_radius: 0.18
+
+# inflation_radius: 1.0 #
+# cost_scaling_factor: 28 #5 #15
+footprint_padding: 0.01
+inflation_radius: 0.4  # max distance from obstacle at which cost is incurred for planners. NJ modified from default of 0.45
+cost_scaling_factor: 9.0 #NJ modified - default 10
+lethal_cost_threshold: 90 #NJ modified - default 100
+unknown_cost_value: 255 #NJ added - global planning can fail more often when using this.
+map_type: costmap
+observation_sources: scan
+scan: {sensor_frame: base_scan, data_type: LaserScan, topic: scan_new, marking: true, clearing: true, inf_is_valid: false} #scan_new does not have inf values
+
+
+# global_costmap:
+#   update_frequency: 5.0  #Changed for different workstation
+#   publish_frequency: 10.0
+#   transform_tolerance: 0.5
+
+#   static_map: true
+
+#   width: 20 # Will need to change based on the size of the actual exploration area.
+#   height: 20
+
+
+# local_costmap:
+#   update_frequency: 5.0 
+#   publish_frequency: 10.0
+#   transform_tolerance: 0.5  
+
+#   static_map: false  
+#   rolling_window: true
+#   width: 3
+#   height: 3
+#   resolution: 0.05
