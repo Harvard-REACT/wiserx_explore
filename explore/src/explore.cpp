@@ -374,8 +374,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         */
         std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history;
         own_pose_mutex.lock();
-        if(FLAG_DEBUG_OWN_TRUE_POSE__) own_pose_history.assign(own_pose_deque_.begin(), own_pose_deque_.end());
-        else own_pose_history.assign(own_true_pose_deque_.begin(), own_true_pose_deque_.end());
+        if(!FLAG_DEBUG_OWN_TRUE_POSE__){
+	  ROS_INFO("Using Own SLAM Pose");
+	  own_pose_history.assign(own_pose_deque_.begin(), own_pose_deque_.end());
+	}
+        else{
+	  ROS_INFO("Using Own Mocap Pose");
+	  own_pose_history.assign(own_true_pose_deque_.begin(), own_true_pose_deque_.end());
+	}
         own_pose_mutex.unlock();
         
         std::pair<double, geometry_msgs::Pose> ret_val  = findClosestPoseToFirstSample(neighbor_robot_rb__.csi_timestamp, own_pose_history);
@@ -412,7 +418,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 	        
           //No need since the mesurements are generated in the global reference frame.
 	        range_measurements_to_use.push_back(true_measurements.first);
-          bearing_measurements_to_use.push_back(true_measurements.second);
+          bearing_measurements_to_use.push_back(true_measurements.second * 180.0 / M_PI);
 	        bearing_angle_radians_vec__.push_back(true_measurements.second);
         }
         //=======================Choose the type of measurement to use========================
@@ -439,7 +445,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
                 own_orientation_deg__);
         ROS_INFO("Range (meter): %.2f, Raw AOA (degrees): %.2f, Adjusted AOA top peak (degrees): %.2f",
                 range_to_use__,
-                bearing_measurements_to_use[0] * 180.0 / M_PI,
+                bearing_measurements_to_use[0] ,
                 bearing_angle_radians_vec__[0] * 180.0 / M_PI);
         
         std::vector<double> own_measurement_pose_vec = {
@@ -586,6 +592,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
       msg.header.stamp = ros::Time::now();
       msg.header.frame_id = std::to_string(frame__++);
       quadmapPub_.publish(msg);
+      
+      ROS_INFO("=== Exited SensingCallbackFilter ===");
     }
 
 /**
@@ -841,7 +849,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         auto current_pose = costmap_client_.getRobotPose();
         const auto now = std::chrono::system_clock::now();
         current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-        if(own_pose_deque_.size() > 200) own_pose_deque_.pop_front();
+        if(own_pose_deque_.size() > 400) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
 	      ros::Duration(0.1).sleep();
         new_output = exec(servo_output_file_reader_command_.c_str());
@@ -859,7 +867,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     std::time_t current_epoch_time;
     const auto now = std::chrono::system_clock::now();
     current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-    if(own_true_pose_deque_.size() > 200) own_true_pose_deque_.pop_front();
+    if(own_true_pose_deque_.size() > 400) own_true_pose_deque_.pop_front();
     own_true_pose_deque_.push_back(std::make_pair(current_epoch_time, msg->poses[robot_id_-1])); //Make note of robot_id_ which is assigned from 1,2.. and index in mocap topic which starts from 0,1...
   }
 
@@ -919,7 +927,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         //For all onboard sensing
         modelStateSub_ =  private_nh_.subscribe<wiserx_explore_lite::LocalMeasurement>("/"+robot_name_+"/range_bearing_estimates", 10, &Explore::SensingCallbackFilter, this);
         saveRobotPose_ =  private_nh_.subscribe<std_msgs::Bool>("/"+robot_name_+"/wsr_antenna_motor/start_motion", 10, &Explore::CollectOwnPoseCB, this);  
-        true_positions_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/robots_groundtruth_state", 10, &Explore::TruePoseCB,this);
+        if(FLAG_DEBUG_OWN_TRUE_POSE__) true_positions_ = private_nh_.subscribe<geometry_msgs::PoseArray> ("/robots_groundtruth_state", 10, &Explore::TruePoseCB,this);
       }
     }
     else
