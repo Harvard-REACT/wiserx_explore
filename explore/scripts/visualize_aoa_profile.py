@@ -16,6 +16,8 @@ class MatrixViewer:
         
         rospy.init_node('AOA_profile_viewer', anonymous=True)
         self.robot_name = rospy.get_param('~robot_name', 'tb3')
+        self.robot_id = int(self.robot_name.split("_")[1])
+        print(self.robot_id)
         rospy.Subscriber('/'+self.robot_name+'/range_bearing_estimates', LocalMeasurement, self.matrix_callback)
 
         self.root = root
@@ -42,7 +44,6 @@ class MatrixViewer:
         # GUI update loop
         self.update_gui()
         self.neighbor_id_dict = {}
-        self.viz_profile_neighbor_id = 2
 
     def matrix_callback(self, msg):
         for i in range(len(msg.other_robots_rb)): 
@@ -51,7 +52,7 @@ class MatrixViewer:
         
         rospy.loginfo("List of Neighboring Robot IDs: ")
         rospy.loginfo(self.neighbor_id_dict)
-        index_key = [key for key, value in self.neighbor_id_dict.items() if value == self.viz_profile_neighbor_id]
+        index_key = [key for key, value in self.neighbor_id_dict.items() if value != self.robot_id]
         
         data = np.array(msg.other_robots_rb[index_key[0]].aoa_profile)
         if data.size != MATRIX_ROWS * MATRIX_COLS:
