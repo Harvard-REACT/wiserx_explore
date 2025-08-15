@@ -849,7 +849,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         auto current_pose = costmap_client_.getRobotPose();
         const auto now = std::chrono::system_clock::now();
         current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-        if(own_pose_deque_.size() > 400) own_pose_deque_.pop_front();
+        if(own_pose_deque_.size() > 250) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
 	      ros::Duration(0.1).sleep();
         new_output = exec(servo_output_file_reader_command_.c_str());
@@ -867,7 +867,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     std::time_t current_epoch_time;
     const auto now = std::chrono::system_clock::now();
     current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-    if(own_true_pose_deque_.size() > 400) own_true_pose_deque_.pop_front();
+    if(own_true_pose_deque_.size() > 250) own_true_pose_deque_.pop_front();
     own_true_pose_deque_.push_back(std::make_pair(current_epoch_time, msg->poses[robot_id_-1])); //Make note of robot_id_ which is assigned from 1,2.. and index in mocap topic which starts from 0,1...
   }
 

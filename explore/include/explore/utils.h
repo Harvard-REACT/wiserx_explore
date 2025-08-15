@@ -22,6 +22,7 @@
 #include <Eigen/Dense>
 #include <thread>
 #include <chrono>
+#include <string>
 
 #include <actionlib/client/simple_action_client.h>
 #include <geometry_msgs/PoseStamped.h>
