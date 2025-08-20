@@ -105,6 +105,8 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
 {
     x = x_val;
     dt = interval;
+    mx__ = 0;
+    my__ = 0;
 
     F << 1, 0, dt, 0, // State transition model
         0, 1, 0, dt,
@@ -186,6 +188,10 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
                                                             std::vector<float>& bearing_measurements, 
                                                             geometry_msgs::Pose& robot_i_position) 
 {
+    
+    // Top N peaks generation based on AOA profile variance
+    //if(variance <= 0.85 || variance > 1.15) peak_threshold = 25; //in percent
+    //else if (variance > 0.85 && variance <= 1.15) peak_threshold = 5;
 
     residuals__.clear();
     likelihoods__.clear();
@@ -201,49 +207,56 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
     MatrixXd S = H * P * H.transpose() + R;
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
-    ROS_INFO("bearing measurements size %d", int(bearing_measurements.size()));
+    ROS_INFO("Obtained bearing measurements size %d", int(bearing_measurements.size()));
     for(auto bval : bearing_measurements){
         VectorXd z(2); z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
         y(1) = wrapToPi(y(1)); 
         float d2 = MahalanobisDistance(y, S);
-        float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
-        residuals__.push_back(y);
-        likelihoods__.push_back(gaussian_pdf);
-        angle_val__.push_back(z[1]);
-        angle_pred__.push_back(z_pred[1]);
+        ROS_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
+        if(d2 < 5.99){ //95% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
+	  float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
+          residuals__.push_back(y);
+          likelihoods__.push_back(gaussian_pdf);
+          angle_val__.push_back(z[1]);
+          angle_pred__.push_back(z_pred[1]);
+	}
     }
     //Normalize the likelihoods
     //Clutter likelihood ==> Can we use the profile variance to somehow estimate this?
     float total = 0;
     for(auto val: likelihoods__) total += val;
     
+    //Only update if there are measurements
     if(total >0){
         for(auto prob: likelihoods__) probs_vec__.push_back(prob/total);
-    }
    
-    //Expected residual in measurement
-    for(int k=0; k<int(probs_vec__.size()); k++){
-        ROS_INFO("Angle_pred (deg): %f, Angle_measured (deg): %f, residuals: %f, probs: %f",
-        angle_pred__[k]*180/3.14, angle_val__[k]*180/3.14, residuals__[k][1], probs_vec__[k]);
-        y_bar += probs_vec__[k] * residuals__[k];
-    }
-    // Update state and covariance
-    MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
-    x = x + K * y_bar;
-    for(int i=0; i<probs_vec__.size(); i++) {
-	MatrixXd outer_product = (residuals__[i]-y_bar) * (residuals__[i]-y_bar).transpose();
-        P_update += probs_vec__[i] * outer_product;
-    }
+       //Expected residual in measurement
+        for(int k=0; k<int(probs_vec__.size()); k++){
+          ROS_INFO("Angle_pred (deg): %f, Angle_measured (deg): %f, residuals: %f, probs: %f",
+          angle_pred__[k]*180/3.14, angle_val__[k]*180/3.14, residuals__[k][1], probs_vec__[k]);
+          y_bar += probs_vec__[k] * residuals__[k];
+        }
+        // Update state and covariance
+        MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
+        x = x + K * y_bar;
+        for(int i=0; i<probs_vec__.size(); i++) {
+	  MatrixXd outer_product = (residuals__[i]-y_bar) * (residuals__[i]-y_bar).transpose();
+          P_update += probs_vec__[i] * outer_product;
+        }
   
-    MatrixXd I = MatrixXd::Identity(P.rows(), P.cols());
-    P = (I - K * H) * P * (I - K * H).transpose() + 
+        MatrixXd I = MatrixXd::Identity(P.rows(), P.cols());
+        P = (I - K * H) * P * (I - K * H).transpose() + 
         K * (R+P_update) * K.transpose() ; 
-    range_bearing__.push_back(z_pred(0));
-    range_bearing__.push_back(z_pred(1)*180.0 / M_PI);
-    residual_error__.push_back(y_bar(0));
-    residual_error__.push_back(y_bar(1)*180.0 / M_PI);
-    // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+        range_bearing__.push_back(z_pred(0));
+        range_bearing__.push_back(z_pred(1)*180.0 / M_PI);
+        residual_error__.push_back(y_bar(0));
+        residual_error__.push_back(y_bar(1)*180.0 / M_PI);
+        // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+    }
+    else{
+        ROS_INFO("No valid measurements");
+    }
     
 }
 

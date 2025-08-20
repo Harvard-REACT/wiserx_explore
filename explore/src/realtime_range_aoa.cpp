@@ -1,4 +1,4 @@
-#include<explore/explore.h>
+#include <explore/explore.h>
 
 auto start_aoa_check = std::chrono::high_resolution_clock::now();
 auto end_aoa_check = std::chrono::high_resolution_clock::now();
@@ -20,6 +20,22 @@ int own_id=-1, other_robot_id = -1;
 std::deque<std::pair<double, std::vector<geometry_msgs::Pose>>> pose_deque_vec;
 std::mutex true_pose_mutex;
 double measurement_interval = 0;
+int file_mod_time = 0, mod_output=0;
+std::string file_modtime_command;
+
+std::string exec(const char* cmd) {
+  char buffer[128];
+  std::string result = "";
+  std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+  if (!pipe) {
+      throw std::runtime_error("popen() failed!");
+  }
+  while (fgets(buffer, sizeof(buffer), pipe.get()) != nullptr) {
+      result += buffer;
+  }
+  return result;
+}
+
 
 void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
     //ROS_INFO(" ========= Deque size : %d ======== ", int(pose_deque_vec.size()));
@@ -54,10 +70,12 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 {
     all_range_data.push_back(msg->data[0]); 
     duration_aoa_check = std::chrono::duration_cast<std::chrono::seconds>(end_aoa_check - start_aoa_check);
-    if(duration_aoa_check.count() > measurement_interval) //Get a measurement estimate every x seconds 
-    {  
-        ROS_INFO("Checking for measurements");
-	    wiserx_explore_lite::LocalMeasurement rb_msg;
+    //if(duration_aoa_check.count() > measurement_interval){ //Get a measurement estimate every x seconds  
+    mod_output = std::stoi(exec(file_modtime_command.c_str()));
+    if(mod_output != file_mod_time){  
+        file_mod_time = mod_output;
+	ROS_INFO("Checking for measurements");
+	wiserx_explore_lite::LocalMeasurement rb_msg;
 
         //Get UWB range value 
         std::random_device rd; // obtain a random number from hardware
@@ -195,7 +213,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
         }
         else
         {
-            ROS_INFO("No data");
+            ROS_INFO("No New data");
         }
 
         start_aoa_check = std::chrono::high_resolution_clock::now();
@@ -227,6 +245,7 @@ int main(int argc, char **argv)
         ros::console::notifyLoggerLevelsChanged();
     }
   
+    file_modtime_command = "date -d \"$(stat -c '%z' "+ aoa_fn +" )\" +%s";
     ros::NodeHandle n;
     ros::Subscriber neighbor_distance_ = n.subscribe<std_msgs::Float64MultiArray> ("distance_multi", 10, range_bearing_CB);
     ros::Subscriber true_positions_ = n.subscribe<geometry_msgs::PoseArray> ("/robots_groundtruth_state", 10, TruePoseCB);

@@ -519,21 +519,24 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         current_rel_positions__.push_back(estimated_j_position);
 
         //Initialize node with estimated position of the other robot
-        costmap->worldToMap(est_x_j, est_y_j, mx__, my__);
+        costmap->worldToMap(est_x_j, est_y_j, ekf_robot_track__[other_robot_name].mx__, ekf_robot_track__[other_robot_name].my__);
         //mx__ = mx__ + 12;
         //my__ = my__ + 22;
 
         unsigned int sizeX = costmap->getSizeInCellsX();
         unsigned int sizeY = costmap->getSizeInCellsY();
         ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
-        bool out_of_bounds = (
-            mx__ > x_env_map_max_limit__ || my__ > y_env_map_max_limit__ ||
-            mx__ < x_env_map_min_limit__ || my__ < y_env_map_min_limit__
+        ROS_INFO("Estimate in map: (%d, %d)", ekf_robot_track__[other_robot_name].mx__, ekf_robot_track__[other_robot_name].my__); 
+	
+	bool out_of_bounds = (
+            ekf_robot_track__[other_robot_name].mx__ > x_env_map_max_limit__ || ekf_robot_track__[other_robot_name].my__ > y_env_map_max_limit__ ||
+            ekf_robot_track__[other_robot_name].mx__ < x_env_map_min_limit__ || ekf_robot_track__[other_robot_name].my__ < y_env_map_min_limit__
         );
+	
 
         if(out_of_bounds) 
         {
-            ROS_INFO("Estimate out of bounds: (%d, %d)", mx__, my__);
+            ROS_INFO("Estimate out of bounds.");
             neighbor.true_map_position.x = 0;
             neighbor.true_map_position.y = 0;
             neighbor.estimated_map_position.x = 0;
@@ -541,10 +544,10 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         }
         else
         {
-            ROS_INFO("Estimate in map: (%d, %d)", mx__, my__);
-
             auto& robot_data = robot_information__[other_robot_name];
-            quadmap::Node j_position_node(mx__, my__, robot_data.robot_tau, robot_data.robot_id, timestep__);
+            quadmap::Node j_position_node(ekf_robot_track__[other_robot_name].mx__,
+			    ekf_robot_track__[other_robot_name].my__, 
+			    robot_data.robot_tau, robot_data.robot_id, timestep__);
             j_position_node.updateOmega(covariance_array[0], covariance_array[3]);
             robot_data.node_information.push(j_position_node);
             base_quadmap_.insert_till_end(j_position_node);
@@ -849,7 +852,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         auto current_pose = costmap_client_.getRobotPose();
         const auto now = std::chrono::system_clock::now();
         current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-        if(own_pose_deque_.size() > 400) own_pose_deque_.pop_front();
+        if(own_pose_deque_.size() > 250) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
 	      ros::Duration(0.1).sleep();
         new_output = exec(servo_output_file_reader_command_.c_str());
@@ -867,7 +870,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     std::time_t current_epoch_time;
     const auto now = std::chrono::system_clock::now();
     current_epoch_time = std::chrono::system_clock::to_time_t(now); 
-    if(own_true_pose_deque_.size() > 400) own_true_pose_deque_.pop_front();
+    if(own_true_pose_deque_.size() > 250) own_true_pose_deque_.pop_front();
     own_true_pose_deque_.push_back(std::make_pair(current_epoch_time, msg->poses[robot_id_-1])); //Make note of robot_id_ which is assigned from 1,2.. and index in mocap topic which starts from 0,1...
   }
 
@@ -1206,13 +1209,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                                                               y_env_map_min_limit__); 
       frontier_temp__ = final_sorted_frontiers;
 
-      
+      /* //Uncomment later 
       ROS_INFO("===============Sorted frontiers===================");
       for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
       {
         ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
         ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
       }
+      */
 
       //TODO: Update this to store utility without using the relative positions
       end_exploration = std::chrono::high_resolution_clock::now();

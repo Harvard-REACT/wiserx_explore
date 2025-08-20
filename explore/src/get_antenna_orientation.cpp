@@ -193,7 +193,7 @@ int main(int argc, char **argv)
 
     int i = 0;
     int cmd_status = 0;
-    double joint_threshold  = 2.85;
+    double joint_threshold  = 2.95;
     signal(SIGINT, CTRL_C);
     time_t rawtime;
     struct tm * timeinfo;
@@ -270,9 +270,9 @@ int main(int argc, char **argv)
                 }
                 
                 if(flip)
-                    joint_threshold = -2.85; // -120 deg, true, rotate right
+                    joint_threshold = -2.95; // -120 deg, true, rotate right
                 else
-                    joint_threshold = 2.85; //2.75,  120 deg,false, rotate left
+                    joint_threshold = 2.95; //2.75,  120 deg,false, rotate left
                 
 		ROS_INFO("Stopping CSI data collection");       
                 ROS_INFO("======= Saving antenna orientation data =====");
