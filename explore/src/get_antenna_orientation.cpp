@@ -236,7 +236,7 @@ int main(int argc, char **argv)
                 ROS_INFO("Starting CSI Data Collection");
             }
 
-            if(joint_angle > 3.12 || joint_angle < -3.12)
+            if(joint_angle > 3.5 || joint_angle < -3.5)
             {
                 ROS_INFO("======= Limit exceeding. Force stop =====");
                 for(i=0;i<60;i++)
@@ -270,9 +270,9 @@ int main(int argc, char **argv)
                 }
                 
                 if(flip)
-                    joint_threshold = -2.95; // -120 deg, true, rotate right
+                    joint_threshold = -2.75; // -120 deg, true, rotate right
                 else
-                    joint_threshold = 2.95; //2.75,  120 deg,false, rotate left
+                    joint_threshold = 2.75; //2.75,  120 deg,false, rotate left
                 
 		ROS_INFO("Stopping CSI data collection");       
                 ROS_INFO("======= Saving antenna orientation data =====");

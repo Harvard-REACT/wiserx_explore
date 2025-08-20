@@ -536,11 +536,11 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
         if(out_of_bounds) 
         {
-            ROS_INFO("Estimate out of bounds.");
+            ROS_INFO("Estimate out of bounds, using previous estimate.");
             neighbor.true_map_position.x = 0;
             neighbor.true_map_position.y = 0;
-            neighbor.estimated_map_position.x = 0;
-            neighbor.estimated_map_position.y = 0;
+            neighbor.estimated_map_position.x = ekf_robot_track__[other_robot_name].prev_mx__;
+            neighbor.estimated_map_position.y = ekf_robot_track__[other_robot_name].prev_my__;
         }
         else
         {
@@ -556,6 +556,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             neighbor.true_map_position.y = j_position_node.true_my;
             neighbor.estimated_map_position.x = j_position_node.est_mx;
             neighbor.estimated_map_position.y = j_position_node.est_my;
+	    ekf_robot_track__[other_robot_name].prev_mx__ = ekf_robot_track__[other_robot_name].mx__;
+	    ekf_robot_track__[other_robot_name].prev_my__ = ekf_robot_track__[other_robot_name].my__;
         }
         neighbor.true_range_bearing = { true_measurements.first, true_measurements.second * 180.0 / M_PI};
         neighbor.est_range_bearing = { range_to_use__, bearing_angle_radians_vec__[0] * 180.0 / M_PI };
@@ -976,10 +978,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       baseline_1_frontier_selection_threshold__ = 80; //Since our hardware environment is small and not many forntiers are generated
       //other_robot_id__ = robot_id_ == 1 ? 2:1; @deprecated 
 
-      x_env_map_max_limit__ = 40; 
-      y_env_map_max_limit__ = 40;
-      x_env_map_min_limit__ = 4;
-      y_env_map_min_limit__ = 4;
+      x_env_map_max_limit__ = 55; 
+      y_env_map_max_limit__ = 55;
+      x_env_map_min_limit__ = 10;
+      y_env_map_min_limit__ = 10;
     }
     //*****************************************************************
 

@@ -107,6 +107,8 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
     dt = interval;
     mx__ = 0;
     my__ = 0;
+    prev_mx__ = 0;
+    prev_my__ = 0;
 
     F << 1, 0, dt, 0, // State transition model
         0, 1, 0, dt,
