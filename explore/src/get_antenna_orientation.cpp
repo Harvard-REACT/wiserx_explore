@@ -270,9 +270,9 @@ int main(int argc, char **argv)
                 }
                 
                 if(flip)
-                    joint_threshold = -2.75; // -120 deg, true, rotate right
+                    joint_threshold = -3.0; // -120 deg, true, rotate right
                 else
-                    joint_threshold = 2.75; //2.75,  120 deg,false, rotate left
+                    joint_threshold = 3.0; //2.75,  120 deg,false, rotate left
                 
 		ROS_INFO("Stopping CSI data collection");       
                 ROS_INFO("======= Saving antenna orientation data =====");
