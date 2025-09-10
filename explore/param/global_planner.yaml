@@ -1,0 +1,12 @@
+GlobalPlanner:
+  old_navfn_behavior: false # Use the new potential calculation method or the old navfn behavior
+  use_quadratic: true       # Use quadratic approximation for potential calculation
+  use_dijkstra: true        # Use Dijkstra's algorithm for pathfinding (if false, A* is used)
+  use_grid_path: false      # If true, paths will follow grid cell boundaries
+  allow_unknown: false      # Allow planning through unknown space
+  lethal_cost: 253          # Cost value for lethal obstacles
+  neutral_cost: 50          # Cost value for neutral space
+  cost_factor: 0.9          # Factor to scale the costmap values
+  visualize_potential: false # Visualize the potential map in RVIZ
+  planner_window_x: 0.0     # X size of an optional window to restrict the planner
+  planner_window_y: 0.0     # Y size of an optional window to restrict the planner

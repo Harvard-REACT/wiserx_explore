@@ -1,0 +1,38 @@
+<launch>
+    <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+    <arg name="robot_name"  default="tb3_2"/>
+    <arg name="cmd_vel_topic" default="cmd_vel" />
+    <arg name="odom_topic" default="odom" />
+    <arg name="move_forward_only" default="false"/>
+    <arg name = "robot_base_frame" default = "$(arg robot_name)/base_footprint"/>
+
+    <node pkg="move_base" type="move_base" respawn="false" name="move_base_node" output="screen">
+        <rosparam file="$(find wiserx_explore_lite)/param/hardware_costmap_configs/hw_costmap_common_params_$(arg model).yaml" command="load" ns="global_costmap" /> 
+        <rosparam file="$(find wiserx_explore_lite)/param/hardware_costmap_configs/hw_costmap_common_params_$(arg model).yaml" command="load" ns="local_costmap" />
+        <rosparam file="$(find wiserx_explore_lite)/param/hardware_costmap_configs/hw_local_costmap_params_$(arg robot_name).yaml" command="load" />  <!--the tb3 name is hardcoded in the yaml file-->
+        <rosparam file="$(find wiserx_explore_lite)/param/hardware_costmap_configs/hw_global_costmap_params_$(arg robot_name).yaml" command="load" /> <!--the tb3 name is hardcoded in the yaml file-->   
+
+        <remap from="cmd_vel" to="$(arg cmd_vel_topic)"/>
+        <remap from="odom" to="$(arg robot_name)/$(arg odom_topic)"/>
+        <remap from="robot_base_frame" to="$(arg robot_name)/base_footprint"/>
+        <remap from="/map" to="$(arg robot_name)/map"/>
+        <remap from="/scan" to="$(arg robot_name)/scan"/>
+        <remap from="base_scan" to="$(arg robot_name)/scan" /> 
+        
+        <param name="controller_frequency" value="20.0" />
+        <param name="controller_patience" value="15.0" /> 
+        <param name="planner_patience" value="15.0" /> 
+
+        <!-- TrajectoryPlannerROS : default local planner in ROS 1 navigation stack-->
+        <!-- <param name="base_local_planner" value="base_local_planner/TrajectoryPlannerROS" /> -->
+        <!-- <rosparam file="$(find wiserx_explore_lite)/param/local_planner_configs/base_local_planner_params_trajplanner.yaml" command="load" /> -->
+        
+        <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+        <rosparam file="$(find wiserx_explore_lite)/param/local_planners_configs/base_local_planner_teb_tb3_1.yaml" command="load" />
+
+        <!-- GlobalPlanner - default planner in ROS 1 nagivation stack-->
+        <param name="base_global_planner" value="global_planner/GlobalPlanner" />
+        <rosparam file="$(find wiserx_explore_lite)/param/global_planner.yaml" command="load" />
+    </node>
+
+</launch>

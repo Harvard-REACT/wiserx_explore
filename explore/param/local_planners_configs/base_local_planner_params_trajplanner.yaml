@@ -1,0 +1,44 @@
+TrajectoryPlannerROS:
+  #Robot configuration parameters
+  acc_lim_x: 1.0 #m/s^2 default 2.5
+  acc_lim_y: 0   #m/s^2 default 2.5, since we use a differential drive robot
+  acc_lim_theta: 1.0 #rad/s^2 default 3.2
+  max_vel_x: 0.05 #m/sec, default 0.5
+  min_vel_x: -0.05 #m/sec, default 0.5
+  max_vel_theta: 0.05 #rad/sec, default 1.0
+  min_vel_theta: -0.05 #rad/sec, default -1.0
+  escape_vel: -0.05
+  max_rotational_vel: 0.05 #Modified from default 1.0
+  min_in_place_vel_theta: 0.075 #rad/s^2 default 0.4
+  holonomic_robot: false  
+  
+  #Goal tolerence parameters
+  yaw_goal_tolerance: 0.1  #radians,default 0.1
+  xy_goal_tolerance: 0.25   #meters, default 0.2
+  latch_xy_goal_tolerence: false #default false
+
+  #Forward simulation parameters
+  sim_time: 4.0 #default 1.0
+  sim_granularity: 0.025 #default 0.025
+  vx_samples: 10 #default 3
+  vtheta_samples: 30 #default 20
+  #controller_frequency: 20 #default 20, set with the move base, so no need to set here
+  
+  #Trajectory scorping parameters
+  meter_scoring: true #default false
+  pdist_scale: 0.6 #default 0.6
+  gdist_scale: 0.8 #default 0.8
+  occdist_scale: 0.02 #default 0.01
+  heading_lookahead: 0.5 #default 0.325
+  heading_scoring: false
+  heading_scoring_timestep: 1.5 #seconds default 0.8
+  dwa: true #default true
+  publish_cost_grid_pc: false #default false
+
+  #Oscillation prevention parameters
+  oscillation_reset_dist: 0.3 #default 0.05
+  transform_tolerance: 0.3
+  prune_plan: true #default true
+  goal_distance_bias: 20.0 #default 0.2
+  path_distance_bias: 32.0 #default 0.9 #The robot will try to follow the path more closely for a higher value.
+  simple_attractor: false
