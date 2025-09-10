@@ -107,6 +107,8 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
     dt = interval;
     mx__ = 0;
     my__ = 0;
+    prev_mx__ = 0;
+    prev_my__ = 0;
 
     F << 1, 0, dt, 0, // State transition model
         0, 1, 0, dt,
@@ -129,7 +131,7 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
 
     //Updated R on July 31 2025
     R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-        0, 0.008;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+        0, 0.1;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
     // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
     //     0, 0.01;  // 10 cm and 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
