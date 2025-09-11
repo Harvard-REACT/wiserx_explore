@@ -1315,7 +1315,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       try
       {
         // progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 0.90); //For simulation 
-        progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_/3)); //For hardware
+        progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_/1.25)); //For hardware
       }
       catch(...)
       {

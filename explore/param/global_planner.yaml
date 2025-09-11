@@ -6,7 +6,7 @@ GlobalPlanner:
   allow_unknown: false      # Allow planning through unknown space
   lethal_cost: 253          # Cost value for lethal obstacles
   neutral_cost: 50          # Cost value for neutral space
-  cost_factor: 0.9          # Factor to scale the costmap values
+  cost_factor: 1.0          # Factor to scale the costmap values
   visualize_potential: false # Visualize the potential map in RVIZ
   planner_window_x: 0.0     # X size of an optional window to restrict the planner
   planner_window_y: 0.0     # Y size of an optional window to restrict the planner

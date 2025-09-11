@@ -11,11 +11,11 @@ TebLocalPlannerROS:
  min_turning_radius: 0.0
  footprint_model: # types: "point", "circular", "two_circles", "line", "polygon"
   type: "polygon"
-  vertices: [[-0.205, -0.155], [-0.205, 0.155], [0.077, 0.155], [0.077, -0.155]]
+  vertices: [[-0.215, -0.165], [-0.215, 0.165], [0.087, 0.165], [0.087, -0.165]]
 
 
 # GoalTolerance
- xy_goal_tolerance: 0.25 #NJ updated
+ xy_goal_tolerance: 0.45 #NJ updated
  yaw_goal_tolerance: 6.28319
  free_goal_vel: False
 
@@ -23,10 +23,10 @@ TebLocalPlannerROS:
  dt_ref: 0.3
  dt_hysteresis: 0.03
  global_plan_overwrite_orientation: True
- max_global_plan_lookahead_dist: 3.5
+ max_global_plan_lookahead_dist: 2.0
 
  # Obstacles
- min_obstacle_dist: 0.3 #NJ updated
+ min_obstacle_dist: 0.5 #NJ updated
  include_costmap_obstacles: True
  costmap_obstacles_behind_robot_dist: 1.5 #NJ updated
  obstacle_poses_affected: 30
@@ -39,7 +39,7 @@ TebLocalPlannerROS:
  no_outer_iterations: 4
  optimization_activate: True
  optimization_verbose: False
- penalty_epsilon: 0.045
+ penalty_epsilon: 0.025
  weight_max_vel_x: 2
  weight_max_vel_theta: 1
  weight_acc_lim_x: 1
@@ -48,10 +48,10 @@ TebLocalPlannerROS:
  weight_kinematics_forward_drive: 260
  weight_kinematics_turning_radius: 1
  weight_optimaltime: 1
- weight_obstacle: 100
+ weight_obstacle: 250
  weight_dynamic_obstacle: 10 # not in use yet
  selection_alternative_time_cost: False # not in use yet
- weight_viapoint: 0.9
+ weight_viapoint: 1.0
 
  # Homotopy Class Planner
  enable_homotopy_class_planning: False

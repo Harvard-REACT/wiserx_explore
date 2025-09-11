@@ -727,13 +727,13 @@ std::vector<Frontier> FrontierSearch::splitFrontier(const Frontier& frontier,
     }
 
     // average out frontier centroid
-    current.centroid.x /= current.size;
-    current.centroid.y /= current.size;
+    //current.centroid.x /= current.size;
+    //current.centroid.y /= current.size;
 
 
     //centroid == middle point of the frontier
-    // current.centroid.x = current.points[int(current.size/2)].x;
-    // current.centroid.y = current.points[int(current.size/2)].y;
+    current.centroid.x = current.points[int(current.size/2)].x;
+    current.centroid.y = current.points[int(current.size/2)].y;
 
     //This distance is already in world coordinates.
     current.centroid_distance = sqrt(pow((double(reference_x) - double(current.centroid.x)), 2.0) +
@@ -851,8 +851,10 @@ void FrontierSearch::updateInfo(Frontier& frontier,
       }
     }
     // average out frontier centroid
-    frontier.centroid.x /= frontier.size;
-    frontier.centroid.y /= frontier.size;
+    //frontier.centroid.x /= frontier.size;
+    //frontier.centroid.y /= frontier.size;
+    frontier.centroid.x = frontier.points[int(frontier.size/2)].x;
+    frontier.centroid.y = frontier.points[int(frontier.size/2)].y;
 
     frontier.centroid_distance = sqrt(pow((double(reference_x) - double(frontier.centroid.x)), 2.0) +
                                     pow((double(reference_y) - double(frontier.centroid.y)), 2.0));
