@@ -978,10 +978,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       baseline_1_frontier_selection_threshold__ = 80; //Since our hardware environment is small and not many forntiers are generated
       //other_robot_id__ = robot_id_ == 1 ? 2:1; @deprecated 
 
-      x_env_map_max_limit__ = 55; 
-      y_env_map_max_limit__ = 55;
-      x_env_map_min_limit__ = 10;
-      y_env_map_min_limit__ = 10;
+      x_env_map_max_limit__ = 45; 
+      y_env_map_max_limit__ = 45;
+      x_env_map_min_limit__ = 0;
+      y_env_map_min_limit__ = 0;
     }
     //*****************************************************************
 
@@ -1187,6 +1187,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         goal__.pose.position.x = frontiers__[i].centroid.x;
         goal__.pose.position.y = frontiers__[i].centroid.y;
         goal__.pose.orientation.w = 0.0;
+        goal__.header.frame_id = costmap_client_.getGlobalFrameID();
 
         if(GetPlanPath(start__, goal__, tolerance__, frontier_centroid_path__))
         {
@@ -1359,7 +1360,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       // send goal to move_base if we have something new to pursue
       ========================================================================================*/
 
-      /*  
       move_base_msgs::MoveBaseGoal goal;
       goal.target_pose.pose.position = target_position;
       goal.target_pose.pose.orientation.w = 1.;
@@ -1371,9 +1371,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                        {
                         reachedGoal(status, result, target_position);
                      });
-
-      */
-
     }
 
     //Get estimated fill percentage of the quadmap

@@ -177,8 +177,8 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
     //Env: approx 8 x 7, costmap initialized at point (-2,-4), map size initialized to 64x64 due to gmapping auto map expansion issue.
     if(idx_coord_x > x_env_map_max_limit || idx_coord_y > y_env_map_max_limit || idx_coord_x < x_env_map_min_limit || idx_coord_y < y_env_map_min_limit) 
     {
-      // std::cout << "**********************FS X coord: " << idx_coord_x << " size_x_ " << size_x_ << ", x_env_map_max_limit: " << x_env_map_max_limit << ", x_env_map_min_limit: " << x_env_map_min_limit << std::endl;
-      // std::cout << "**********************FS Y coord: " << idx_coord_y << " size_y_ " << size_y_ << ", y_env_map_max_limit: " << y_env_map_max_limit << ", y_env_map_min_limit: " << y_env_map_min_limit << std::endl;
+      std::cout << "**********************FS X coord: " << idx_coord_x << " size_x_ " << size_x_ << ", x_env_map_max_limit: " << x_env_map_max_limit << ", x_env_map_min_limit: " << x_env_map_min_limit << std::endl;
+      std::cout << "**********************FS Y coord: " << idx_coord_y << " size_y_ " << size_y_ << ", y_env_map_max_limit: " << y_env_map_max_limit << ", y_env_map_min_limit: " << y_env_map_min_limit << std::endl;
       continue; 
     }
 
