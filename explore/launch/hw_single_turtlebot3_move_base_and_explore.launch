@@ -30,6 +30,7 @@
 
 
   <!-- Start exploration -->
+  <!-- <group if="$(arg open_rviz)">  -->
   <include file="$(find wiserx_explore_lite)/launch/explore.launch">
     <arg name="ns"  value="$(arg multi_robot_name)"/>
     <arg name="robot_id" value="$(arg multi_robot_id)"/>
@@ -41,6 +42,8 @@
     <arg name="robot_base_frame_for_gmapping" value="$(arg multi_robot_name)/base_footprint" />
     <arg name="add_noise"  default="$(arg add_noise)"/>
     <arg name="debug_mocap_pose"  default="$(arg debug_mocap_pose)"/>
+    <arg name="robot_speed"  default="0.055"/> 
   </include>
+  <!-- </group> -->
 
 </launch>

@@ -10,11 +10,11 @@
 <arg name="sensor_range_val"  default="11.25"/>
 <arg name="min_frontier_size_val"  default="0.75"/>
 <arg name="progress_timeout_val" default="20"/>
-<arg name="robot_speed" default="0.15"/>
+<arg name="robot_speed" default="0.05"/>
 <arg name="hgrid_width" default="45"/>
 <arg name="hgrid_height" default="45"/>
 <arg name="measurement_interval" default="5.0"/>
-<arg name="map_resolution" default="0.25"/>
+<arg name="map_resolution" default="0.1"/>
 <arg name="use_real_sensor" default="true"/>
 <arg name="add_noise"  default="false"/>
 <arg name="debug_mocap_pose"  default="false"/>
