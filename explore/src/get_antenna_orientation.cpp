@@ -236,7 +236,7 @@ int main(int argc, char **argv)
                 ROS_INFO("Starting CSI Data Collection");
             }
 
-            if(joint_angle > 3.5 || joint_angle < -3.5)
+            if(joint_angle > 4.0 || joint_angle < -4.5)
             {
                 ROS_INFO("======= Limit exceeding. Force stop =====");
                 for(i=0;i<60;i++)
@@ -252,8 +252,7 @@ int main(int argc, char **argv)
             exp_duration = std::chrono::duration<float, std::milli>(endtime - starttime).count() * 0.001;
 	        //exp_duration = std::chrono::duration_cast<std::chrono::seconds>(endtime - starttime);
 
-            // if(std::abs(joint_angle - joint_threshold) <=0.025 || exp_duration > 0.25)
-            if(std::abs(joint_angle - joint_threshold) <=0.025)
+            if(std::abs(joint_angle - joint_threshold) <=0.1)
             {                
                 //Stop before changing direction or next iteration
                 for(i=0;i<60;i++)

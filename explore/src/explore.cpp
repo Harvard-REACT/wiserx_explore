@@ -1365,12 +1365,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       goal.target_pose.pose.orientation.w = 1.;
       goal.target_pose.header.frame_id = costmap_client_.getGlobalFrameID();
       goal.target_pose.header.stamp = ros::Time::now();
+      
       move_base_client_.sendGoal(goal, [this, target_position]
                       ( const actionlib::SimpleClientGoalState& status,
                         const move_base_msgs::MoveBaseResultConstPtr& result) 
                        {
                         reachedGoal(status, result, target_position);
                      });
+      
     }
 
     //Get estimated fill percentage of the quadmap
