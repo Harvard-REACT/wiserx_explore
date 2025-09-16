@@ -294,7 +294,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       
       // dist_sum_avg  /= int(latest_relative_positions.size());
       beta_parameter = log10(dist_sum);
-      ROS_INFO("*************BetaParam : %f", beta_parameter);
+      // ROS_INFO("*************BetaParam : %f", beta_parameter);
       
       costmap_->worldToMap(start.x, start.y, fmx, fmy);
       unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
@@ -326,7 +326,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
           // base_quadmap.query_radius(center,sensor_range_,neighboring_robots_positions);
         }
         info_used_at_frontier_percent = 0;
-        ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+        // ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
         bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, NO_INFORMATION, *costmap_, sensor_range_,
                                               neighboring_robots_positions, 
                                               info_used_at_frontier_percent,
@@ -335,8 +335,8 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
                                               x_env_map_min_limit,
                                               y_env_map_min_limit);
       
-        ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
-        ROS_INFO("Info loss at the frontier (percent) = %f", info_used_at_frontier_percent);
+        // ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
+        // ROS_INFO("Info loss at the frontier (percent) = %f", info_used_at_frontier_percent);
       }
 
       if(beta_parameter*info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
@@ -344,7 +344,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
         info_gain_uexp_cell_count_max = beta_parameter*info_gain_uexp_cell_count;
         info_used_at_frontier_percent_max = info_used_at_frontier_percent;
         frontier.pos_id = frontier_pos;
-        ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
+        // ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
         max_neighbor_count = neighboring_robots_positions.size();
         choice=itr;
         frontier.view_point_to_navigate_to = start;
@@ -592,13 +592,13 @@ double FrontierSearch::frontierUtility(const Frontier& frontier,
   else
     res = (information_gain)/(frontier.centroid_distance);
 
-  ROS_INFO("Information gain based on unexplored cell count and beta parameter = %f", information_gain);
-  ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
+  // ROS_INFO("Information gain based on unexplored cell count and beta parameter = %f", information_gain);
+  // ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
 
   
 
-  ROS_INFO("frontier Utility = %f", res);
-  ROS_INFO("***************************************************");  
+  // ROS_INFO("frontier Utility = %f", res);
+  // ROS_INFO("***************************************************");  
   return res;
 }
 

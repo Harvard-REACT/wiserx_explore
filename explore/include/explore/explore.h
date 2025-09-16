@@ -111,7 +111,8 @@ private:
   
   void particle_filter();
 
-  void CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg);
+  // void CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg);
+  void CollectOwnPoseCB(); 
 
   void TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg);
 
@@ -126,6 +127,7 @@ private:
   frontier_exploration::FrontierSearch search_;
   ros::Timer exploring_timer_;
   ros::Timer oneshot_;
+  ros::Timer ownSLAMposearray_;
   unsigned int mx__, my__;
   unsigned int fmx__, fmy__;
 
@@ -193,6 +195,7 @@ private:
   geometry_msgs::PoseStamped goal__;
   float tolerance__ = 0.5; //in meters
   int baseline_1_frontier_selection_threshold__ = 60;
+  int pose_size_limit__ = 300;
   double robot_speed_ = 0.15;
   float bearing_angle_radians__ = 0;
   std::vector<float> bearing_angle_radians_vec__;

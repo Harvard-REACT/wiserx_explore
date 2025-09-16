@@ -8,7 +8,7 @@ std::string aoa_profile_name = "";
 std::ifstream fin, aoa_profile;
 std::vector<double> all_range_data, sampled_range_data, top_aoa_peaks;
 bool Flag_get_data_ = false, first_itr=true;
-time_t last_time, current_time_val;
+double last_time, current_time_val;
 ros::Publisher range_bearing_publisher;
 double profile_variance = 0;
 std::vector<double> profile_array;

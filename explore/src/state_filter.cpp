@@ -125,27 +125,9 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 0.1, 0,
         0, 0, 0, 0.1;
 
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.08;  // 30 cm and 16 degree of standard deviation for range and bearing
-
-
-    //Updated R on July 31 2025
+    // //Updated R on July 31 2025
     R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-        0, 0.1;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
-
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.01;  // 10 cm and 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
-
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.001;  // 10cm and 1.81 degree of standard deviation for range and bearing 
-
-    // R << 0.0025, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.001;  // 5cm and 1.81 degree of standard deviation for range and bearing 
-
-
-    // R << 0.001, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.0001;  // 3cm and 0.5 degree of standard deviation for range and bearing 
-
+        0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
 }
 
@@ -211,13 +193,15 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
     ROS_INFO("Obtained bearing measurements size %d", int(bearing_measurements.size()));
     for(auto bval : bearing_measurements){
-        VectorXd z(2); z << range_measurement, bval;        
+        VectorXd z(2); 
+        z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
         y(1) = wrapToPi(y(1)); 
         float d2 = MahalanobisDistance(y, S);
         ROS_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
         if(d2 < 5.99){ //95% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
-	  float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
+        // if(d2 < 4.605){ //90% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
+	      float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
           residuals__.push_back(y);
           likelihoods__.push_back(gaussian_pdf);
           angle_val__.push_back(z[1]);
