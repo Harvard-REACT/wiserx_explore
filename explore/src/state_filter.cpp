@@ -125,9 +125,17 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 0.1, 0,
         0, 0, 0, 0.1;
 
-    // //Updated R on July 31 2025
-    R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-        0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+    // //Updated R on July 31 2025 - Trial 4
+    // R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+    //     0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+
+    // Trial 5
+    // R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+    //     0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+
+    //Trial 6
+    R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+        0, 0.1;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
 }
 

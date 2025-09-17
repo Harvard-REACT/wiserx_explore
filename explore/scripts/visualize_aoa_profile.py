@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 
 # Parameters
 MATRIX_ROWS = 360
-MATRIX_COLS = 60
+MATRIX_COLS = 90
 
 class MatrixViewer:
     def __init__(self, root):

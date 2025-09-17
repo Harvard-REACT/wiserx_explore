@@ -864,7 +864,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
         if(own_pose_deque_.size() > pose_size_limit__) own_pose_deque_.pop_front();
         own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
-	      ros::Duration(0.05).sleep();
+	      ros::Duration(0.02).sleep();
         stop_val = std::chrono::high_resolution_clock::now();
         duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
         // new_output = exec(servo_output_file_reader_command_.c_str());
