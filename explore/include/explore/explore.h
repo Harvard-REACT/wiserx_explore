@@ -226,6 +226,10 @@ private:
   unsigned int y_env_map_max_limit__=1000;
   unsigned int x_env_map_min_limit__=0;
   unsigned int y_env_map_min_limit__=0;
+  double x_min__ = 0.0;
+  double x_max__ = 0.0;
+  double y_min__ = 0.0;
+  double y_max__ = 0.0;
 
   //Filter parameters
   std::vector<double> measurement_output__;

@@ -6,12 +6,15 @@
   <arg name="open_rviz" default="true"/>
   <arg name="enable_WSR" default="true"/>
    <arg name="use_real_sensor" default="true"/>
-  <arg name="min_frontier_size"  default="0.65"/>
+  <arg name="min_frontier_size"  default="0.5"/>
   <arg name="sensor_range"  default="3.0"/>
   <arg name="add_noise"  default="false"/>
   <arg name="debug_mocap_pose"  default="false"/>
-
-
+  <arg name="xmin_val" default="0.0"/>
+  <arg name="ymin_val" default="0.0"/>
+  <arg name="xmax_val" default="0.0"/>
+  <arg name="ymax_val" default="0.0"/>
+  <arg name="map_resolution" default="0.2"/>
 
     <!-- move_base -->
    <group ns="$(arg multi_robot_name)">
@@ -40,9 +43,14 @@
     <arg name="min_frontier_size_val" value="$(arg min_frontier_size)"/>
     <arg name="sensor_range_val" value="$(arg sensor_range)"/>
     <arg name="robot_base_frame_for_gmapping" value="$(arg multi_robot_name)/base_footprint" />
-    <arg name="add_noise"  default="$(arg add_noise)"/>
-    <arg name="debug_mocap_pose"  default="$(arg debug_mocap_pose)"/>
-    <arg name="robot_speed"  default="0.055"/> 
+    <arg name="add_noise"  value="$(arg add_noise)"/>
+    <arg name="debug_mocap_pose"  value="$(arg debug_mocap_pose)"/>
+    <arg name="robot_speed"  value="0.055"/> 
+    <arg name="xmin_val" value="$(arg xmin)"/>
+    <arg name="ymin_val" value="$(arg ymin)"/>
+    <arg name="xmax_val" value="$(arg xmax)"/>
+    <arg name="ymax_val" value="$(arg ymax)"/>
+    <arg name="map_resolution" value="$(arg map_resolution)"/>
   </include>
   <!-- </group> -->
 

@@ -3,14 +3,6 @@
   <arg name="multi_robot_name" default="tb3_0"/>
   <arg name="maxUrange_val" default="9.9"/>
   <arg name="maxRange_val" default="11.25"/>
-
-  <!-- For hardware experiments with vicon -->
-  <!-- <arg name="maxUrange_val" default="1.9"/>  -->
-  <!-- <arg name="maxRange_val" default="2.25"/>  -->
-  <!-- For hardware experiments with vicon -->
-  
-  <!-- <arg name="maxUrange_val" default="4.9"/>
-  <arg name="maxRange_val" default="5.625"/> -->
   <arg name="scan_topic" default="scan_new"/>
   <!-- <arg name="xmin_val" default="-22"/>  -->
   <!-- <arg name="ymin_val" default="-22"/> -->
@@ -45,22 +37,16 @@
         <param name="srt" value="0.02"/>
         <param name="str" value="0.01"/>
         <param name="stt" value="0.02"/>
-        <!-- <param name="srr" value="0.0"/>
-        <param name="srt" value="0.0"/>
-        <param name="str" value="0.0"/>
-        <param name="stt" value="0.0"/> -->
-        <param name="linearUpdate" value="0.1"/>
-        <param name="angularUpdate" value="0.1"/>
+        <param name="linearUpdate" value="0.15"/>
+        <param name="angularUpdate" value="0.15"/>
         <param name="temporalUpdate" value="0.5"/>
         <param name="resampleThreshold" value="1"/>
         <param name="particles" value="70"/>
-        <!-- <param name="particles" value="1"/> -->
         <param name="xmin" value="$(arg xmin_val)"/>
         <param name="ymin" value="$(arg ymin_val)"/>
         <param name="xmax" value="$(arg xmax_val)"/>
         <param name="ymax" value="$(arg ymax_val)"/>
-
-        <param name="delta" value="0.25"/> <!-- default 0.05 NJ:changed to match mprim file for SBPL planner-->
+        <param name="delta" value="0.2"/> <!-- default 0.05 NJ:changed to match mprim file for SBPL planner-->
         <param name="occ_thresh" value="0.5"/>
         <param name="llsamplerange" value="0.01"/>
         <param name="llsamplestep" value="0.01"/>

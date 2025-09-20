@@ -18,6 +18,10 @@
 <arg name="use_real_sensor" default="true"/>
 <arg name="add_noise"  default="false"/>
 <arg name="debug_mocap_pose"  default="false"/>
+<arg name="xmin_val" default="0.0"/>
+<arg name="ymin_val" default="0.0"/>
+<arg name="xmax_val" default="0.0"/>
+<arg name="ymax_val" default="0.0"/>
 
 
  <group ns="$(arg ns)">
@@ -54,6 +58,10 @@
     <param name="use_real_sensor" value="$(arg use_real_sensor)"/>
     <param name="noise_WSR" value="$(arg add_noise)"/> 
     <param name="debug_mocap_pose" value="$(arg debug_mocap_pose)"/>
+    <param name="xmin" value="$(arg xmin_val)"/>
+    <param name="ymin" value="$(arg ymin_val)"/>
+    <param name="xmax" value="$(arg xmax_val)"/>
+    <param name="ymax" value="$(arg ymax_val)"/>
   </node>
 </group>
 

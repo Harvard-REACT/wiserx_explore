@@ -925,6 +925,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/react-m_explore/explore/data/wiserx_data/"));
     private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
     private_nh_.param("debug_mocap_pose", FLAG_DEBUG_OWN_TRUE_POSE__, false); //Use mocap pose instead of SLAM pose for own 
+    private_nh_.param("xmin", x_min__, 0.0);
+    private_nh_.param("ymin", y_min__, 0.0);
+    private_nh_.param("xmax", x_max__, 0.0);
+    private_nh_.param("ymax", y_max__, 0.0);
  
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
@@ -986,12 +990,18 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       ekf_velocity_x = 0.1;
       ekf_velocity_y = 0.1;
       baseline_1_frontier_selection_threshold__ = 80; //Since our hardware environment is small and not many forntiers are generated
-      //other_robot_id__ = robot_id_ == 1 ? 2:1; @deprecated 
+      
+      auto pose = costmap_client_.getRobotPose();
+      unsigned int mx, my;
+      costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+      costmap2d->worldToMap(pose.position.x, pose.position.y, mx, my);
+      x_env_map_max_limit__ = mx + int((x_max__+ 2*x_min__) / map_resolution__);
+      y_env_map_max_limit__ = my + int((y_max__+ 2*y_min__) /map_resolution__);
+      x_env_map_min_limit__ = mx + int(x_min__/map_resolution__);
+      y_env_map_min_limit__ = my + int(y_min__/map_resolution__);
 
-      x_env_map_max_limit__ = 45; 
-      y_env_map_max_limit__ = 45;
-      x_env_map_min_limit__ = 0;
-      y_env_map_min_limit__ = 0;
+      std::cout << "**********************Robot map coord: " << mx << ", " << my << std::endl;
+      std::cout << "**********************Map limits: " << x_env_map_min_limit__ << ", " << x_env_map_max_limit__ << ", " << y_env_map_min_limit__ << "," << y_env_map_max_limit__ << std::endl;
     }
     //*****************************************************************
 
