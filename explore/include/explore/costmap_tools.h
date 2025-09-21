@@ -360,15 +360,8 @@ namespace frontier_exploration
         {
 
           costmap.indexToCells(nbr, nx, ny);
-
-          // CHECKS IF CELL IS WITHIN BOUNDS
-          // if(nx > size_x - 4 || ny > size_y - 4 || nx < 4 || ny < 4) {
-          //   continue; 
-          // }
-
-          //Env: approx 8 x 7, costmap initialized at point (-2,-4), map size initialized to 64x64 due to gmapping auto expansion issue.
+          
           //CHECKS IF CELL IS WITHIN BOUNDS For the explorer tb3 robots gmapping config. Env dim*res - 2 
-          // if(nx > 40 || ny > 36  || nx < 10 || ny < 4) {
           if(nx > x_env_map_max_limit || ny > y_env_map_max_limit  || nx < x_env_map_min_limit || ny < y_env_map_min_limit) {
             // std::cout << "********************** X coord: " << nx << " size_x " << size_x << std::endl;
             // std::cout << "********************** Y coord: " << ny << " size_y " << size_y << std::endl;

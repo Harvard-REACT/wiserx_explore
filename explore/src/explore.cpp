@@ -982,7 +982,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     cell_count__ = base_quadmap_.total_cells;
     
     /**
-     * This change has been made for running hardware expperiments in the flight lab
+     * This change has been made for running hardware expperiments with gmapping that automatically expands the map beyond the actual physical limits
     */
     if(!FLAG_SIM_)
     {
@@ -1019,9 +1019,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     ROS_INFO("Connected to move_base server");
 
     last_progress_ = ros::Time::now();
-    exploring_timer_ = relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
-                                                [this](const ros::TimerEvent&) { makePlan();});
     
+    exploring_timer_ = relative_nh_.createTimer(ros::Duration(1. / planner_frequency_),
+                                              [this](const ros::TimerEvent&) { makePlan();});
+
     ownSLAMposearray_ = relative_nh_.createTimer(ros::Duration(1),
                                                 [this](const ros::TimerEvent&) { CollectOwnPoseCB();});
   }
@@ -1119,7 +1120,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     if(int(own_pose_deque_.size()) >= pose_size_limit__) //Wait till a few AOA measurements are collected as we need good initial estimate.
     {
       ROS_INFO("Got sufficient history");
-      // find frontiers
       auto pose = costmap_client_.getRobotPose();
 
       if(!__Flag_set_home)
@@ -1128,12 +1128,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         __home_position.y = pose.position.y;
         __Flag_set_home = true;
       }
-      // ROS_INFO("Neighbors count = %d", int(current_neighbor_pose_vec_.size()));
       
-      // for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
-      // {
-      //   ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
-      // }
+      for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
+      {
+        ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
+      }
 
       unsigned fmx, fmy, mx__, my__;
       costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
@@ -1150,36 +1149,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       
       ROS_DEBUG("found %lu frontiers", frontiers__.size());
 
-
-      // for(int i=0; i<frontiers__.size(); i++)
-      // {
-      //   frontier_exploration::Frontier frontier = frontiers__[i];
-      //   costmap2d->worldToMap(frontier.centroid.x, frontier.centroid.y, fmx, fmy);
-      //   unsigned int clear, frontier_pos  = costmap2d->getIndex(fmx,fmy);
-        
-      //   ROS_INFO("***************************************************");
-      //   ROS_INFO("Frontier centroid Map pos: %d, %d", fmx, fmy);
-        
-      //   //Get relative positions around a frontier centroid by searching the quadmap and update the vector neighboring_robots_positions
-      //   quadmap::Node center(fmx, fmy, robot_id_, robot_id_); //Value of the 3rd parameter is meaningless here for the query
-      //   std::vector<quadmap::Node> neighboring_robots_positions;
-      //   ROS_INFO("Quadmap ID : %d", base_quadmap_.get_quadmap_ID());
-      //   auto op_val = base_quadmap_.query_radius(center,2*sensor_range_,neighboring_robots_positions);
-      //   ROS_INFO("[Explore.cpp] query result %d", op_val);
-      //   for(auto val : neighboring_robots_positions)
-      //   {
-      //     ROS_INFO("Node position %f, %f", val.true_mx, val.true_my);
-      //   }
-      //   ROS_INFO("[Explore.cpp] Query Check: Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
-      // }
-      // final_sorted_frontiers = frontiers;
-      if(!FLAG_WSR_) ROS_INFO("!!!!!!!!!! FLAG_WSR is disabled !!!!!!!!!");
-
-      
-      // Reevaulate frontiers every progress_timeout_ seconds
-      // std::cout << last_progress_ << std::endl;
-      std::cout << ros::Time::now() - last_progress_ << std::endl;
-      std::cout << progress_timeout_ << std::endl;
       if (ros::Time::now() - last_progress_ > progress_timeout_) 
       {
         move_base_client_.cancelAllGoals();
@@ -1187,9 +1156,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         ROS_INFO("******* REVAULATING ALL FRONTIERS ******************");
       }
 
-
-      // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if its still worthwhile to 
-      //go to that frontier.
+      // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
       ros::Duration half_duration(progress_timeout_.toSec()*0.5);
       if (ros::Time::now() - last_progress_ > half_duration) 
       {
@@ -1198,7 +1165,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       }
 
       
-      //Need to update the frontier centroid distance based on the path length, should be in world coordinates
+      //Update the frontier centroid distance based on the path length, should be in world coordinates
       actionlib::SimpleClientGoalState current_state  = move_base_client_.getState();
       if (current_state != actionlib::SimpleClientGoalState::ACTIVE)
       { 
@@ -1239,20 +1206,16 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                                                                 y_env_map_min_limit__); 
         frontier_temp__ = final_sorted_frontiers;
 
-        /* //Uncomment later 
         ROS_INFO("===============Sorted frontiers===================");
         for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
         {
           ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
           ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
         }
-        */
 
-        //TODO: Update this to store utility without using the relative positions
         end_exploration = std::chrono::high_resolution_clock::now();
         std::chrono::seconds elapsed_time__ = std::chrono::duration_cast<std::chrono::seconds>(end_exploration - start_exploration);
         writeToFile(final_sorted_frontiers,fn__,elapsed_time__); 
-        
         
         // Stop if no more new frontiers exist or the stop flag is set.
         if (final_sorted_frontiers.empty() || exploration_done_) 
@@ -1270,39 +1233,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           visualizeFrontiers(final_sorted_frontiers);
         }
 
-        
-        //Randomly choose a frontier
-        // std::random_device rd; // obtain a random number from hardware
-        // std::mt19937 gen(rd()); // seed the generator
-        // std::uniform_int_distribution<> distr(0, int(final_sorted_frontiers.size())-1); // define the range
-        // int rval = distr(gen); // generate numbers
-        
-        //frontier_exploration::Frontier frontier;
-        //if(final_sorted_frontiers.size() > 0) frontier = final_sorted_frontiers[rval];
-        //else 
-        //{
-        //    stop();
-        //    return;
-        //}
-        
-        // time out if we are not making any progress
-        //geometry_msgs::Point target_position = frontier.centroid;
-        //bool same_goal = prev_goal_ == target_position;
-        //prev_goal_ = target_position;
-        //if (!same_goal || prev_distance_ > frontier.min_distance) 
-        //{
-        //  last_progress_ = ros::Time::now(); // we have different goal or we made some progress
-        //  prev_distance_ = frontier.min_distance;
-        //}
-        //if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
-        //{
-        //  frontier_blacklist_.push_back(target_position);
-        //  ROS_DEBUG("Adding current goal to black list");
-        //  makePlan();
-        //  return;
-        //}
-
-
         // find non blacklisted frontier
         auto frontier = std::find_if_not(final_sorted_frontiers.begin(), final_sorted_frontiers.end(),
                             [this](const frontier_exploration::Frontier& f) {
@@ -1310,38 +1240,38 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                             });
 
         
-        // //FR-1-B Baseline1-b : // Randomly choose a frontier from top 2
-        // //FR-1-B Noisy-c : // Randomly choose a frontier from top 2 - Don't use
-        if(!FLAG_WSR_)
-        {
-          //Only use for random motion baseline with close proximity initialization of robot positions.
-          if(final_sorted_frontiers.size()>1)
-          {
-            std::random_device rd; // obtain a random number from hardware
-            std::mt19937 gen(rd()); // seed the generator
-            std::uniform_int_distribution<> distr(0, 99); // define the range
-            int rval = distr(gen); // generate numbers
+        // // //FR-1-B Baseline1-b : // Randomly choose a frontier from top 2
+        // // //FR-1-B Noisy-c : // Randomly choose a frontier from top 2 - Don't use
+        // if(!FLAG_WSR_)
+        // {
+        //   //Only use for random motion baseline with close proximity initialization of robot positions.
+        //   if(final_sorted_frontiers.size()>1)
+        //   {
+        //     std::random_device rd; // obtain a random number from hardware
+        //     std::mt19937 gen(rd()); // seed the generator
+        //     std::uniform_int_distribution<> distr(0, 99); // define the range
+        //     int rval = distr(gen); // generate numbers
 
-            //Choose the first frontier with x% probability and second one with 100-x%
-            //Starting with 60% and then over time only the top frontier will be chosen.
-            //Just need to ensure that the robots spread out more even after close initialization
-            if (baseline_1_frontier_selection_threshold__ >= 97) baseline_1_frontier_selection_threshold__ = 97;
+        //     //Choose the first frontier with x% probability and second one with 100-x%
+        //     //Starting with 60% and then over time only the top frontier will be chosen.
+        //     //Just need to ensure that the robots spread out more even after close initialization
+        //     if (baseline_1_frontier_selection_threshold__ >= 97) baseline_1_frontier_selection_threshold__ = 97;
             
-            if(rval <= baseline_1_frontier_selection_threshold__) 
-              std::advance(frontier, 0);     
-            else 
-              std::advance(frontier, 1); 
+        //     if(rval <= baseline_1_frontier_selection_threshold__) 
+        //       std::advance(frontier, 0);     
+        //     else 
+        //       std::advance(frontier, 1); 
             
-            baseline_1_frontier_selection_threshold__ +=2;
-          }
-        }
+        //     baseline_1_frontier_selection_threshold__ +=2;
+        //   }
+        // }
         
         //Evaluate if its still worthwhile to go to that frontier midway
         //Multiply by 0.90 to get the time to reach greater than 3/4th way to the frontier. Division by 1.25 is for hardware experiments sinec our distances are small
         try
         {
           // progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 0.90); //For simulation 
-          progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 1.12); //For hardware
+          progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 1.05); //For hardware
         }
         catch(...)
         {
@@ -1356,36 +1286,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           stop();
           return;
         }
-        
-        
+          
         geometry_msgs::Point target_position = frontier->centroid;
-        
-        /* === This is deprecated code from original repo, we do not use it anymore=====
-        //timeout if we are not making any progress
-        // geometry_msgs::Point target_position = frontier->view_point_to_navigate_to; @BUG -some weird waypoints.
-        // bool same_goal = prev_goal_ == target_position;
-        // prev_goal_ = target_position;
-        // if (!same_goal || prev_distance_ > frontier->min_distance) 
-        // {
-        //   last_progress_ = ros::Time::now(); // we have different goal or we made some progress
-        //   prev_distance_ = frontier->min_distance;
-        // }
-        
-        // if (ros::Time::now() - last_progress_ > progress_timeout_) // black list if we've made no progress for a long time
-        // {
-        //   frontier_blacklist_.push_back(target_position);
-        //   ROS_DEBUG("Adding current goal to black list");
-        //   makePlan();
-        //   return;
-        // }
-
-        // if (same_goal) 
-        // {
-        //   return;     // we don't need to do anything if we still pursuing the same goal
-        // }
-        // send goal to move_base if we have something new to pursue
-        ========================================================================================*/
-
         move_base_msgs::MoveBaseGoal goal;
         goal.target_pose.pose.position = target_position;
         goal.target_pose.pose.orientation.w = 1.;
