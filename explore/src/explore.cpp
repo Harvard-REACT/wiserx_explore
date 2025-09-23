@@ -93,7 +93,7 @@ namespace explore
   }
 
 
-
+//For Gazebo Simulation
 void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
 {
     std::vector<std::string> name = input_msg->name;
@@ -248,7 +248,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               //Add estimated position
               costmap2d->worldToMap(est_x_j, est_y_j, mx__, my__);
               position_node.add_position_noise(mx__, my__);            
-              position_node.updateOmega(cov_array[0], cov_array[3]); //Update the term based on the covariance
+              position_node.updateOmega(cov_array[0], cov_array[3]); //Get the covariance of the pose which is later useful when computing the information gain
               robot_information__[name[itr]].node_information.push(position_node);
               base_quadmap_.insert_till_end(position_node); 
               
@@ -325,6 +325,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
   }
 
+  //For hardware experiments
   void Explore::SensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg)
   {
       ROS_INFO("=== Entered SensingCallbackFilter ===");
@@ -574,24 +575,27 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         }  
           
         msg.own_current_pose = own_current_pose_vec;
-
-        //Get frontiers centroids. //Commeted out for Debugging
-        // frontiers_copy = frontier_temp__;
-        // // if(frontier_temp__.size()>0) 
-        // for(auto frontier_val : frontiers_copy)
-        // {
-        //   // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
-        //   wiserx_explore_lite::FrontierInfo fc_point;
-        //   costmap->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
-        //   fc_point.centroid.x = fmx__;
-        //   fc_point.centroid.y = fmy__;
-        //   fc_point.size=frontier_val.size;
-        //   fc_point.information_gain=frontier_val.information_gain;
-        //   fc_point.centroid_distance=frontier_val.centroid_distance;
-        //   fc_point.utility=frontier_val.cost;
-        //   fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
-        //   msg.frontiers.push_back(fc_point);
-        // }
+        
+        /*
+        //Commeted out for Debugging
+        //Get frontiers centroids. 
+        frontiers_copy = frontier_temp__;
+        // if(frontier_temp__.size()>0) 
+        for(auto frontier_val : frontiers_copy)
+        {
+          // frontier_exploration::Frontier frontier_val = frontier_temp__[0];
+          wiserx_explore_lite::FrontierInfo fc_point;
+          costmap->worldToMap(frontier_val.centroid.x, frontier_val.centroid.y, fmx__, fmy__);
+          fc_point.centroid.x = fmx__;
+          fc_point.centroid.y = fmy__;
+          fc_point.size=frontier_val.size;
+          fc_point.information_gain=frontier_val.information_gain;
+          fc_point.centroid_distance=frontier_val.centroid_distance;
+          fc_point.utility=frontier_val.cost;
+          fc_point.neighboring_robot_position_count=frontier_val.neighbors_count;
+          msg.frontiers.push_back(fc_point);
+        }
+        */
 
         // === Final publish ===
         msg.header.stamp = ros::Time::now();
@@ -719,7 +723,7 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
     stop_val = std::chrono::high_resolution_clock::now();
   }
 
-
+//TODO: Check if deprecated
 void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::ModelStates::ConstPtr& input_msg)
 {
     std::vector<std::string> name = input_msg->name;
@@ -929,6 +933,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("ymin", y_min__, 0.0);
     private_nh_.param("xmax", x_max__, 0.0);
     private_nh_.param("ymax", y_max__, 0.0);
+    private_nh_.param("robot_initial_map_pose_x", robot_initial_map_pose_x__, 0);
+    private_nh_.param("robot_initial_map_pose_y", robot_initial_map_pose_y__, 0);
  
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
@@ -970,31 +976,36 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
     ROS_INFO("Sensor range = %f", sensor_range_);
     ROS_INFO("min_frontier_size = %f", min_frontier_size);  
-    
-    //Since we insert in map coordinates
-    float width = Quadmap_width_/map_resolution__;
-    float height = Quadmap_height/map_resolution__;
-
-    //TODO : Check this - map coordinates, map_resolution,
-    
-    auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
-    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
-    cell_count__ = base_quadmap_.total_cells;
-    
+        
     /**
      * This change has been made for running hardware expperiments with gmapping that automatically expands the map beyond the actual physical limits
     */
     if(!FLAG_SIM_)
     {
-      cell_count__ = 16;
+      Quadmap_width_ = std::max((x_max__+x_min__), (y_max__+y_min__));
+      Quadmap_height = Quadmap_width_;
+      std::cout << "Quadmap_width_, Quadmap_height: " << Quadmap_width_ << ", " << Quadmap_width_ << std::endl;
+      std::cout << "map_resolution__" << map_resolution__ << std::endl;
+
       ekf_velocity_x = 0.1;
       ekf_velocity_y = 0.1;
       baseline_1_frontier_selection_threshold__ = 80; //Since our hardware environment is small and not many forntiers are generated
       
-      auto pose = costmap_client_.getRobotPose();
       unsigned int mx, my;
-      costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
-      costmap2d->worldToMap(pose.position.x, pose.position.y, mx, my);
+
+      //Handle random failures for unknown reasons by restarting from the last point of failure
+      if(robot_initial_map_pose_x__== 0 && robot_initial_map_pose_y__ == 0)
+      {
+        auto pose = costmap_client_.getRobotPose();
+        costmap_2d::Costmap2D* costmap2d = costmap_client_.getCostmap();
+        costmap2d->worldToMap(pose.position.x, pose.position.y, mx, my);
+      }
+      else
+      {
+        mx = robot_initial_map_pose_x__;
+        my = robot_initial_map_pose_y__;
+      }
+      
       x_env_map_max_limit__ = mx + int((x_max__+ 2*x_min__) / map_resolution__);
       y_env_map_max_limit__ = my + int((y_max__+ 2*y_min__) /map_resolution__);
       x_env_map_min_limit__ = mx + int(x_min__/map_resolution__);
@@ -1004,6 +1015,19 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       std::cout << "**********************Map limits: " << x_env_map_min_limit__ << ", " << x_env_map_max_limit__ << ", " << y_env_map_min_limit__ << "," << y_env_map_max_limit__ << std::endl;
     }
     //*****************************************************************
+
+    //Since we insert in map coordinates
+    float width = Quadmap_width_/map_resolution__;
+    float height = Quadmap_height/map_resolution__;
+    std::cout << "width, height: " << width << ", " << height << std::endl;
+    
+
+    //TODO : Check this - map coordinates, map_resolution,
+    auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
+    base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
+    cell_count__ = base_quadmap_.total_cells;
+
+    std::cout << "cell_count__" << cell_count__ << std::endl;
 
     if (visualize_) {
       marker_array_publisher_ = private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
@@ -1148,13 +1172,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
       
       ROS_DEBUG("found %lu frontiers", frontiers__.size());
-
-      if (ros::Time::now() - last_progress_ > progress_timeout_) 
-      {
-        move_base_client_.cancelAllGoals();
-        last_progress_ = ros::Time::now();
-        ROS_INFO("******* REVAULATING ALL FRONTIERS ******************");
-      }
 
       // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
       ros::Duration half_duration(progress_timeout_.toSec()*0.5);
@@ -1301,6 +1318,15 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                           reachedGoal(status, result, target_position);
                       });
         
+      if (ros::Time::now() - last_progress_ > progress_timeout_) 
+      {
+        move_base_client_.cancelAllGoals();
+        last_progress_ = ros::Time::now();
+        ROS_INFO("******* Unable to find path to frontier. Discarding ******************");
+        frontier_blacklist_.push_back(target_position);
+      }
+
+
       }
 
       //Get estimated fill percentage of the quadmap

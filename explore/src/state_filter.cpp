@@ -180,11 +180,6 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
                                                             std::vector<float>& bearing_measurements, 
                                                             geometry_msgs::Pose& robot_i_position) 
 {
-    
-    // Top N peaks generation based on AOA profile variance
-    //if(variance <= 0.85 || variance > 1.15) peak_threshold = 25; //in percent
-    //else if (variance > 0.85 && variance <= 1.15) peak_threshold = 5;
-
     residuals__.clear();
     likelihoods__.clear();
     angle_val__.clear();
@@ -273,9 +268,6 @@ VectorXd wsr_state_estimation::ExtendedKalmanFilter::h(const VectorXd &state, ge
 MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position) 
 {
     MatrixXd Hj(2, 4);
-    // double px = state(0);
-    // double py = state(1);
-
     double dx = state(0) - robot_i_position.position.x;
     double dy = state(1) - robot_i_position.position.y;
 
@@ -309,28 +301,3 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobianV2(const V
 
     return Hj;
 }
-
-
-
-
-// int main() {
-//     ExtendedKalmanFilter ekf;
-
-//     // Simulate a noisy range and bearing measurement
-//     // For example, a target at (1,1) with some measurement noise
-//     double range_measurement = sqrt(2.0) + 0.1; // Some noise added
-//     double bearing_measurement = atan2(1.0, 1.0) + 0.01; // Some noise added
-//     VectorXd z(2);
-//     z << range_measurement, bearing_measurement;
-
-//     // Run prediction
-//     ekf.predict();
-
-//     // Update EKF with the noisy measurements
-//     ekf.update(z);
-
-//     // Print the updated state
-//     std::cout << "Updated state x:\n" << ekf.x << std::endl;
-
-//     return 0;
-// }

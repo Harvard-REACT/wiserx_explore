@@ -5,11 +5,11 @@
 <arg name="use_WSR"  default="false"/>
 <arg name="robot_base_frame_for_gmapping"  default="base_link"/> 
 <arg name="use_sim"  default="true"/> 
-<arg name="diff_between_termination_thresholds"  default="10"/> 
-<arg name="quadmap_fill_percentage"  default="95"/> 
+<arg name="diff_between_termination_thresholds"  default="50"/> 
+<arg name="quadmap_fill_percentage"  default="90"/> 
 <arg name="sensor_range_val"  default="11.25"/>
 <arg name="min_frontier_size_val"  default="0.75"/>
-<arg name="progress_timeout_val" default="20"/>
+<arg name="progress_timeout_val" default="10"/>
 <arg name="robot_speed" default="0.05"/>
 <arg name="hgrid_width" default="45"/>
 <arg name="hgrid_height" default="45"/>
@@ -22,7 +22,8 @@
 <arg name="ymin_val" default="0.0"/>
 <arg name="xmax_val" default="0.0"/>
 <arg name="ymax_val" default="0.0"/>
-
+<arg name="robot_initial_map_pose_x" default="0"/>
+<arg name="robot_initial_map_pose_y" default="0"/>
 
  <group ns="$(arg ns)">
   <node pkg="wiserx_explore_lite" type="explore" respawn="false" name="explore" output="screen">
@@ -62,6 +63,8 @@
     <param name="ymin" value="$(arg ymin_val)"/>
     <param name="xmax" value="$(arg xmax_val)"/>
     <param name="ymax" value="$(arg ymax_val)"/>
+    <param name="robot_initial_map_pose_x" value="$(arg robot_initial_map_pose_x)"/>
+    <param name="robot_initial_map_pose_y" value="$(arg robot_initial_map_pose_y)"/>
   </node>
 </group>
 

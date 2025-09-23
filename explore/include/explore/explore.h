@@ -230,6 +230,8 @@ private:
   double x_max__ = 0.0;
   double y_min__ = 0.0;
   double y_max__ = 0.0;
+  int robot_initial_map_pose_x__= 0;
+  int robot_initial_map_pose_y__ = 0;
 
   //Filter parameters
   std::vector<double> measurement_output__;

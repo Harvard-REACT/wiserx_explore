@@ -25,7 +25,8 @@ python2 ~/catkin_ws/src/uwb_ros_publisher/scripts/uwb_pub_multi.py -s 1 -n /tb3_
 roslaunch wiserx_explore_lite realtime_range_aoa.launch publish_aoa_profile:=true robot_id:=1 aoa_profile_file_path:="/home/explorer-1/catkin_ws/src/react-m_explore/explore/data/tx2_aoa_profile__0.csv" aoa_peaks_file_path:="/home/explorer-1/catkin_ws/src/react-m_explore/explore/data/aoa_val.csv" use_real_sensor:=true measurement_interval:=4.0 robot_name:=tb3_1
 
 Note: 
-set use_real_sensor:=false to use only mocap. No need to run UWB sensor node. But this will still need the use of ./alternate_motion.sh (and servo should be rotating) to start own pose data collection from the SLAM in the explore.cpp.
+set use_real_sensor:=false to use only mocap. No need to run UWB sensor node. 
+
 ===============================================================================
 
 
@@ -33,9 +34,11 @@ set use_real_sensor:=false to use only mocap. No need to run UWB sensor node. Bu
 
 roslaunch wiserx_explore_lite hw_single_turtlebot3_bringup.launch robot_name:=tb3_1 port:=/dev/sensor_lidar
 
-roslaunch wiserx_explore_lite hw_single_turtlebot3_gmapping.launch robot_name:=tb3_1 xmin:=-3.0 ymin:=-5.75 xmax:=14 ymax:=13
+#This has extra buffer to avoid auto expansion of the map as the robot's pose changes due to it.
+roslaunch wiserx_explore_lite hw_single_turtlebot3_gmapping.launch robot_name:=tb3_1 xmin:=-4.0 ymin:=-7.5 xmax:=13.5 ymax:=14.5
 
-roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_1 multi_robot_id:=1 enable_wsr:=true use_real_sensor:=true open_rviz:=false debug_mocap_pose:=false
+roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_1 multi_robot_id:=1 enable_wsr:=true use_real_sensor:=true open_rviz:=false debug_mocap_pose:=false xmin:=-1.5 ymin:=-5.0 xmax:=11.0 ymax:=12 map_resolution:=0.2 sensor_range:=2.5 robot_initial_map_pose_x:=0 robot_initial_map_pose_y:=0 robot_speed:=0.075
+
 
 Note:
 enable_wsr : this decides the type of algorithm to be used (e.g., WiSER-X vs the baselines)
@@ -49,7 +52,6 @@ echo "abc123" | sudo -S killall log_to_file
 View profile list: 
 cd ~/catkin_ws/src/explore_lite/data 
 tail -f aoa_val.csv
-
 
 
 ## TB32
