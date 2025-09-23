@@ -8,7 +8,7 @@ std::string aoa_profile_name = "";
 std::ifstream fin, aoa_profile;
 std::vector<double> all_range_data, sampled_range_data, top_aoa_peaks;
 bool Flag_get_data_ = false, first_itr=true;
-time_t last_time, current_time_val;
+double last_time, current_time_val;
 ros::Publisher range_bearing_publisher;
 double profile_variance = 0;
 std::vector<double> profile_array;
@@ -131,11 +131,12 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
 
             if(first_itr)
             {
-                last_time = strtoul( tokens[0].c_str(), NULL, 0 );
+                last_time = strtod( tokens[0].c_str(), NULL);
                 first_itr = false;
             }
 
-            current_time_val = strtoul( tokens[0].c_str(), NULL, 0 );
+            current_time_val = strtod( tokens[0].c_str(), NULL);
+	    ROS_INFO("CSI time : %f", current_time_val);
             if( current_time_val > last_time-2)
             {
                 //<timstamp, txid, profile_variance, topN phi angles>
@@ -147,7 +148,7 @@ void range_bearing_CB(const std_msgs::Float64MultiArray::ConstPtr& msg)
                 if(FLAG_publish_aoa_profile){
             
                     //Use this to publish the aoa profile also
-		             ROS_INFO("Reading AOA profile data");
+		    ROS_INFO("Reading AOA profile data");
                     aoa_profile.open(aoa_profile_name); 
                     if(aoa_profile.is_open()){
                         std::string line, val;                  /* string for line & value */
