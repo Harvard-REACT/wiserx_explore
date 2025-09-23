@@ -3,19 +3,29 @@ TebLocalPlannerROS:
  map_frame: tb3_1/map
     
  # Trajectory
- max_vel_x: 0.055 #NJ updated
- max_vel_x_backwards: 0.055 #NJ updated
+#  max_vel_x: 0.055 #NJ updated
+#  max_vel_x_backwards: 0.055 #NJ updated
+ max_vel_x: 0.075 #NJ updated
+ max_vel_x_backwards: 0.075 #NJ updated
  max_vel_theta: 0.5 #NJ updated
  acc_lim_x: 1.0 #NJ updated
  acc_lim_theta: 2.0 #NJ updated
+ 
+ #Used during debugging exploration only
+#  max_vel_x: 0.5 #NJ updated
+#  max_vel_x_backwards: 0.5 #NJ updated
+#  max_vel_theta: 1.0 #NJ updated
+#  acc_lim_x: 2.0 #NJ updated
+#  acc_lim_theta: 2.0 #NJ updated
+ 
  min_turning_radius: 0.0
  footprint_model: # types: "point", "circular", "two_circles", "line", "polygon"
   type: "polygon"
-  vertices: [[-0.215, -0.165], [-0.215, 0.165], [0.087, 0.165], [0.087, -0.165]]
+  vertices: [[-0.225, -0.175], [-0.225, 0.175], [0.097, 0.175], [0.097, -0.175]]
 
 
 # GoalTolerance
- xy_goal_tolerance: 0.45 #NJ updated
+ xy_goal_tolerance: 0.25 #NJ updated
  yaw_goal_tolerance: 6.28319
  free_goal_vel: False
 
@@ -23,7 +33,8 @@ TebLocalPlannerROS:
  dt_ref: 0.3
  dt_hysteresis: 0.03
  global_plan_overwrite_orientation: True
- max_global_plan_lookahead_dist: 2.0
+ max_global_plan_lookahead_dist: 0.6
+ global_plan_viapoint_sep: 0.3
 
  # Obstacles
  min_obstacle_dist: 0.5 #NJ updated

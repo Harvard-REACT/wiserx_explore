@@ -68,7 +68,6 @@ namespace quadmap
 
             void updateOmega(double cov_x, double cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                // omega = exp(-gamma_val*(cov_x+cov_y));
                 omega = std::min(1.0,1/(cov_x+cov_y)); //Inverse of the Trace of the covariance matrix
                 ROS_INFO("OMEGA = %f", omega);
             }
@@ -192,12 +191,11 @@ namespace quadmap
         : boundary(boundary), sensor_range(sensor_range), map_resolution(map_resolution), depth(depth), divided(false)
         {
             sensor_range_map_res = sensor_range/map_resolution;
-            total_cells = (boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res);
+            total_cells = int(std::ceil((boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res)));
 
             if (boundary.w != boundary.h) 
             {
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
-                exit(1);
             }
             // ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
             // ROS_INFO("sensor_range %f ", sensor_range);

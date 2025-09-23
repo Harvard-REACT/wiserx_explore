@@ -125,27 +125,17 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 0.1, 0,
         0, 0, 0, 0.1;
 
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.08;  // 30 cm and 16 degree of standard deviation for range and bearing
+    // //Updated R on July 31 2025 - Trial 4
+    // R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+    //     0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
+    // Trial 5
+    // R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+    //     0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
-    //Updated R on July 31 2025
-    R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+    //Trial 6
+    R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
         0, 0.1;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
-
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.01;  // 10 cm and 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
-
-    // R << 0.01, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.001;  // 10cm and 1.81 degree of standard deviation for range and bearing 
-
-    // R << 0.0025, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.001;  // 5cm and 1.81 degree of standard deviation for range and bearing 
-
-
-    // R << 0.001, 0,   // Measurement noise covariance (range (m), bearing (radians))
-    //     0, 0.0001;  // 3cm and 0.5 degree of standard deviation for range and bearing 
-
 
 }
 
@@ -190,11 +180,6 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
                                                             std::vector<float>& bearing_measurements, 
                                                             geometry_msgs::Pose& robot_i_position) 
 {
-    
-    // Top N peaks generation based on AOA profile variance
-    //if(variance <= 0.85 || variance > 1.15) peak_threshold = 25; //in percent
-    //else if (variance > 0.85 && variance <= 1.15) peak_threshold = 5;
-
     residuals__.clear();
     likelihoods__.clear();
     angle_val__.clear();
@@ -211,13 +196,15 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
     ROS_INFO("Obtained bearing measurements size %d", int(bearing_measurements.size()));
     for(auto bval : bearing_measurements){
-        VectorXd z(2); z << range_measurement, bval;        
+        VectorXd z(2); 
+        z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
         y(1) = wrapToPi(y(1)); 
         float d2 = MahalanobisDistance(y, S);
         ROS_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
         if(d2 < 5.99){ //95% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
-	  float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
+        // if(d2 < 4.605){ //90% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
+	      float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
           residuals__.push_back(y);
           likelihoods__.push_back(gaussian_pdf);
           angle_val__.push_back(z[1]);
@@ -281,9 +268,6 @@ VectorXd wsr_state_estimation::ExtendedKalmanFilter::h(const VectorXd &state, ge
 MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position) 
 {
     MatrixXd Hj(2, 4);
-    // double px = state(0);
-    // double py = state(1);
-
     double dx = state(0) - robot_i_position.position.x;
     double dy = state(1) - robot_i_position.position.y;
 
@@ -317,28 +301,3 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobianV2(const V
 
     return Hj;
 }
-
-
-
-
-// int main() {
-//     ExtendedKalmanFilter ekf;
-
-//     // Simulate a noisy range and bearing measurement
-//     // For example, a target at (1,1) with some measurement noise
-//     double range_measurement = sqrt(2.0) + 0.1; // Some noise added
-//     double bearing_measurement = atan2(1.0, 1.0) + 0.01; // Some noise added
-//     VectorXd z(2);
-//     z << range_measurement, bearing_measurement;
-
-//     // Run prediction
-//     ekf.predict();
-
-//     // Update EKF with the noisy measurements
-//     ekf.update(z);
-
-//     // Print the updated state
-//     std::cout << "Updated state x:\n" << ekf.x << std::endl;
-
-//     return 0;
-// }
