@@ -172,7 +172,7 @@ namespace frontier_exploration
     double swx, swy, wx, wy, rwx, rwy;
     float L = sensor_range;
     int rel_positions_in_known_region=0;
-    float total_info_from_a_frontier = 0;
+    float total_info_from_a_frontier = 0.01; //to avoid division by zero
     float info_loss_at_a_frontier = 0;
 
     if (start >= size_x * size_y) 
@@ -216,6 +216,8 @@ namespace frontier_exploration
     {
       unsigned int idx = bfs.front();
       bfs.pop();
+      E_hat_c = 0;
+      S_c = 0;
 
       // return if cell of correct value is found
       if (map[idx] == cell_val) 
@@ -231,8 +233,8 @@ namespace frontier_exploration
         //Basically we want to capture the uncertainty in information gain as the cell distance increases from a frontier
         //Subtract the information loss due to other robots positions 
         
-        E_hat_c = 0;
-        int iterator = 0;
+        // int iterator = 0;
+        
         for (auto neighboring_robot_val : neighboring_robots_quadmap_positions) 
         {
             costmap.mapToWorld(neighboring_robot_val.est_mx, neighboring_robot_val.est_my, rwx, rwy);
@@ -244,7 +246,7 @@ namespace frontier_exploration
             
             /*Tau = 1 indicates that the robot j is still operational*/
             E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
-            iterator+=1;
+            // iterator+=1;
 
             /* Deprecated
             if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
@@ -271,23 +273,21 @@ namespace frontier_exploration
             }
             */
         }
+
         // ROS_INFO("--------------------------------------------------");
         // if(neighboring_robots_quadmap_positions.size()>0) 
         // {
         //   E_hat_c /= int(neighboring_robots_quadmap_positions.size()); //Average out the loss
         // }
         
-        /*Info from a cell cannot be negative. Do not consider negative values. The lowest info from a frontier should be 0 and not negative.*/
-        result += std::max(0.0, double(S_c - E_hat_c)); // Use this when sensor bounding overlapp within sensor_range only
-        // result += (sigmoid_cost_amplitude_ * 1/(1+exp((dist_i-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_)) - E_hat_c); // Use this when sensor bounding overlapp within sensor_range only
-        
-        //result += 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c; // Use this when sensor bounding overlapp within sensor_range only
-        // result += std::max(float(0.0), 1/(1+exp(sigmoid_cost_steepness_*(dist_i-sigmoid_cost_midpoint_))) - E_hat_c); //Not using negative info gain for a cell 
-        
-        info_loss_at_a_frontier+=E_hat_c; // This will be higher than result variable. Just for logging.
-        total_info_from_a_frontier+= S_c; //Used just for logging
+        /*Info cannot be negative. Hence do not consider negative values. 
+          The lowest info from a frontier should be 0 and not negative.
+          The RHS or line 287 is thus interpreted as net info of a cell
+        */
+        result += std::max(0.0, double(S_c - E_hat_c));
+        total_info_from_a_frontier+= S_c; // Total info of a cell
+        info_loss_at_a_frontier+= S_c - std::max(0.0, double(S_c - E_hat_c)); // Total - net 
       }
-      
 
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)
       for (unsigned nbr : nhood8(idx, costmap)) 
@@ -313,7 +313,10 @@ namespace frontier_exploration
       }
     }
 
-    info_used_at_frontier_percent = std::min(float(100.0), 100*info_loss_at_a_frontier/total_info_from_a_frontier); //Just for logging
+    ROS_INFO("info_loss_at_a_frontier E_hat_c: %f", info_loss_at_a_frontier);
+    ROS_INFO("total_info_from_a_frontier S_c: %f", total_info_from_a_frontier);
+    info_used_at_frontier_percent = std::min(float(100.0), float(100*info_loss_at_a_frontier/total_info_from_a_frontier)); //Just for logging
+    
     return true;
   }
 

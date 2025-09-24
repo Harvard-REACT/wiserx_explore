@@ -191,7 +191,7 @@ namespace quadmap
         : boundary(boundary), sensor_range(sensor_range), map_resolution(map_resolution), depth(depth), divided(false)
         {
             sensor_range_map_res = sensor_range/map_resolution;
-            total_cells = int(std::ceil((boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res)));
+            total_cells = int((boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res));
 
             if (boundary.w != boundary.h) 
             {
@@ -362,7 +362,6 @@ namespace quadmap
                 }
                 
                 // ROS_INFO("hgrid cell filled val: %d\n", this->filled_val);
-
                 if (this->filled_val > 0) //Atleast 1 position estimates inside it, since sometimes ekf will generate spurious measurements
                 {
                     filled_cell_count += 1;

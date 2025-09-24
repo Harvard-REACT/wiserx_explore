@@ -195,7 +195,7 @@ private:
   geometry_msgs::PoseStamped goal__;
   float tolerance__ = 0.5; //in meters
   int baseline_1_frontier_selection_threshold__ = 60;
-  int pose_size_limit__ = 600;
+  int pose_size_limit__ = 550;
   double robot_speed_ = 0.15;
   float bearing_angle_radians__ = 0;
   std::vector<float> bearing_angle_radians_vec__;

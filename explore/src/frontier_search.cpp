@@ -176,8 +176,8 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
 
     if(idx_coord_x > x_env_map_max_limit || idx_coord_y > y_env_map_max_limit || idx_coord_x < x_env_map_min_limit || idx_coord_y < y_env_map_min_limit) 
     {
-      std::cout << "**********************FS X coord: " << idx_coord_x << " size_x_ " << size_x_ << ", x_env_map_max_limit: " << x_env_map_max_limit << ", x_env_map_min_limit: " << x_env_map_min_limit << std::endl;
-      std::cout << "**********************FS Y coord: " << idx_coord_y << " size_y_ " << size_y_ << ", y_env_map_max_limit: " << y_env_map_max_limit << ", y_env_map_min_limit: " << y_env_map_min_limit << std::endl;
+      // std::cout << "**********************FS X coord: " << idx_coord_x << " size_x_ " << size_x_ << ", x_env_map_max_limit: " << x_env_map_max_limit << ", x_env_map_min_limit: " << x_env_map_min_limit << std::endl;
+      // std::cout << "**********************FS Y coord: " << idx_coord_y << " size_y_ " << size_y_ << ", y_env_map_max_limit: " << y_env_map_max_limit << ", y_env_map_min_limit: " << y_env_map_min_limit << std::endl;
       continue; 
     }
 
@@ -229,7 +229,7 @@ std::vector<Frontier> FrontierSearch::searchFrontiers(geometry_msgs::Point& posi
       temp = splitFrontierPCA(frontier, pos);
       for(auto fval : temp) fq.push(fval);
       temp.clear();
-      ROS_INFO("Split a frontier");
+      // ROS_INFO("Split a frontier");
     }
     else
     {
@@ -275,7 +275,6 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     float info_gain_uexp_cell_count_max = -1;
     float info_used_at_frontier_percent_max = 0;
     Frontier frontier = frontier_list[i];
-    info_gain_uexp_cell_count = 0;
     std::vector<geometry_msgs::Point> start_vec{frontier.centroid};
     std::vector<quadmap::Node> neighboring_robots_positions;
     bool Flag_use_view_points = true;
@@ -310,8 +309,8 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       costmap_->worldToMap(start.x, start.y, fmx, fmy);
       unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
       
-      ROS_INFO("Frontier centroid World pos: %f, %f", frontier.centroid.x, frontier.centroid.y);
-      ROS_INFO("Frontier Map pos: %d, %d", fmx, fmy);
+      ROS_INFO("Frontier viewpoint world pos: %f, %f", start.x, start.y);
+      ROS_INFO("Frontier viewpoint map pos: %d, %d", fmx, fmy);
       ROS_INFO("Frontier centroid index= %d", frontier_pos);
       ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
       
@@ -323,6 +322,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
       {      
         int ts=0;
         info_used_at_frontier_percent = 0;
+        info_gain_uexp_cell_count = 0;
         neighboring_robots_positions.clear();
 
         quadmap::Node FrontierViewpoint(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
@@ -373,14 +373,14 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     }
 
     frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
-    if(frontier.cost > 0)
+    if(frontier.cost > 1)
     {
       frontier.neighbors_count = max_neighbor_count;
       frontier.information_gain = info_gain_uexp_cell_count_max;
       frontier.info_used_percent = info_used_at_frontier_percent_max;
 
-      if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 90.0)
-      // if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 50.0) //For hardware experiments in the flight lab
+      // if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 90.0)
+      if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 50.0) //For hardware experiments in the flight lab
       // if(__FLAG_can_stop_now__ && frontier.cost < 5)
       {
         ROS_INFO("Discarding frontier");

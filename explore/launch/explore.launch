@@ -5,7 +5,7 @@
 <arg name="use_WSR"  default="false"/>
 <arg name="robot_base_frame_for_gmapping"  default="base_link"/> 
 <arg name="use_sim"  default="true"/> 
-<arg name="diff_between_termination_thresholds"  default="50"/> 
+<arg name="diff_between_termination_thresholds"  default="40"/> 
 <arg name="quadmap_fill_percentage"  default="90"/> 
 <arg name="sensor_range_val"  default="11.25"/>
 <arg name="min_frontier_size_val"  default="0.75"/>

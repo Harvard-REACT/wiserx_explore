@@ -547,8 +547,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           {
               auto& robot_data = robot_information__[other_robot_name];
               quadmap::Node j_position_node(ekf_robot_track__[other_robot_name].mx__,
-            ekf_robot_track__[other_robot_name].my__, 
-            robot_data.robot_tau, robot_data.robot_id, timestep__);
+              ekf_robot_track__[other_robot_name].my__, 
+              robot_data.robot_tau, robot_data.robot_id, timestep__);
               j_position_node.updateOmega(covariance_array[0], covariance_array[3]);
               robot_data.node_information.push(j_position_node);
               base_quadmap_.insert_till_end(j_position_node);
@@ -557,8 +557,8 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               neighbor.true_map_position.y = j_position_node.true_my;
               neighbor.estimated_map_position.x = j_position_node.est_mx;
               neighbor.estimated_map_position.y = j_position_node.est_my;
-        ekf_robot_track__[other_robot_name].prev_mx__ = ekf_robot_track__[other_robot_name].mx__;
-        ekf_robot_track__[other_robot_name].prev_my__ = ekf_robot_track__[other_robot_name].my__;
+              ekf_robot_track__[other_robot_name].prev_mx__ = ekf_robot_track__[other_robot_name].mx__;
+              ekf_robot_track__[other_robot_name].prev_my__ = ekf_robot_track__[other_robot_name].my__;
           }
           neighbor.true_range_bearing = { true_measurements.first, true_measurements.second * 180.0 / M_PI};
           neighbor.est_range_bearing = { range_to_use__, bearing_angle_radians_vec__[0] * 180.0 / M_PI };
@@ -982,7 +982,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     */
     if(!FLAG_SIM_)
     {
-      Quadmap_width_ = std::max((x_max__+x_min__), (y_max__+y_min__));
+      /*Quadmap needs to be a square; it would be smaller than the actual map size. But the information gain is computed based on actual map size.
+      This makes sense as the robot does not move physically to each and every position of the map.
+      */
+      Quadmap_width_ = std::min((x_max__-x_min__), (y_max__-y_min__));
       Quadmap_height = Quadmap_width_;
       std::cout << "Quadmap_width_, Quadmap_height: " << Quadmap_width_ << ", " << Quadmap_width_ << std::endl;
       std::cout << "map_resolution__" << map_resolution__ << std::endl;
@@ -1006,8 +1009,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         my = robot_initial_map_pose_y__;
       }
       
-      x_env_map_max_limit__ = mx + int((x_max__+ 2*x_min__) / map_resolution__);
-      y_env_map_max_limit__ = my + int((y_max__+ 2*y_min__) /map_resolution__);
+      x_env_map_max_limit__ = mx + int(x_max__/map_resolution__);
+      y_env_map_max_limit__ = my + int(y_max__/map_resolution__);
       x_env_map_min_limit__ = mx + int(x_min__/map_resolution__);
       y_env_map_min_limit__ = my + int(y_min__/map_resolution__);
 
@@ -1026,7 +1029,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
     base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
     cell_count__ = base_quadmap_.total_cells;
-
     std::cout << "cell_count__" << cell_count__ << std::endl;
 
     if (visualize_) {
@@ -1174,11 +1176,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       ROS_DEBUG("found %lu frontiers", frontiers__.size());
 
       // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
-      ros::Duration half_duration(progress_timeout_.toSec()*0.5);
+      // Reevaulate all frontiers once 85% For smaller area in hardware experiments; else corners remain with very small utility values
+      ros::Duration half_duration(progress_timeout_.toSec()*0.85);
       if (ros::Time::now() - last_progress_ > half_duration) 
       {
         move_base_client_.cancelAllGoals();
-        ROS_INFO("******* REACHED halfway to goal ---  REVAULATING ALL FRONTIERS ******************");
+        ROS_INFO("******* REACHED 3/4th to goal ---  REVAULATING ALL FRONTIERS ******************");
       }
 
       
