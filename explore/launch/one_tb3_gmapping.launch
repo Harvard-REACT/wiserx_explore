@@ -46,7 +46,7 @@
         <param name="ymin" value="$(arg ymin_val)"/>
         <param name="xmax" value="$(arg xmax_val)"/>
         <param name="ymax" value="$(arg ymax_val)"/>
-        <param name="delta" value="0.2"/> <!-- default 0.05 NJ:changed to match mprim file for SBPL planner-->
+        <param name="delta" value="0.15"/> <!-- default 0.05 NJ:changed to match mprim file for SBPL planner-->
         <param name="occ_thresh" value="0.5"/>
         <param name="llsamplerange" value="0.01"/>
         <param name="llsamplestep" value="0.01"/>
