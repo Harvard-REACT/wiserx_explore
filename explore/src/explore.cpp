@@ -1230,7 +1230,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         ROS_INFO("===============Sorted frontiers===================");
         for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
         {
-          ROS_INFO("frontier %zd cost: %f", i, final_sorted_frontiers[i].cost);
+          ROS_INFO("frontier %zd utility: %f", i, final_sorted_frontiers[i].cost);
           ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
         }
 

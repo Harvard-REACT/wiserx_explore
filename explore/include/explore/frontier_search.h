@@ -81,14 +81,19 @@ protected:
    * as frontiers
    * @return new frontier
    */
-  Frontier buildNewFrontier(unsigned int initial_cell, unsigned int reference,
-                            std::vector<bool>& frontier_flag);
-
-
-  Frontier buildNewFrontier(unsigned int initial_cell,
+  Frontier buildNewFrontier(unsigned int initial_cell, 
                             unsigned int reference,
                             std::vector<bool>& frontier_flag,
-                            std::vector<geometry_msgs::Point> rel_positions);
+                            unsigned int x_env_map_max_limit, 
+                            unsigned int y_env_map_max_limit,
+                            unsigned int x_env_map_min_limit,
+                            unsigned int y_env_map_min_limit);
+
+
+  // Frontier buildNewFrontier(unsigned int initial_cell,
+  //                           unsigned int reference,
+  //                           std::vector<bool>& frontier_flag,
+  //                           std::vector<geometry_msgs::Point> rel_positions);
 
 
   /**
