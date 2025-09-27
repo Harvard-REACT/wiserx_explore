@@ -622,7 +622,7 @@ namespace frontier_exploration
       }
 
       frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
-      if(frontier.cost > 2) //Near edges; discard
+      if(frontier.cost > 5) //Empirically found this for near edges for hardware experiments; discard
       {
         frontier.neighbors_count = max_neighbor_count;
         frontier.information_gain = info_gain_uexp_cell_count_max;

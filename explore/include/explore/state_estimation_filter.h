@@ -25,7 +25,7 @@ namespace wsr_state_estimation
         std::vector<float> angle_val__;
         std::vector<float> angle_pred__;
         std::vector<float> probs_vec__;
-	unsigned int mx__, my__, prev_mx__, prev_my__;
+	    unsigned int mx__, my__, prev_mx__, prev_my__;
 
         ExtendedKalmanFilter(){}
         ~ExtendedKalmanFilter(){}

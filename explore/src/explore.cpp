@@ -54,8 +54,8 @@ auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
 double _previous_range_measurement = 2.0;
 std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
-float ekf_velocity_x = 0.1;
-float ekf_velocity_y = 0.1;
+float ekf_velocity_x = 0.0;
+float ekf_velocity_y = 0.0;
 
 
 std::string exec(const char* cmd) {
@@ -1178,7 +1178,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
       // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
       // Reevaulate all frontiers once 85% For smaller area in hardware experiments; else corners remain with very small utility values
-      ros::Duration half_duration(progress_timeout_.toSec()*0.85);
+      ros::Duration half_duration(progress_timeout_.toSec()*0.90);
       if (ros::Time::now() - last_progress_ > half_duration) 
       {
         move_base_client_.cancelAllGoals();

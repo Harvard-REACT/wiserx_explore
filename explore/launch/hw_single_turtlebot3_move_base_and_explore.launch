@@ -20,6 +20,7 @@
   <arg name="robot_speed" default="0.05"/>
   <arg name="hgrid_width" default="45"/>
   <arg name="hgrid_height" default="45"/>
+  <arg name="measurement_interval" default="3"/>
 
     <!-- move_base -->
    <group ns="$(arg multi_robot_name)">
@@ -60,6 +61,7 @@
     <arg name="robot_speed" value="$(arg robot_speed)"/>
     <arg name="hgrid_width"  value="$(arg hgrid_width)"/>
     <arg name="hgrid_height"  value="$(arg hgrid_height)"/>
+    <arg name="measurement_interval"  value="$(arg measurement_interval)"/>
   </include>
   <!-- </group> -->
 

@@ -117,8 +117,8 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
 
     P << 1, 0, 0, 0, // Initial state covariance
         0, 1, 0, 0,
-        0, 0, 1, 0,
-        0, 0, 0, 1;
+        0, 0, 1000, 0,
+        0, 0, 0, 1000;
 
     Q << 0.1, 0, 0, 0, // Process noise covariance
         0, 0.1, 0, 0,
@@ -131,7 +131,7 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
 
     // Trial 5
     // R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-    //     0, 0.2;  // 10 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+    //     0, 0.2;  // 15 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
     //Trial 6
     R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
@@ -202,6 +202,7 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
         y(1) = wrapToPi(y(1)); 
         float d2 = MahalanobisDistance(y, S);
         ROS_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
+        // if(d2 < 9.21){ //99% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
         if(d2 < 5.99){ //95% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
         // if(d2 < 4.605){ //90% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
 	      float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;

@@ -370,7 +370,7 @@ namespace quadmap
                 }
                 
                 // ROS_DEBUG("hgrid cell filled val: %d\n", this->filled_val);
-                if (this->filled_val > 0) //Atleast 1 position estimates inside it, since sometimes ekf will generate spurious measurements
+                if (this->filled_val > 1) //Atleast 2 position estimates inside it to handle spurious measurements
                 {
                     filled_cell_count += 1;
                 }
