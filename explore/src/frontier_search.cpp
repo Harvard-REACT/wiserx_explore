@@ -373,7 +373,7 @@ std::vector<Frontier> FrontierSearch::getMaxUtilityFrontiers(std::vector<Frontie
     }
 
     frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
-    if(frontier.cost > 1)
+    if(frontier.cost > 2) //Near edges; discard
     {
       frontier.neighbors_count = max_neighbor_count;
       frontier.information_gain = info_gain_uexp_cell_count_max;

@@ -191,16 +191,21 @@ namespace quadmap
         : boundary(boundary), sensor_range(sensor_range), map_resolution(map_resolution), depth(depth), divided(false)
         {
             sensor_range_map_res = sensor_range/map_resolution;
-            total_cells = int((boundary.w*boundary.h)/(sensor_range_map_res*sensor_range_map_res));
-
             if (boundary.w != boundary.h) 
             {
                 std::cerr << "Error: Initialize with same dimensions of length and breadth" << std::endl;
             }
-            // ROS_INFO("Quadmap width:%f , height:%f", boundary.w, boundary.h);
-            // ROS_INFO("sensor_range %f ", sensor_range);
-            // ROS_INFO("map_resolution %f ", map_resolution);
-            // ROS_INFO("sensor_range_map_res %f ", sensor_range_map_res);
+            
+            int temp_val = std::ceil(boundary.w/sensor_range_map_res);
+            float smallest_map_cell_dimension = boundary.w / temp_val;
+            total_cells = int(std::pow(boundary.w/smallest_map_cell_dimension,2));
+
+            // ROS_DEBUG("Quadmap width:%f , height:%f", boundary.w, boundary.h);
+            // ROS_DEBUG("Boundary cx,xy : %f,%f", boundary.cx, boundary.cy);
+            // ROS_DEBUG("sensor_range %f ", sensor_range);
+            // ROS_DEBUG("map_resolution %f ", map_resolution);
+            // ROS_DEBUG("sensor_range_map_res %f ", sensor_range_map_res);
+            // ROS_DEBUG("============================================");
         }
 
         /**
@@ -353,6 +358,9 @@ namespace quadmap
         {
             if (boundary.w <= sensor_range_map_res) 
             {
+                // ROS_DEBUG("Boundary w,h : %f,%f", boundary.w, boundary.h);
+                // ROS_DEBUG("Boundary cx,cy : %f,%f", boundary.cx, boundary.cy);                         
+
                 // Iterate through all the points for "fuctional robots" within the boundary and compute the filled_val on the fly
                 this->filled_val = 0;
                 for(auto point : this->points)
@@ -361,7 +369,7 @@ namespace quadmap
                     // ROS_INFO("Robot: %d, tau: %d\n", point.getRobotID(), point.getTau());
                 }
                 
-                // ROS_INFO("hgrid cell filled val: %d\n", this->filled_val);
+                // ROS_DEBUG("hgrid cell filled val: %d\n", this->filled_val);
                 if (this->filled_val > 0) //Atleast 1 position estimates inside it, since sometimes ekf will generate spurious measurements
                 {
                     filled_cell_count += 1;
@@ -377,8 +385,7 @@ namespace quadmap
                 nw->query_filled(filled_cell_count);
                 ne->query_filled(filled_cell_count);
                 se->query_filled(filled_cell_count);
-                sw->query_filled(filled_cell_count);
-                
+                sw->query_filled(filled_cell_count);                
             }
         }
 
@@ -439,15 +446,15 @@ namespace quadmap
                 // auto b = point.truedistanceTo(centre);
                 int c = point.robot_id_copy;
                 
-                // ROS_INFO("Point ID = %d ", c);
-                // ROS_INFO("Query Boundary contains point = %d", a);
-                // ROS_INFO("Distance to center = %f", b);
-                // ROS_INFO("Own ID: %d", centre.getRobotID());
+                // ROS_DEBUG("Point ID = %d ", c);
+                // ROS_DEBUG("Query Boundary contains point = %d", a);
+                // ROS_DEBUG("Distance to center = %f", b);
+                // ROS_DEBUG("Own ID: %d", centre.getRobotID());
 
                 if (a && b<= radius && c!= centre.getRobotID()) {
-                    // ROS_INFO("Success - Found node!!!");
+                    // ROS_DEBUG("Success - Found node!!!");
                     found_nodes.push_back(point); //Store pointer to the node data point.
-                    // ROS_INFO("Node size: %ld", found_nodes.size());
+                    // ROS_DEBUG("Node size: %ld", found_nodes.size());
                     found = true;
                 }
             }

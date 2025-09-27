@@ -985,9 +985,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       /*Quadmap needs to be a square; it would be smaller than the actual map size. But the information gain is computed based on actual map size.
       This makes sense as the robot does not move physically to each and every position of the map.
       */
-      Quadmap_width_ = std::min((x_max__-x_min__), (y_max__-y_min__));
-      Quadmap_height = Quadmap_width_;
-      std::cout << "Quadmap_width_, Quadmap_height: " << Quadmap_width_ << ", " << Quadmap_width_ << std::endl;
+      Quadmap_width_ = ((x_max__ - x_min__) + (y_max__ - y_min__ ))/2 ;
+      Quadmap_height = Quadmap_width_  ;
+      std::cout << "Quadmap_width (world), Quadmap_height (world): " << Quadmap_width_ << ", " << Quadmap_width_ << std::endl;
       std::cout << "map_resolution__" << map_resolution__ << std::endl;
 
       ekf_velocity_x = 0.1;
@@ -1023,13 +1023,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     float width = Quadmap_width_/map_resolution__;
     float height = Quadmap_height/map_resolution__;
     std::cout << "width, height: " << width << ", " << height << std::endl;
-    
+    float map_center_x = (x_env_map_max_limit__ + x_env_map_min_limit__) / 2 ;
+    float map_center_y = (y_env_map_max_limit__ + y_env_map_min_limit__ ) / 2 ;
 
-    //TODO : Check this - map coordinates, map_resolution,
-    auto domain = quadmap::Rect(float(width)/2, float(height)/2, float(width), float(height));
+    std::cout << "map_center_x, map_center_y: " << map_center_x << ", " << map_center_y << std::endl;
+    auto domain = quadmap::Rect(map_center_x, map_center_y, float(width), float(height));
     base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
     cell_count__ = base_quadmap_.total_cells;
-    std::cout << "cell_count__" << cell_count__ << std::endl;
+    std::cout << "cell_count : " << cell_count__ << std::endl;
 
     if (visualize_) {
       marker_array_publisher_ = private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
@@ -1328,8 +1329,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         ROS_INFO("******* Unable to find path to frontier. Discarding ******************");
         frontier_blacklist_.push_back(target_position);
       }
-
-
       }
 
       //Get estimated fill percentage of the quadmap
