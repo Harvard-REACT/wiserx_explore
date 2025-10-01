@@ -28,7 +28,7 @@
         <!-- <rosparam file="$(find wiserx_explore_lite)/param/local_planner_configs/base_local_planner_params_trajplanner.yaml" command="load" /> -->
         
         <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
-        <rosparam file="$(find wiserx_explore_lite)/param/local_planners_configs/base_local_planner_teb_tb3_1.yaml" command="load" />
+        <rosparam file="$(find wiserx_explore_lite)/param/local_planners_configs/base_local_planner_teb_$(arg robot_name).yaml" command="load" />
 
         <!-- GlobalPlanner - default planner in ROS 1 nagivation stack-->
         <param name="base_global_planner" value="global_planner/GlobalPlanner" />

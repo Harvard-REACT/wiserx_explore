@@ -5,10 +5,10 @@ TebLocalPlannerROS:
  # Trajectory
 #  max_vel_x: 0.055 #NJ updated
 #  max_vel_x_backwards: 0.055 #NJ updated
- max_vel_x: 0.075 #NJ updated
- max_vel_x_backwards: 0.075 #NJ updated
+ max_vel_x: 0.05 #NJ updated
+ max_vel_x_backwards: 0.05 #NJ updated
  max_vel_theta: 0.5 #NJ updated
- acc_lim_x: 1.0 #NJ updated
+ acc_lim_x: 0.5 #NJ updated
  acc_lim_theta: 2.0 #NJ updated
  
  #Used during debugging exploration only
@@ -25,16 +25,16 @@ TebLocalPlannerROS:
 
 
 # GoalTolerance
- xy_goal_tolerance: 0.25 #NJ updated
+ xy_goal_tolerance: 0.35 #NJ updated
  yaw_goal_tolerance: 6.28319
  free_goal_vel: False
 
  #TrajConfig parameters
- dt_ref: 0.3
- dt_hysteresis: 0.03
- global_plan_overwrite_orientation: True
- max_global_plan_lookahead_dist: 0.6
- global_plan_viapoint_sep: 0.3
+ dt_ref: 0.5
+ dt_hysteresis: 0.05
+ global_plan_overwrite_orientation: False
+ max_global_plan_lookahead_dist: 1.5
+ global_plan_viapoint_sep: 0.85
 
  # Obstacles
  min_obstacle_dist: 0.5 #NJ updated
