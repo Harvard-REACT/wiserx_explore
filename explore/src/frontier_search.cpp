@@ -464,9 +464,6 @@ namespace frontier_exploration
                                         float& information_gain)
   {
     double res;
-
-    //Note: the centroid distance does not account for the map resoulution, but since its just a scaler multiplier. 
-    // res = (alpha_parameter_*frontier.size *information_gain)/(beta_parameter_*frontier.centroid_distance);
     if(frontier.centroid_distance == 0) 
       res = information_gain;
     else
@@ -630,7 +627,6 @@ namespace frontier_exploration
 
         // if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 90.0)
         if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 50.0) //For hardware experiments in the flight lab
-        // if(__FLAG_can_stop_now__ && frontier.cost < 5)
         {
           ROS_INFO("Discarding frontier");
         }

@@ -246,32 +246,6 @@ namespace frontier_exploration
             
             /*Tau = 1 indicates that the robot j is still operational*/
             E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
-            // iterator+=1;
-
-            /* Deprecated
-            if(dist_j <= 2*sensor_range) //An overlap of a cell is only possible under this constraint.
-            if(dist_j <= sensor_range)
-            {
-              ROS_INFO("Distance to rel position (meters): %f", dist_j);
-              info_loss_with_distance = 1/(1+exp(neighboring_robot_val.omega*sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
-              E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
-              
-              info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_-neighboring_robot_val.omega)));
-              info_loss_with_distance = 1/(1+exp(sigmoid_cost_steepness_*(dist_j-sigmoid_cost_midpoint_)));
-              
-              NJ modified - new sigmoid function
-              info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
-              
-              info_loss_with_distance = sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/std::max(sigmoid_cost_steepness_,neighboring_robot_val.omega)));
-              info_loss_with_time = exp(-iterator)*info_loss_with_distance;
-              info_loss_with_time = neighboring_robot_val.omega*exp(-0.1*iterator)*info_loss_with_distance; //Scale the loss with convariance info also
-              info_loss_with_time = neighboring_robot_val.omega*info_loss_with_distance;s //Scale the loss with convariance info also
-              info_loss_with_time = neighboring_robot_val.omega*(exp(-iterator))*info_loss_with_distance; //We might want to sort the position estimates in the order of their covariance values.
-              info_loss_with_time = (exp(0.01*iterator)-0.95)*info_loss_with_distance;
-              ROS_INFO("Loss with distance: %f, Loss with time: %f", info_loss_with_distance, info_loss_with_time);
-              E_hat_c += neighboring_robot_val.getTau() * info_loss_with_time; //Check whether to include the loss due to a robot (e.g. only when its functional)
-            }
-            */
         }
 
         // ROS_INFO("--------------------------------------------------");
@@ -282,7 +256,7 @@ namespace frontier_exploration
         
         /*Info cannot be negative. Hence do not consider negative values. 
           The lowest info from a frontier should be 0 and not negative.
-          The RHS or line 287 is thus interpreted as net info of a cell
+          The RHS or line 261 is thus interpreted as net info of a cell
         */
         result += std::max(0.0, double(S_c - E_hat_c));
         total_info_from_a_frontier+= S_c; // Total info of a cell

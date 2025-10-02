@@ -34,7 +34,7 @@ TebLocalPlannerROS:
  dt_hysteresis: 0.05
  global_plan_overwrite_orientation: False
  max_global_plan_lookahead_dist: 1.5
- global_plan_viapoint_sep: 0.85
+ global_plan_viapoint_sep: 1.0
 
  # Obstacles
  min_obstacle_dist: 0.5 #NJ updated

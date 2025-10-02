@@ -24,6 +24,7 @@
 <arg name="ymax_val" default="0.0"/>
 <arg name="robot_initial_map_pose_x" default="0"/>
 <arg name="robot_initial_map_pose_y" default="0"/>
+<arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"/>
 
  <group ns="$(arg ns)">
   <node pkg="wiserx_explore_lite" type="explore" respawn="false" name="explore" output="screen">
@@ -65,6 +66,7 @@
     <param name="ymax" value="$(arg ymax_val)"/>
     <param name="robot_initial_map_pose_x" value="$(arg robot_initial_map_pose_x)"/>
     <param name="robot_initial_map_pose_y" value="$(arg robot_initial_map_pose_y)"/>
+    <param name="log_file_path" value="$(arg log_file_path)"/>
   </node>
 </group>
 

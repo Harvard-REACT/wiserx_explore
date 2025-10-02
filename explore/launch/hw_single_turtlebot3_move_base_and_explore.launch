@@ -20,7 +20,8 @@
   <arg name="robot_speed" default="0.05"/>
   <arg name="hgrid_width" default="45"/>
   <arg name="hgrid_height" default="45"/>
-  <arg name="measurement_interval" default="3"/>
+  <arg name="measurement_interval" default="4"/>
+  <arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"/>
 
     <!-- move_base -->
    <group ns="$(arg multi_robot_name)">
@@ -39,7 +40,6 @@
 
 
   <!-- Start exploration -->
-  <!-- <group if="$(arg open_rviz)">  -->
   <include file="$(find wiserx_explore_lite)/launch/explore.launch">
     <arg name="ns"  value="$(arg multi_robot_name)"/>
     <arg name="robot_id" value="$(arg multi_robot_id)"/>
@@ -62,7 +62,7 @@
     <arg name="hgrid_width"  value="$(arg hgrid_width)"/>
     <arg name="hgrid_height"  value="$(arg hgrid_height)"/>
     <arg name="measurement_interval"  value="$(arg measurement_interval)"/>
+    <arg name="log_file_path" value="$(arg log_file_path)"/>
   </include>
-  <!-- </group> -->
 
 </launch>

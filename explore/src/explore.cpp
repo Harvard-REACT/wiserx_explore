@@ -834,7 +834,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
   }
 
-
   /** 
    * @brief Callback to set flag for stopping own exploration
    * */
@@ -843,38 +842,6 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     exploration_done_ = msg->data;
   }
 
-
- /**
-  *@brief Robot collects own pose when CSI data is being collected
-  * */
-  // void Explore::CollectOwnPoseCB(const std_msgs::Bool::ConstPtr& msg){
-  void Explore::CollectOwnPoseCB(){
-    // if(msg->data){
-      //Get filename of the csi data file
-      // ROS_INFO(" ========= Deque size : %d ======== ", int(own_pose_deque_.size()));
-      double current_epoch_time;
-      // std::string orig_output = exec(servo_output_file_reader_command_.c_str());
-      // std::string new_output = orig_output;
-
-      start_val = std::chrono::high_resolution_clock::now();
-      stop_val = std::chrono::high_resolution_clock::now();
-      duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-      while(duration.count() < 4.0){ // publish every 20 seconds
-      // while(new_output == orig_output){
-        auto current_pose = costmap_client_.getRobotPose();
-        auto now = std::chrono::system_clock::now();
-        auto dur_since_epoch = now.time_since_epoch();
-        current_epoch_time = std::chrono::duration_cast<std::chrono::microseconds>(dur_since_epoch).count() * 1e-6;
-
-        if(own_pose_deque_.size() > pose_size_limit__) own_pose_deque_.pop_front();
-        own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
-	      ros::Duration(0.02).sleep();
-        stop_val = std::chrono::high_resolution_clock::now();
-        duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-        // new_output = exec(servo_output_file_reader_command_.c_str());
-      }
-    // }
-  }
 
  /**
   *@brief Robot collects own true pose (from mocap).
@@ -926,7 +893,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
     private_nh_.param("use_sim", FLAG_SIM_, false);
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
-    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/react-m_explore/explore/data/wiserx_data/"));
+    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"));
     private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
     private_nh_.param("debug_mocap_pose", FLAG_DEBUG_OWN_TRUE_POSE__, false); //Use mocap pose instead of SLAM pose for own 
     private_nh_.param("xmin", x_min__, 0.0);
@@ -1178,7 +1145,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
       // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
       // Reevaulate all frontiers once 85% For smaller area in hardware experiments; else corners remain with very small utility values
-      ros::Duration half_duration(progress_timeout_.toSec()*0.90);
+      ros::Duration half_duration(progress_timeout_.toSec()*0.95);
       if (ros::Time::now() - last_progress_ > half_duration) 
       {
         move_base_client_.cancelAllGoals();
@@ -1347,11 +1314,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
           if(!__FLAG_publish_once)
           {
-            // std_msgs::Bool msg_val;
-            // msg_val.data=true;
-            // exploration_eval_stop_.publish(msg_val);
             __FLAG_publish_once = true;
-            move_base_client_.cancelAllGoals(); // Immediate revaluate frontiers before proceeding
+            move_base_client_.cancelAllGoals(); // Immediately revaluate frontiers before proceeding
           }
 
         }
@@ -1367,8 +1331,31 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     }
     else
     {
-      ROS_INFO("Not sufficient history");
+      ROS_INFO("Not sufficient pose history");
     }
+  }
+
+
+ /**
+  *@brief Robot collects own pose when CSI data is being collected
+  * */
+  void Explore::CollectOwnPoseCB(){
+      double current_epoch_time;
+      start_val = std::chrono::high_resolution_clock::now();
+      stop_val = std::chrono::high_resolution_clock::now();
+      duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+      while(duration.count() <= measurement_interval__){
+        auto current_pose = costmap_client_.getRobotPose();
+        auto now = std::chrono::system_clock::now();
+        auto dur_since_epoch = now.time_since_epoch();
+        current_epoch_time = std::chrono::duration_cast<std::chrono::microseconds>(dur_since_epoch).count() * 1e-6;
+
+        if(own_pose_deque_.size() > pose_size_limit__) own_pose_deque_.pop_front();
+        own_pose_deque_.push_back(std::make_pair(current_epoch_time, current_pose));
+	      ros::Duration(0.02).sleep();
+        stop_val = std::chrono::high_resolution_clock::now();
+        duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
+      }
   }
 
 
@@ -1473,6 +1460,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   {
     exploring_timer_.start();
   }
+
 
   /** 
    * @brief End exploration
