@@ -1,0 +1,43 @@
+<launch>
+  
+  <!-- define for the turtlebot environment -->
+  <arg name="first_tb3"  default="tb3_1"/>
+  <arg name="second_tb3" default="tb3_2"/>
+  
+  <!-- Pass the first turtlebot's position tb3_1/map_merge  -->
+  <group ns="/tb3_1/map_merge">
+    <param name="init_pose_x"   value="0.0"/>
+    <param name="init_pose_y"   value="0.0"/>
+    <param name="init_pose_z"   value="0"/>
+    <param name="init_pose_yaw" value="0"  />
+  </group>
+
+  <!-- Pass the second turtlebot's position tb3_2/map_merge  -->
+  <group ns="/tb3_2/map_merge">
+    <param name="init_pose_x"   value="0.0"/>
+    <param name="init_pose_y"   value="0.0"/>
+    <param name="init_pose_z"   value="0"/>
+    <param name="init_pose_yaw" value="0"  />
+  </group>
+  
+  <group ns="map_merge">
+  <node pkg="multirobot_map_merge" type="map_merge" respawn="false" name="map_merge" output="screen">
+    <param name="robot_map_topic" value="map"/>
+    <param name="robot_namespace" value="tb3"/>
+    <param name="merged_map_topic" value="map"/>
+    <param name="world_frame" value="map"/>
+    <param name="known_init_poses" value="true"/>
+    <param name="merging_rate" value="0.5"/>
+    <param name="discovery_rate" value="0.05"/>
+    <param name="estimation_rate" value="0.1"/>
+    <param name="estimation_confidence" value="1.0"/>
+  </node>
+</group>
+  
+  <node pkg="tf" type="static_transform_publisher" name="world_to_tb3_1_tf_broadcaster" args="0 0 0 0 0 0 /map /tb3_1/map 100"/>
+  <node pkg="tf" type="static_transform_publisher" name="world_to_tb3_2_tf_broadcaster" args="0 0 0 0 0 0 /map /tb3_2/map 100"/>
+  <node pkg="rviz" type="rviz" name="rviz_map_merger" required="true" args="-d $(find wsr_exploration)/rviz/merged_map.rviz"/>
+  <node pkg="rviz" type="rviz" name="rviz_1" required="true" args="-d $(find wiserx_explore_lite)/rviz/tb3_1_navigation.rviz"/>
+  <node pkg="rviz" type="rviz" name="rviz_2" required="true" args="-d $(find wiserx_explore_lite)/rviz/tb3_2_navigation.rviz"/>
+
+</launch>  

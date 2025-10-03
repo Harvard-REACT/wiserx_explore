@@ -1,0 +1,21 @@
+<launch>
+  
+  <!-- **************************************************** --> 
+  <!-- Oracle to evaluate the percentage of completion-->
+  <!-- **************************************************** -->
+  <arg name="true_map" default="$(find wiserx_explore_lite)/data/hw_groundtruth_map/gt_map_from_tb3.yaml" />
+  <arg name="type" default="wiserx" />
+
+ <!-- Publish a pre-recorded map on a map topic  -->
+  <node pkg="map_server" type="map_server" name="map_server_node" args="$(arg true_map)" clear_params="true" >
+    <remap from="map"   to="world_map"/> 
+    <remap from="map_metadata"   to="world_map_metadata"/> 
+  </node>
+
+  <node pkg="wiserx_explore_lite" type="hw_map_eval.py" name="hw_map_eval" output="screen" clear_params="true">
+    <param name="explore_threshold" type="double" value="95.0"/>
+    <param name="exp_type" value="$(arg type)"/>
+  </node>
+
+
+</launch>  

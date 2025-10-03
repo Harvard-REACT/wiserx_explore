@@ -38,7 +38,6 @@
           args="-d $(find wiserx_explore_lite)/rviz/$(arg multi_robot_name)_navigation.rviz"/>
   </group>
 
-
   <!-- Start exploration -->
   <include file="$(find wiserx_explore_lite)/launch/explore.launch">
     <arg name="ns"  value="$(arg multi_robot_name)"/>
@@ -64,5 +63,6 @@
     <arg name="measurement_interval"  value="$(arg measurement_interval)"/>
     <arg name="log_file_path" value="$(arg log_file_path)"/>
   </include>
+
 
 </launch>

@@ -17,7 +17,6 @@ class MatrixViewer:
         rospy.init_node('AOA_profile_viewer', anonymous=True)
         self.robot_name = rospy.get_param('~robot_name', 'tb3')
         self.robot_id = int(self.robot_name.split("_")[1])
-        print(self.robot_id)
         rospy.Subscriber('/'+self.robot_name+'/range_bearing_estimates', LocalMeasurement, self.matrix_callback)
 
         self.root = root
@@ -71,8 +70,9 @@ class MatrixViewer:
 
 if __name__ == '__main__':
     try:
-        root = tk.Tk()
-        viewer = MatrixViewer(root)
-        tk.mainloop()
+        while not rospy.is_shutdown():
+            root = tk.Tk()
+            viewer = MatrixViewer(root)
+            tk.mainloop()
     except rospy.ROSInterruptException:
-        pass
+        rospy.loginfo("Exiting.")

@@ -1476,9 +1476,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     for(int ii=0; ii<3; ii++)
       exploration_eval_stop_.publish(msg_val); //This is to also trigger stopping of collection of merged map for evaluation
     
-    sleep(3); //make sure that the exploration evaluation stops
-
     exploration_completed_ = true;
+    sleep(3); //make sure that the exploration evaluation stops
     ROS_INFO("Exploration stopped.");
   }
 
