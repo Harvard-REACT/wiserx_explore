@@ -37,8 +37,7 @@ roslaunch wiserx_explore_lite hw_single_turtlebot3_bringup.launch robot_name:=tb
 #This has extra buffer to avoid auto expansion of the map as the robot's pose changes due to it.
 roslaunch wiserx_explore_lite hw_single_turtlebot3_gmapping.launch robot_name:=tb3_1 xmin:=-4.0 ymin:=-7.5 xmax:=13.5 ymax:=14.5
 
-roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_1 multi_robot_id:=1 enable_wsr:=true use_real_sensor:=true open_rviz:=false debug_mocap_pose:=false xmin:=-1.5 ymin:=-5.0 xmax:=11.0 ymax:=12 map_resolution:=0.2 sensor_range:=2.5 robot_initial_map_pose_x:=0 robot_initial_map_pose_y:=0 robot_speed:=0.075
-
+roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_1 multi_robot_id:=1 open_rviz:=false debug_mocap_pose:=false xmin:=-2.5 ymin:=-6.0 xmax:=7.0 ymax:=1 map_resolution:=0.15 sensor_range:=2.5 robot_initial_map_pose_x:=0 robot_initial_map_pose_y:=0 robot_speed:=0.05 use_real_sensor:=true enable_wsr:=true measurement_interval:=3.5
 
 Note:
 enable_wsr : this decides the type of algorithm to be used (e.g., WiSER-X vs the baselines)
@@ -79,21 +78,20 @@ tail -f aoa_val.csv
 
 python2 ~/catkin_ws/src/uwb_ros_publisher/scripts/uwb_pub_multi.py -s 1 -n /tb3_2/
 
-roslaunch wiserx_explore_lite realtime_range_aoa.launch publish_aoa_profile:=true robot_id:=2 aoa_profile_file_path:="/home/explorer-2/catkin_ws/src/react-m_explore/explore/data/tx4_aoa_profile__0.csv" aoa_peaks_file_path:="/home/explorer-2/catkin_ws/src/react-m_explore/explore/data/aoa_val.csv" use_real_sensor:=true measurement_interval:=4.0 robot_name:=tb3_2
+roslaunch wiserx_explore_lite realtime_range_aoa.launch publish_aoa_profile:=true robot_id:=2 aoa_profile_file_path:="/home/explorer3/catkin_ws/src/react-m_explore/explore/data/tx4_aoa_profile__0.csv" aoa_peaks_file_path:="/home/explorer3/catkin_ws/src/react-m_explore/explore/data/aoa_val.csv" measurement_interval:=3.5 robot_name:=tb3_2 use_real_sensor:=true
 
 Note: 
-set use_real_sensor:=false to use only mocap. No need to run UWB sensor node. But this will still need the use of ./alternate_motion.sh (and servo should be rotating) to start own pose data collection from the SLAM in the explore.cpp.
+set use_real_sensor:=false to use only mocap. No need to run UWB sensor node.
+Add a buffer of 2*sensor range to the gmapping boundary conditions so that the map does not autoexpand
 
 ========================= Running Exploration==================================
 
 roslaunch wiserx_explore_lite hw_single_turtlebot3_bringup.launch robot_name:=tb3_2 port:=/dev/sensor_lidar
 
-roslaunch wiserx_explore_lite hw_single_turtlebot3_gmapping.launch robot_name:=tb3_2 xmin:=-3.0 ymin:=-5.5 xmax:=14 ymax:=12
+#This has extra buffer to avoid auto expansion of the map as the robot's pose changes due to it. Add buffer of 1x sensor_range; the explore actually uses its own boundary separtely and not from map
+roslaunch wiserx_explore_lite hw_single_turtlebot3_gmapping.launch robot_name:=tb3_2 xmin:=-3.0 ymin:=-7.0 xmax:=11.0 ymax:=5.0
 
-roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_2 multi_robot_id:=2 enable_wsr:=true use_real_sensor:=true open_rviz:=false debug_mocap_pose:=false
-
-
-
+roslaunch wiserx_explore_lite hw_single_turtlebot3_move_base_and_explore.launch multi_robot_name:=tb3_2 multi_robot_id:=2 open_rviz:=false debug_mocap_pose:=false xmin:=-1.5 ymin:=-5.0 xmax:=8.0 ymax:=2.0 map_resolution:=0.15 sensor_range:=2.5 robot_initial_map_pose_x:=0 robot_initial_map_pose_y:=0 robot_speed:=0.05 use_real_sensor:=true enable_wsr:=true measurement_interval:=3.5
 
 TO KILL SERVO: 
 echo "abc123" | sudo -S killall log_to_file
@@ -110,16 +108,17 @@ cd ~/catkin_ws/src/wsr_exploration/control_scripts
 
 
 a) Start Groundtruth data collection and visualization
-roslaunch wiserx_explore_lite supporting_nodes.launch groundtruth_access:=true mocap_server_ip:=192.168.1.8 viz_aoa_profiles:=true
+roslaunch wiserx_explore_lite supporting_nodes_sensor_viz.launch groundtruth_access:=true mocap_server_ip:=192.168.1.8 viz_aoa_profiles:=true
 
-roslaunch wsr_exploration hw_map_merger.launch
+roslaunch wiserx_explore_lite supporting_nodes_quadmap_viz.launch
 
-cd ~/catkin_ws/src/wsr_exploration/scripts 
-python3 quadmap_viz_ros_1.py
-python3 quadmap_viz_ros_2.py
+roslaunch wiserx_explore_lite hw_map_merger.launch 
+
+roslaunch wiserx_explore_lite hw_map_eval.launch 
 
 
 To visualize data:
 python3.8 ~/WSR_Project/WSR-Toolbox-cpp/scripts/viz_channel_data.py --file $1/$csi_phase_fn
     python3.8 ~/WSR_Project/WSR-Toolbox-cpp/scripts/viz_traj.py --file $1/$traj_pkt_fn
 
+rosbag record /tb3_1/range_bearing_estimates /tb3_2/range_bearing_estimates /tb3_1/explore/node_list /tb3_2/explore/node_list
