@@ -21,7 +21,7 @@
   <arg name="hgrid_width" default="45"/>
   <arg name="hgrid_height" default="45"/>
   <arg name="measurement_interval" default="4"/>
-  <arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"/>
+  <arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/data_wiserx/"/>
 
     <!-- move_base -->
    <group ns="$(arg multi_robot_name)">
@@ -63,6 +63,5 @@
     <arg name="measurement_interval"  value="$(arg measurement_interval)"/>
     <arg name="log_file_path" value="$(arg log_file_path)"/>
   </include>
-
 
 </launch>

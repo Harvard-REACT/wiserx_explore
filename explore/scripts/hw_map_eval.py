@@ -14,11 +14,16 @@ import random
 class ExplorationEval:
     def __init__(self):
         rospy.init_node('wsr_exploration_eval', anonymous=True)
-        self.use_wsr = rospy.get_param('~use_wsr', False)
         self.exp_type = rospy.get_param('~exp_type')
         self.exploration_threshold = rospy.get_param('~explore_threshold')
         self.base_path = '/home/react-ws-1/catkin_ws/src/m-explore/explore/data/data_'+self.exp_type
-        
+        self.fail_threshold = 70
+        self.robot_failed = False
+        self.fail_robot = rospy.get_param('~fail_robot', True)
+        self.failed_robot = rospy.get_param('~failed_robot', 'tb3_2')
+        self.fail_robot_pub = rospy.Publisher('/set_failed_neighboring_robot', String, queue_size=10)
+        self.coverage_of_failed_robot = 0
+
         self.total_iterations = 0
         self.check_itr = 0
         self.distance = []
@@ -54,12 +59,6 @@ class ExplorationEval:
         self.itr_2 = 0
         self.soft_threshold_evaluation_1 = False
         self.soft_threshold_evaluation_2 = False
-
-        self.fail_threshold = random.randint(30, 50)
-        self.fail_robot = rospy.get_param('~fail_robot', False)
-        self.robot_failed = False
-        self.failed_robot = rospy.get_param('~failed_robot', 'tb3_1')
-        self.fail_robot_pub = rospy.Publisher('/set_failed_neighboring_robot', String, queue_size=10)
 
         rospy.loginfo("Exploration coverage threshold: " +str(self.exploration_threshold))
         rospy.loginfo("Connecting to topics")
@@ -206,13 +205,16 @@ class ExplorationEval:
                 print("merged map count: ", self.merged_map_count)
 
                 # REAL TIME MAP COVERAGE CALCULATION 
+                r_1_per = self.map_1_count*100/self.world_map_count
+                r_2_per = self.map_2_count*100/self.world_map_count
                 map_coverage_percentage = self.merged_map_count*100/self.world_map_count
+                
+                if(self.fail_robot and self.robot_failed):
+                    map_coverage_percentage = r_1_per #TODO make dynamic
+                
                 if(map_coverage_percentage <= 0 ): 
                     time.sleep(1)
                     continue
-                
-                r_1_per = self.map_1_count*100/self.world_map_count
-                r_2_per = self.map_2_count*100/self.world_map_count
                 
                 print("Current map coverage = {} %, time = {} seconds".format(map_coverage_percentage,exploration_time))
                 if(map_coverage_percentage/5 > self.itr):
@@ -240,7 +242,20 @@ class ExplorationEval:
                     self.exploration_stats.append(current_data)
                     self.logged_stop_time_2 = True
 
-                
+                if self.fail_robot and not self.robot_failed and map_coverage_percentage >= self.fail_threshold:
+                    failed_robot = self.failed_robot
+                    self.fail_robot_pub.publish(String(data=failed_robot))
+                    self.robot_failed = True
+                    self.robot_failed_map_perct = map_coverage_percentage
+                    print(f"Failing {failed_robot} at {self.robot_failed_map_perct}% map coverage")
+
+                    #TODO: Make dynamic
+                    self.coverage_of_failed_robot = map_coverage_percentage - r_1_per
+                    current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,-1]
+                    self.exploration_stats.append(current_data)
+                    self.stop_evaluation_2 = True
+                    print(f"Coverage reduced by {self.coverage_of_failed_robot}%")
+
                 if(self.auto_stop_evaluation or (map_coverage_percentage >= self.exploration_threshold)):
                     print("Stopping evaluation")
                     self.save_data()

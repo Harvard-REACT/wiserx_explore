@@ -168,8 +168,10 @@ class Viz:
         self.neighboring_robot_x, self.neighboring_robot_y = [], []
         
         other_robot_color = "blue"
+        self.plot_title = "Robot_1 (green)"
         if(robot_viz_color == other_robot_color):
             other_robot_color = "green"
+            self.plot_title = "Robot_2 (blue)"
 
         self.colors_list = [robot_viz_color,other_robot_color, "red", "black", 'orange']
         self.colors = []
@@ -182,14 +184,14 @@ class Viz:
         self.sensor_range = float(sensor_range)
         factor_val = 2.2
         self.map_resolution = float(map_resolution)
-        self.width = 24 / self.map_resolution 
+        self.width = 20 / self.map_resolution 
         self.height = self.width
         domain =  Rect(self.width/2, self.height/2, self.width, self.height)
         max_points = 4
         self.qmap = QuadMap(domain, max_points, self.sensor_range/self.map_resolution)
 
     def plot_init(self):
-        self.ax.set_title("Robot_1 (green)", fontsize=20)
+        self.ax.set_title(self.plot_title, fontsize=20)
         self.ax.set_xlim(0, self.width)
         self.ax.set_ylim(0, self.height)
         self.qmap.draw(self.ax)

@@ -367,7 +367,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           other_robot_id__ = neighbor_robot_rb__.robot_id;
           std::string other_robot_name = name_vicon_hardware[other_robot_id__-1];
           wiserx_explore_lite::RelativeEstimate neighbor;
-            
+                      
           // ===========================================================================================
           /* Retrieve pose history to find pose closest to the time when the first CSI sample was take.
           * We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement 
@@ -473,8 +473,9 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           
           //=========== Estimate neighboring robot position ==============
           //Estimate the relative position of the neighboring robot
+                    //Skip if robot has failed
           auto robot_it = robot_information__.find(other_robot_name);
-          if( robot_it == robot_information__.end())
+          if(robot_it == robot_information__.end())
           {
               ROS_INFO("Creating track for Robot ID %d", other_robot_id__);
 
@@ -501,16 +502,22 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               prev_neighboring_position.position.x = est_x_j;
               prev_neighboring_position.position.y = est_y_j;
             
-          } else {                            
-            //Perform state_estimation of robot j
-            ROS_INFO("Found Robot (robot id : %d) track", other_robot_id__);
-            ekf_robot_track__[other_robot_name].predict();
-            ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement); 
-            est_x_j = ekf_robot_track__[other_robot_name].x[0];
-            est_y_j = ekf_robot_track__[other_robot_name].x[1];
-            const auto& P = ekf_robot_track__[other_robot_name].P;
-            covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
-            ROS_INFO("Predicted estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
+          } 
+          else {                            
+              if(robot_information__[other_robot_name].robot_tau > 0){
+                //Perform state_estimation of robot j
+                ROS_INFO("Found Robot (robot id : %d) track", other_robot_id__);
+                ekf_robot_track__[other_robot_name].predict();
+                ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement); 
+                est_x_j = ekf_robot_track__[other_robot_name].x[0];
+                est_y_j = ekf_robot_track__[other_robot_name].x[1];
+                const auto& P = ekf_robot_track__[other_robot_name].P;
+                covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
+                ROS_INFO("Predicted estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
+              }
+              else{        
+                ROS_INFO("Neighbor robot ID: %d has failed.", other_robot_id__);
+              }
           }
 
           //Keep track of the latest position esimates for using in beta parameter of the information gain
@@ -535,7 +542,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           );
     
 
-          if(out_of_bounds) 
+          if(out_of_bounds or robot_information__[other_robot_name].robot_tau ==0) 
           {
               ROS_INFO("Estimate out of bounds, using previous estimate.");
               neighbor.true_map_position.x = 0;
@@ -893,7 +900,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("diff_between_termination_thresholds", diff_between_termination_thresholds__, 5); 
     private_nh_.param("use_sim", FLAG_SIM_, false);
     private_nh_.param("robot_speed", robot_speed_, 0.15);  // Used to compute progress timeout and force reevaluation of frontiers
-    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"));
+    private_nh_.param("log_file_path", fn__, std::string("/home/react-ws-1/catkin_ws/src/m-explore/explore/data/data_wiserx/"));
     private_nh_.param("use_real_sensor", FLAG_use_real_sensors__, true); //Use real sensors vs use mocap measurements
     private_nh_.param("debug_mocap_pose", FLAG_DEBUG_OWN_TRUE_POSE__, false); //Use mocap pose instead of SLAM pose for own 
     private_nh_.param("xmin", x_min__, 0.0);
@@ -1259,7 +1266,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
         try
         {
           // progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 0.90); //For simulation 
-          progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_) * 1.05); //For hardware
+          progress_timeout_ = ros::Duration(frontier->centroid_distance/(robot_speed_));
         }
         catch(...)
         {
@@ -1506,6 +1513,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       const auto p1 = std::chrono::system_clock::now();
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
       std::string fn1 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
+      ROS_DEBUG("File location : %s", fn1);
       std::ofstream myfile_def (fn1);
       std::vector<double> temp;
       std::vector<std::string> details {"pos_id", "info_gain", "centroid_distance" , "j_relative_position_count", "frontier_index", "Elapsed time(sec)"}; //index 1 means the top most frontier at each iteration which will then be selected

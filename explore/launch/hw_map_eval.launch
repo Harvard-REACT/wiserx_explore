@@ -13,7 +13,7 @@
   </node>
 
   <node pkg="wiserx_explore_lite" type="hw_map_eval.py" name="hw_map_eval" output="screen" clear_params="true">
-    <param name="explore_threshold" type="double" value="95.0"/>
+    <param name="explore_threshold" type="double" value="97.0"/>
     <param name="exp_type" value="$(arg type)"/>
   </node>
 

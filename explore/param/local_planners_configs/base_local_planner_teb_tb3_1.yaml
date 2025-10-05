@@ -5,7 +5,7 @@ TebLocalPlannerROS:
  # Trajectory
 #  max_vel_x: 0.055 #NJ updated
 #  max_vel_x_backwards: 0.055 #NJ updated
- max_vel_x: 0.25 #NJ updated
+ max_vel_x: 0.05 #NJ updated
  max_vel_x_backwards: 0.05 #NJ updated
  max_vel_theta: 0.5 #NJ updated
  acc_lim_x: 1.0 #NJ updated
