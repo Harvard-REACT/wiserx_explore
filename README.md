@@ -1,31 +1,32 @@
-# m-explore
+# wiserx-explore
 
-[![Build Status](http://build.ros.org/job/Kdev__m_explore__ubuntu_xenial_amd64/badge/icon)](http://build.ros.org/job/Kdev__m_explore__ubuntu_xenial_amd64)
+ROS packages for wiserx multi-robot exploration. It builds on top of ros explore package: https://github.com/hrnr/m-explore
 
-ROS packages for multi robot exploration.
 
-Installing
-----------
-
-Packages are released for ROS Kinetic and ROS Lunar.
-
-```
-	sudo apt install ros-${ROS_DISTRO}-multirobot-map-merge ros-${ROS_DISTRO}-explore-lite
-```
-
-Building
+CITATION
 --------
 
-Build as standard catkin packages. There are no special dependencies needed
-(use rosdep to resolve dependencies in ROS). You should use brach specific for
-your release i.e. `kinetic-devel` for kinetic. Master branch is for latest ROS.
+ ```bibtex
+@article{Jadhav_WiSERX,
+  title={WiSER-X: Wireless Signals-based Efficient Decentralized Multi-Robot Exploration without Explicit Information Exchange},
+  author={Ninad Jadhav and Meghna Behari and Robert J. Wood and Stephanie Gil},
+  year={2025}
+}
+```
+[Arxiv](https://arxiv.org/abs/2412.19876) 
 
-WIKI
-----
 
-Packages are documented at ROS wiki.
-* [explore_lite](http://wiki.ros.org/explore_lite)
-* [multirobot_map_merge](http://wiki.ros.org/multirobot_map_merge)
+DEPENDENCIES
+-----------		
+
+* [WSR Toolbox](https://github.com/Harvard-REACT/WSR-Toolbox)
+
+
+EARLY PREVIEW
+--------------
+[![Watch the video](https://img.youtube.com/vi/zpxmEFTSMZk&t=4s/maxresdefault.jpg)](https://www.youtube.com/watch?v=zpxmEFTSMZk&t=4s)
+
+
 
 COPYRIGHT
 ---------
