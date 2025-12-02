@@ -135,7 +135,7 @@ namespace frontier_exploration
   }
 
   /**
-   * @brief NJ addition - Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
+   * @brief Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
    * @param result Count of such cells
    * @param start Index initial cell to search from
    * @param val Specified value to search for
