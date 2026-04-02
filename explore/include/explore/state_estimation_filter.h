@@ -18,6 +18,8 @@ namespace wsr_state_estimation
         MatrixXd Q; // Process noise covariance matrix
         MatrixXd R; // Measurement noise covariance matrix
         double dt; // Time step
+        float clutter_intensity_;
+        double gating_threshold_;
         std::vector<double> residual_error__ {0.0,0.0};
         std::vector<double> range_bearing__ {0.0,0.0};
         std::vector<VectorXd> residuals__;

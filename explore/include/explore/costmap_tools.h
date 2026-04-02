@@ -135,7 +135,7 @@ namespace frontier_exploration
   }
 
   /**
-   * @brief Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
+   * @brief authoraddition - Find the information gain from all unknown cells (using sigmoid function) within a sensor range of 'start' cell
    * @param result Count of such cells
    * @param start Index initial cell to search from
    * @param val Specified value to search for
@@ -148,8 +148,8 @@ namespace frontier_exploration
    * @return True if a cell with the requested value was found
    */
   bool InfoNearestCellsWithinRange(float& result, unsigned int start, unsigned char cell_val,
-                                   const costmap_2d::Costmap2D& costmap, double& sensor_range,
-                                   std::vector<quadmap::Node>& neighboring_robots_quadmap_positions,
+                                   const costmap_2d::Costmap2D& costmap, const double& sensor_range,
+                                   const std::vector<const quadmap::Node*>& neighboring_robots_quadmap_positions,
                                    float& info_used_at_frontier_percent,
                                    unsigned int x_env_map_max_limit, 
                                    unsigned int y_env_map_max_limit,
@@ -167,11 +167,9 @@ namespace frontier_exploration
     float sigmoid_cost_amplitude_ = 1.0;
     float E_hat_c = 0;
     float S_c = 0;
-    float info_loss_with_distance = 0, info_loss_with_time=0;
+    float info_loss_with_distance = 0;
     unsigned int sx, sy, nx, ny;
     double swx, swy, wx, wy, rwx, rwy;
-    float L = sensor_range;
-    int rel_positions_in_known_region=0;
     float total_info_from_a_frontier = 0.01; //to avoid division by zero
     float info_loss_at_a_frontier = 0;
 
@@ -235,17 +233,18 @@ namespace frontier_exploration
         
         // int iterator = 0;
         
-        for (auto neighboring_robot_val : neighboring_robots_quadmap_positions) 
+        for (const auto* neighboring_robot_ptr : neighboring_robots_quadmap_positions) 
         {
-            costmap.mapToWorld(neighboring_robot_val.est_mx, neighboring_robot_val.est_my, rwx, rwy);
-            // costmap.mapToWorld(neighboring_robot_val.true_mx, neighboring_robot_val.true_my, rwx, rwy);
+            costmap.mapToWorld(neighboring_robot_ptr->est_mx, neighboring_robot_ptr->est_my, rwx, rwy);
+            // costmap.mapToWorld(neighboring_robot_ptr->true_mx, neighboring_robot_ptr->true_my, rwx, rwy);
+            
             dist_j = sqrt(pow((rwx-wx),2) + pow((rwy-wy),2));
             
             /*Omega incorporates the uncertainty in the robot j position estimate computation using the trace of the covariance matrix.*/
-            info_loss_with_distance =  neighboring_robot_val.omega * sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
+            info_loss_with_distance =  neighboring_robot_ptr->omega * sigmoid_cost_amplitude_ * 1/(1+exp((dist_j-sigmoid_cost_midpoint_)/sigmoid_cost_steepness_));
             
             /*Tau = 1 indicates that the robot j is still operational*/
-            E_hat_c += neighboring_robot_val.getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
+            E_hat_c += neighboring_robot_ptr->getTau() * info_loss_with_distance; //Check whether to include the loss due to a robot (e.g. only when its functional)
         }
 
         // ROS_INFO("--------------------------------------------------");
@@ -258,9 +257,9 @@ namespace frontier_exploration
           The lowest info from a frontier should be 0 and not negative.
           The RHS or line 261 is thus interpreted as net info of a cell
         */
-        result += std::max(0.0, double(S_c - E_hat_c));
+        result += std::max(0.0f, S_c - E_hat_c);
         total_info_from_a_frontier+= S_c; // Total info of a cell
-        info_loss_at_a_frontier+= S_c - std::max(0.0, double(S_c - E_hat_c)); // Total - net 
+        info_loss_at_a_frontier+= S_c - std::max(0.0f, S_c - E_hat_c);
       }
 
       // iterate over all adjacent unvisited cells which are withing range from start cell (sx, sy)

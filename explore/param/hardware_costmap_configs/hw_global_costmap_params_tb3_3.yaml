@@ -1,0 +1,16 @@
+global_costmap:
+  global_frame: tb3_3/map
+  robot_base_frame: tb3_3/base_footprint
+  update_frequency: 10.0
+  publish_frequency: 10.0
+  transform_tolerance: 2.0
+  static_map: true
+  rolling_window: false
+  width: 9.0
+  height: 9.0
+  origin_x: 0.0
+  origin_y: 0.0
+  static_layer:
+    track_unknown_space: false #authormodified default true
+  obstacle_layer:
+    track_unknown_space: false #authormodified default true

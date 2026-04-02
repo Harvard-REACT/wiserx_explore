@@ -35,6 +35,7 @@
  *********************************************************************/
 
 #include <explore/costmap_client.h>
+#include <explore/custom_logger.h>
 
 #include <functional>
 #include <mutex>
@@ -61,7 +62,7 @@ Costmap2DClient::Costmap2DClient(ros::NodeHandle& param_nh,
   param_nh.param("robot_base_frame", robot_base_frame_,
                  std::string("base_link"));
   // transform tolerance is used for all tf transforms here
-  param_nh.param("transform_tolerance", transform_tolerance_, 0.3);
+  param_nh.param("transform_tolerance", transform_tolerance_, 2.0);
 
   /* initialize costmap */
   costmap_sub_ = subscription_nh.subscribe<nav_msgs::OccupancyGrid>(
@@ -69,7 +70,7 @@ Costmap2DClient::Costmap2DClient(ros::NodeHandle& param_nh,
       [this](const nav_msgs::OccupancyGrid::ConstPtr& msg) {
         updateFullMap(msg);
       });
-  ROS_INFO("Waiting for costmap to become available, topic: %s",
+  CUSTOM_LOG_INFO("Waiting for costmap to become available, topic: %s",
            costmap_topic.c_str());
   auto costmap_msg = ros::topic::waitForMessage<nav_msgs::OccupancyGrid>(
       costmap_topic, subscription_nh);
@@ -98,7 +99,7 @@ Costmap2DClient::Costmap2DClient(ros::NodeHandle& param_nh,
                                 &tf_error)) {
     ros::spinOnce();
     if (last_error + ros::Duration(5.0) < ros::Time::now()) {
-      ROS_WARN(
+      CUSTOM_LOG_WARN(
           "Timed out waiting for transform from %s to %s to become available "
           "before subscribing to costmap, tf error: %s",
           robot_base_frame_.c_str(), global_frame_.c_str(), tf_error.c_str());
@@ -122,7 +123,7 @@ void Costmap2DClient::updateFullMap(const nav_msgs::OccupancyGrid::ConstPtr& msg
   double origin_x = msg->info.origin.position.x;
   double origin_y = msg->info.origin.position.y;
 
-  ROS_DEBUG("received full new map, resizing to: %d, %d", size_in_cells_x,
+  CUSTOM_LOG_DEBUG("received full new map, resizing to: %d, %d", size_in_cells_x,
             size_in_cells_y);
   costmap_.resizeMap(size_in_cells_x, size_in_cells_y, resolution, origin_x,
                      origin_y);
@@ -134,22 +135,22 @@ void Costmap2DClient::updateFullMap(const nav_msgs::OccupancyGrid::ConstPtr& msg
   // fill map with data
   unsigned char* costmap_data = costmap_.getCharMap();
   size_t costmap_size = costmap_.getSizeInCellsX() * costmap_.getSizeInCellsY();
-  ROS_DEBUG("full map update, %lu values", costmap_size);
+  CUSTOM_LOG_DEBUG("full map update, %lu values", costmap_size);
   for (size_t i = 0; i < costmap_size && i < msg->data.size(); ++i) {
     unsigned char cell_cost = static_cast<unsigned char>(msg->data[i]);
     costmap_data[i] = cost_translation_table__[cell_cost];
   }
-  ROS_DEBUG("map updated, written %lu values", costmap_size);
+  CUSTOM_LOG_DEBUG("map updated, written %lu values", costmap_size);
 }
 
 void Costmap2DClient::updatePartialMap(
     const map_msgs::OccupancyGridUpdate::ConstPtr& msg)
 {
-  ROS_DEBUG("received partial map update");
+  CUSTOM_LOG_DEBUG("received partial map update");
   global_frame_ = msg->header.frame_id;
 
   if (msg->x < 0 || msg->y < 0) {
-    ROS_ERROR("negative coordinates, invalid update. x: %d, y: %d", msg->x,
+    CUSTOM_LOG_ERROR("negative coordinates, invalid update. x: %d, y: %d", msg->x,
               msg->y);
     return;
   }
@@ -168,7 +169,7 @@ void Costmap2DClient::updatePartialMap(
 
   if (xn > costmap_xn || x0 > costmap_xn || yn > costmap_yn ||
       y0 > costmap_yn) {
-    ROS_WARN("received update doesn't fully fit into existing map, "
+    CUSTOM_LOG_WARN("received update doesn't fully fit into existing map, "
              "only part will be copied. received: [%lu, %lu], [%lu, %lu] "
              "map is: [0, %lu], [0, %lu]",
              x0, xn, y0, yn, costmap_xn, costmap_yn);
@@ -202,23 +203,23 @@ geometry_msgs::Pose Costmap2DClient::getRobotPose() const
   try {
     tf_->transformPose(global_frame_, robot_pose, global_pose);
   } catch (tf::LookupException& ex) {
-    ROS_ERROR_THROTTLE(1.0, "No Transform available Error looking up robot "
+    CUSTOM_LOG_ERROR_THROTTLE(1.0, "No Transform available Error looking up robot "
                             "pose: %s\n",
                        ex.what());
     return {};
   } catch (tf::ConnectivityException& ex) {
-    ROS_ERROR_THROTTLE(1.0, "Connectivity Error looking up robot pose: %s\n",
+    CUSTOM_LOG_ERROR_THROTTLE(1.0, "Connectivity Error looking up robot pose: %s\n",
                        ex.what());
     return {};
   } catch (tf::ExtrapolationException& ex) {
-    ROS_ERROR_THROTTLE(1.0, "Extrapolation Error looking up robot pose: %s\n",
+    CUSTOM_LOG_ERROR_THROTTLE(1.0, "Extrapolation Error looking up robot pose: %s\n",
                        ex.what());
     return {};
   }
   // check global_pose timeout
   if (current_time.toSec() - global_pose.stamp_.toSec() >
       transform_tolerance_) {
-    ROS_WARN_THROTTLE(1.0, "Costmap2DClient transform timeout. Current time: "
+    CUSTOM_LOG_WARN_THROTTLE(1.0, "Costmap2DClient transform timeout. Current time: "
                            "%.4f, global_pose stamp: %.4f, tolerance: %.4f",
                       current_time.toSec(), global_pose.stamp_.toSec(),
                       transform_tolerance_);
@@ -250,4 +251,3 @@ std::array<unsigned char, 256> init_translation_table()
 }
 
 }  // namespace explore
-

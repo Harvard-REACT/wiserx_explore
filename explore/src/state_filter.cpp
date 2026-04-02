@@ -1,4 +1,5 @@
 #include<explore/state_estimation_filter.h>
+#include<explore/custom_logger.h>
 
 wsr_state_estimation::ParticleFilter::ParticleFilter(VectorXd x_val, double interval, double std_pos, double std_vel, double velocity_x, double velocity_y) : numParticles(100) 
 {
@@ -80,8 +81,8 @@ VectorXd wsr_state_estimation::ParticleFilter::getEstimate()
         estimate += particle.weight * particle.state;
     }
 
-    std::cout << "Estx " << estimate(0) << std::endl;
-    std::cout << "Esty " << estimate(1) << std::endl;
+    CUSTOM_LOG_INFO("Estx %f", estimate(0));
+    CUSTOM_LOG_INFO("Esty %f", estimate(1));
 
     return estimate;
 }
@@ -115,15 +116,24 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
         0, 0, 1, 0,
         0, 0, 0, 1;
 
-    P << 1, 0, 0, 0, // Initial state covariance
+    // Initial state covariance. A very large initial velocity uncertainty can cause
+    // the filter to become too uncertain, accepting all measurements as equally likely.
+    // Since our velocity is 0.1 m/s, we can set the initial velocity uncertainty to a smaller value to reflect our confidence in the initial velocity estimate.
+    P << 1, 0, 0, 0, // Position variance: std dev = 1m
         0, 1, 0, 0,
-        0, 0, 1000, 0,
-        0, 0, 0, 1000;
+        0, 0, 0.01, 0, // Velocity variance: std dev = 0.1 m/s
+        0, 0, 0, 0.01;
 
-    Q << 0.1, 0, 0, 0, // Process noise covariance
-        0, 0.1, 0, 0,
-        0, 0, 0.1, 0,
-        0, 0, 0, 0.1;
+    // Process noise covariance Q. This models the uncertainty in the constant velocity model.
+    // A robot's velocity is not truly constant; it accelerates and turns.
+    // The max change in velocity in one step is ~0.2 m/s (e.g., reversing from 0.1 to -0.1).
+    // Using a 3-sigma rule, the velocity variance is (0.2/3)^2 ≈ 0.0045.
+    // For position, a max random drift of 30cm gives a variance of (0.30/3)^2 = 0.01.
+    // A smaller Q for velocity makes the velocity estimate more stable.
+    Q << 0.01, 0, 0, 0,
+        0, 0.01, 0, 0,
+        0, 0, 0.0045, 0,
+        0, 0, 0, 0.0045;
 
     // //Updated R on July 31 2025 - Trial 4
     // R << 0.0001, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
@@ -134,8 +144,22 @@ wsr_state_estimation::ExtendedKalmanFilter::ExtendedKalmanFilter(VectorXd x_val,
     //     0, 0.2;  // 15 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
 
     //Trial 6
-    R << 0.1, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
-        0, 0.1;  // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+    R << 0.15, 0,   // Measurement noise covariance (range (m), bearing (radians)). Ignore the impact of range.
+        0, 0.1;     // 5 degree of standard deviation for range and bearing leading to 0.01 cov_x and cov_y
+
+    // Effective clutter intensity (lambda_c). This term is used to calculate
+    // the probability that none of the measurements are from the target (beta_0).
+    // A higher value means a higher chance of clutter.
+    // It can be defined as: lambda * (1 - P_D*P_G)/P_D, where lambda is clutter
+    // density, P_D is detection prob, P_G is gating prob.
+    clutter_intensity_ = 1e-4;
+
+    // Gating threshold from Chi-squared distribution.
+    // For 2 degrees of freedom (range, bearing):
+    // 90% confidence: 4.605
+    // 95% confidence: 5.991
+    // 99% confidence: 9.210
+    gating_threshold_ = 5.991; // 95% confidence
 
 }
 
@@ -160,7 +184,7 @@ void wsr_state_estimation::ExtendedKalmanFilter::update(const VectorXd &z, geome
     residual_error__.clear();
     residual_error__.push_back(y(0));
     residual_error__.push_back(y(1));
-    // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+    // CUSTOM_LOG_INFO("Filter: Residial Range: %f Bearing : %f", y(0), y(1));
     
     MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
     // MatrixXd H = calculateJacobianV2(z_pred); // Calculate Jacobian of the measurement model
@@ -194,17 +218,15 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
     MatrixXd H = calculateJacobian(x,robot_i_position); // Calculate Jacobian of the measurement model
     MatrixXd S = H * P * H.transpose() + R;
     VectorXd z_pred = h(x, robot_i_position); // Predict measurement
-    ROS_INFO("Obtained bearing measurements size %d", int(bearing_measurements.size()));
+    CUSTOM_LOG_INFO("Obtained bearing measurements size %d", int(bearing_measurements.size()));
     for(auto bval : bearing_measurements){
         VectorXd z(2); 
         z << range_measurement, bval;        
         VectorXd y =  z - z_pred ; // Measurement residual
         y(1) = wrapToPi(y(1)); 
         float d2 = MahalanobisDistance(y, S);
-        ROS_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
-        // if(d2 < 9.21){ //99% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
-        if(d2 < 5.99){ //95% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
-        // if(d2 < 4.605){ //90% confidence interval with Chi-squared distribution. Common for EKF2+PDAF gating with Mahalanobis distance
+        CUSTOM_LOG_INFO("Angle_measured (deg): %f, d2: %f",z[1]*180/3.14, d2);
+        if(d2 < gating_threshold_){
 	      float gaussian_pdf = exp(-0.5*d2) / (2*M_PI*sqrt(S.determinant())) ;
           residuals__.push_back(y);
           likelihoods__.push_back(gaussian_pdf);
@@ -212,40 +234,56 @@ void wsr_state_estimation::ExtendedKalmanFilter::updatePDAF(float& range_measure
           angle_pred__.push_back(z_pred[1]);
 	}
     }
+    
     //Normalize the likelihoods
-    //Clutter likelihood ==> Can we use the profile variance to somehow estimate this?
-    float total = 0;
-    for(auto val: likelihoods__) total += val;
+    float total_likelihood = 0;
+    for(auto val: likelihoods__) total_likelihood += val;
+
+    // Clutter likelihood. This represents the probability of false alarms or missed detections.
+    float normalization_factor = total_likelihood + clutter_intensity_;
+    float beta_0 = clutter_intensity_ / normalization_factor;
     
     //Only update if there are measurements
-    if(total >0){
-        for(auto prob: likelihoods__) probs_vec__.push_back(prob/total);
+    if(total_likelihood > 0){
+        for(auto prob: likelihoods__) probs_vec__.push_back(prob/normalization_factor);
    
        //Expected residual in measurement
+       double sin_sum = 0, cos_sum = 0;
         for(int k=0; k<int(probs_vec__.size()); k++){
-          ROS_INFO("Angle_pred (deg): %f, Angle_measured (deg): %f, residuals: %f, probs: %f",
-          angle_pred__[k]*180/3.14, angle_val__[k]*180/3.14, residuals__[k][1], probs_vec__[k]);
-          y_bar += probs_vec__[k] * residuals__[k];
+            CUSTOM_LOG_INFO("Angle_pred (deg): %f, Angle_measured (deg): %f, residuals: %f, probs: %f",
+            angle_pred__[k]*180/3.14, angle_val__[k]*180/3.14, residuals__[k][1], probs_vec__[k]);
+            y_bar(0) += probs_vec__[k] * residuals__[k](0); // Range is linear
+            sin_sum += probs_vec__[k] * std::sin(residuals__[k](1));
+            cos_sum += probs_vec__[k] * std::cos(residuals__[k](1));
         }
+        y_bar(1) = std::atan2(sin_sum, cos_sum);
+
         // Update state and covariance
         MatrixXd K = P * H.transpose() * S.inverse(); // Kalman gain
         x = x + K * y_bar;
+
+        // Correctly calculate the innovation spread covariance P_update
+        // P_update = (Σ [βᵢ * yᵢ * yᵢᵀ]) - (ȳ * ȳᵀ)
+        MatrixXd P_update_sum_term = Eigen::MatrixXd::Zero(2, 2);
         for(int i=0; i<probs_vec__.size(); i++) {
-	  MatrixXd outer_product = (residuals__[i]-y_bar) * (residuals__[i]-y_bar).transpose();
-          P_update += probs_vec__[i] * outer_product;
+            MatrixXd outer_product = residuals__[i] * residuals__[i].transpose();
+            P_update_sum_term += probs_vec__[i] * outer_product;
         }
-  
+        P_update = P_update_sum_term - (y_bar * y_bar.transpose());
+
+        // Full PDAF covariance update
         MatrixXd I = MatrixXd::Identity(P.rows(), P.cols());
-        P = (I - K * H) * P * (I - K * H).transpose() + 
-        K * (R+P_update) * K.transpose() ; 
+        MatrixXd P_c = (I - K * H) * P;
+        MatrixXd P_tilde = K * P_update * K.transpose();
+        P = beta_0 * P + (1 - beta_0) * P_c + P_tilde;
         range_bearing__.push_back(z_pred(0));
         range_bearing__.push_back(z_pred(1)*180.0 / M_PI);
         residual_error__.push_back(y_bar(0));
         residual_error__.push_back(y_bar(1)*180.0 / M_PI);
-        // std::cout << "Filter: Residial Range: "<< y(0) << " Bearing : " << y(1) << std::endl;
+        // CUSTOM_LOG_INFO("Filter: Residial Range: %f Bearing : %f", y_bar(0), y_bar(1));
     }
     else{
-        ROS_INFO("No valid measurements");
+        CUSTOM_LOG_INFO("No valid measurements");
     }
     
 }
@@ -268,7 +306,7 @@ VectorXd wsr_state_estimation::ExtendedKalmanFilter::h(const VectorXd &state, ge
 // Calculate the Jacobian matrix of the measurement model
 MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const VectorXd &state, geometry_msgs::Pose& robot_i_position) 
 {
-    MatrixXd Hj(2, 4);
+    MatrixXd Hj = MatrixXd::Zero(2, 4);
     double dx = state(0) - robot_i_position.position.x;
     double dy = state(1) - robot_i_position.position.y;
 
@@ -278,7 +316,7 @@ MatrixXd wsr_state_estimation::ExtendedKalmanFilter::calculateJacobian(const Vec
     
     // Check if division by zero might occur
     if (std::abs(d) < 0.0001) {
-        std::cout << "CalculateJacobian () - Error - Division by Zero" << std::endl;
+        CUSTOM_LOG_ERROR("CalculateJacobian () - Error - Division by Zero");
         return Hj; // Early return with unmodified Hj, which might be incorrect
     }
 

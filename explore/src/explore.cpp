@@ -36,6 +36,8 @@
  *********************************************************************/
 
 #include <explore/explore.h>
+#include <explore/custom_logger.h>
+#include <fstream>
 
 inline static bool operator==(const geometry_msgs::Point& one,
                               const geometry_msgs::Point& two)
@@ -52,8 +54,8 @@ auto stop_val = std::chrono::high_resolution_clock::now();
 auto start_exploration = std::chrono::high_resolution_clock::now();
 auto end_exploration = std::chrono::high_resolution_clock::now();
 auto duration = std::chrono::duration_cast<std::chrono::seconds>(stop_val - start_val);
-double _previous_range_measurement = 2.0;
-std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2"};
+std::map<int, double> _previous_range_measurement;
+std::vector<std::string> name_vicon_hardware = {"tb3_1", "tb3_2", "tb3_3", "tb3_4", "tb3_5", "tb3_6"};
 float ekf_velocity_x = 0.0;
 float ekf_velocity_y = 0.0;
 
@@ -122,10 +124,10 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
+          CUSTOM_LOG_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           
           //Add own's position to enable estimating of quadmap fill and terminating.
-          quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+          quadmap::Node position_node(mx__, my__, std::make_shared<int>(1), robot_id_,timestep__);
           base_quadmap_.insert_till_end(position_node); 
           break;
         }
@@ -147,14 +149,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             if(FLAG_noise) add_noise_to_groundtruth_measurements(gt_obs,0.1,0.1);
             measurement_output__.push_back(gt_obs.first);
             measurement_output__.push_back(gt_obs.second);
-            ROS_INFO("Got estimates");
-            ROS_INFO("Noisy range (meters), bearing(degrees): = %f, %f", measurement_output__[0], measurement_output__[1]*180/3.14);
+            CUSTOM_LOG_INFO("Got estimates");
+            CUSTOM_LOG_INFO("Noisy range (meters), bearing(degrees): = %f, %f", measurement_output__[0], measurement_output__[1]*180/3.14);
 
 
             auto search_val = robot_information__.find(name[itr].c_str());
             if( search_val == robot_information__.end())
             {
-              ROS_INFO("Creating Robot j track");
+              CUSTOM_LOG_INFO("Creating Robot j track");
               quadmap::Robot new_robot_track;
               new_robot_track.robot_id = itr;
               robot_information__.insert({name[itr].c_str(), new_robot_track});
@@ -162,19 +164,19 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               double first_est_x = robot_i_positions.position.x + measurement_output__[0]*cos(measurement_output__[1]);
               double first_est_y = robot_i_positions.position.y + measurement_output__[0]*sin(measurement_output__[1]);
               
-              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
-              ROS_INFO("First estimate = %f, %f", first_est_x, first_est_y);
+              CUSTOM_LOG_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              CUSTOM_LOG_INFO("First estimate = %f, %f", first_est_x, first_est_y);
               
               
               VectorXd robot_j_first_estimate(4) ;
-              ROS_INFO("Created Kalman filter object");
+              CUSTOM_LOG_INFO("Created Kalman filter object");
               robot_j_first_estimate << first_est_x, first_est_y, 0.2, 0.2; // x,y,vx,vy - constant velocity model
-              ROS_INFO("Initializaing EKF Track");
+              CUSTOM_LOG_INFO("Initializaing EKF Track");
               wsr_state_estimation::ExtendedKalmanFilter new_robot_state_estimation_track (robot_j_first_estimate, measurement_interval__); //Run prediction every second
               ekf_robot_track__.insert({name[itr].c_str(),new_robot_state_estimation_track});
               est_x_j = robot_j_first_estimate[0];
               est_y_j = robot_j_first_estimate[1];
-              ROS_INFO("First estimate = %f, %f", est_x_j, est_y_j);
+              CUSTOM_LOG_INFO("First estimate = %f, %f", est_x_j, est_y_j);
 
               ekf_robot_track__[name[itr].c_str()].predict(); //Prediction comes from model
 
@@ -188,11 +190,11 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               // est_my_j = robot_j_first_estimate[1];
               // ROS_INFO("First estimate = %f, %f", est_mx_j, est_my_j);
             }
-            else if(search_val->second.robot_tau == 1) 
+            else if(*(search_val->second.robot_tau) == 1) 
             {
                             
               //Perform state_estimation of robot j
-              ROS_INFO("Found track for functional robot %s with tau: %d", search_val->first.c_str(), search_val->second.robot_tau);
+              CUSTOM_LOG_INFO("Found track for functional robot %s with tau: %d", search_val->first.c_str(), *(search_val->second.robot_tau));
               VectorXd z(2);
               //Predict for next timestep
               ekf_robot_track__[name[itr].c_str()].predict();
@@ -222,14 +224,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               // cov_array[0] = cov(0,0); //cov_x
               // cov_array[1] = cov(1,1); //cov_y
 
-              ROS_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
-              ROS_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
+              CUSTOM_LOG_INFO("True position = %f, %f", pose_vec[itr].position.x, pose_vec[itr].position.y);
+              CUSTOM_LOG_INFO("Predicted estimate = %f, %f", est_x_j, est_y_j);
 
             }
             
             //Only do next steps for functional robot
             search_val = robot_information__.find(name[itr].c_str());
-            if(search_val->second.robot_tau == 1)
+            if(*(search_val->second.robot_tau) == 1)
             { 
               //Keep track of the latest position esimates for using in beta weight of the infomration gain.
               geometry_msgs::Point temp;
@@ -239,7 +241,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
               unsigned int sizeX = costmap2d->getSizeInCellsX();
               unsigned int sizeY = costmap2d->getSizeInCellsY();
-              ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+              CUSTOM_LOG_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
               
               //Initialize node with true relative position of the other robot
               costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
@@ -267,7 +269,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               neighboring_robot.one_shot_map_position.y = my__;
 
               //Publisher message
-              ROS_INFO("Adding other neighbor info");       
+              CUSTOM_LOG_INFO("Adding other neighbor info");
               neighboring_robot.true_range_bearing = measurement_output__;
               neighboring_robot.est_range_bearing = measurement_output__;
               neighboring_robot.filter_predicted_range_bearing = ekf_robot_track__[name[itr].c_str()].range_bearing__;
@@ -278,7 +280,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
               neighboring_robot.status = 1;
               neighboring_robot.robot_id = position_node.getRobotID();
               msg.other_robots.push_back(neighboring_robot);
-              ROS_INFO("Added neighbor info");
+              CUSTOM_LOG_INFO("Added neighbor info");
             }
           }
         }
@@ -328,8 +330,9 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
   //For hardware experiments
   void Explore::SensingCallbackFilter(const wiserx_explore_lite::LocalMeasurement::ConstPtr& input_msg)
   {
-      ROS_INFO("=== Entered SensingCallbackFilter ===");
-      if (int(own_pose_deque_.size()) >= pose_size_limit__/2){
+      CUSTOM_LOG_INFO("=== Entered SensingCallbackFilter ===");
+      if (int(own_pose_deque_.size()) >= pose_size_limit__/2)
+      {
         std::vector<frontier_exploration::Frontier> frontiers_copy;
         wiserx_explore_lite::QuadmapViz msg;
         costmap_2d::Costmap2D* costmap = costmap_client_.getCostmap();
@@ -339,8 +342,6 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         
         timestep__++;
         current_rel_positions__.clear();
-        bearing_angle_radians_vec__.clear();
-
 
         // Get current own pose of the robot. Only used for debugging
         auto current_pose = costmap_client_.getRobotPose();
@@ -354,7 +355,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         std::vector<double> own_current_pose_vec = {
             current_pose.position.x, current_pose.position.y, current_heading_deg
         };
-        ROS_INFO("Current pose (x, y, heading): %.2f, %.2f, %.2f",
+        CUSTOM_LOG_INFO("Current pose (x, y, heading): %.2f, %.2f, %.2f",
                 current_pose.position.x, current_pose.position.y, current_heading_deg);
 
         
@@ -362,12 +363,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         int num_neighboring_robots = input_msg->other_robots_rb.size();
         for(int nr=0; nr<num_neighboring_robots; nr++)
         {
+          bearing_angle_radians_vec__.clear();
           //Determine which type of measurment to use - real sensor vs based of motion capture true positions
           neighbor_robot_rb__ = input_msg->other_robots_rb[nr];
           other_robot_id__ = neighbor_robot_rb__.robot_id;
           std::string other_robot_name = name_vicon_hardware[other_robot_id__-1];
           wiserx_explore_lite::RelativeEstimate neighbor;
-                      
+          CUSTOM_LOG_INFO("Got relative measurements for Robot ID %d", other_robot_id__);
+
           // ===========================================================================================
           /* Retrieve pose history to find pose closest to the time when the first CSI sample was take.
           * We do this beacuse there is a 7 second gap between get raw data at some position and generating the measurement 
@@ -376,11 +379,11 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           std::vector<std::pair<double,geometry_msgs::Pose>> own_pose_history;
           own_pose_mutex.lock();
           if(!FLAG_DEBUG_OWN_TRUE_POSE__){
-            ROS_INFO("Using Own SLAM Pose");
+            CUSTOM_LOG_INFO("Using Own SLAM Pose");
             own_pose_history.assign(own_pose_deque_.begin(), own_pose_deque_.end());
           }
           else{
-            ROS_INFO("Using Own Mocap Pose");
+            CUSTOM_LOG_INFO("Using Own Mocap Pose");
             own_pose_history.assign(own_true_pose_deque_.begin(), own_true_pose_deque_.end());
           }
           own_pose_mutex.unlock();
@@ -403,10 +406,27 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           geometry_msgs::Pose own_tp = input_msg->own_true_pose;
           std::pair<double, double> true_measurements = get_range_and_bearing_from_groundtruth(own_tp,
                                                                           neighbor_robot_rb__.true_pose); //Returned angle is in radians 
+          
+          CUSTOM_LOG_INFO("Selecting measurements");
           if(FLAG_use_real_sensors__){
             range_measurements_to_use = neighbor_robot_rb__.range_measurements;
+            
+            /*
+            * Initialize AOA based on true measurements for the first few iterations. This is to handle the issue of 
+            * getting incorrect AOA measurements to no mess up PDAF due to inconsitencies in AOA with the intel 5300
+            * Wifi card when more than two robots are present.
+            */
+            CUSTOM_LOG_INFO("Measurement iterator = %d", _measurement_iterator);
+            if(_measurement_iterator<=2)
+            {
+              CUSTOM_LOG_INFO("Initialized for robot id: %d", other_robot_id__);
+              CUSTOM_LOG_INFO("Initialized angle for %f", aoa_init_[other_robot_id__-1]);
+              neighbor_robot_rb__.bearing_measurements.clear();
+              neighbor_robot_rb__.bearing_measurements.push_back(aoa_init_[other_robot_id__-1]);
+              CUSTOM_LOG_INFO("Initialized angle updated");
+            }
             bearing_measurements_to_use = neighbor_robot_rb__.bearing_measurements;
-      
+            
           //Correct by accounting for own heading
             for(auto val: bearing_measurements_to_use){
               bearing_angle_radians_vec__.push_back(
@@ -414,7 +434,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             }          
           }
           else{
-            ROS_INFO("Using motion capture to generate relative measurements");
+            CUSTOM_LOG_INFO("Using motion capture to generate relative measurements");
             if(FLAG_noise) add_noise_to_groundtruth_measurements(true_measurements,0.1,0.1);
             
             //No need since the mesurements are generated in the global reference frame.
@@ -424,27 +444,34 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           }
           //=======================Choose the type of measurement to use========================
           
-          //Workaround for issues in range measurements. Handles a bug in raw range measurement
-          if(__FLAG_first_measurement)
-          {
-            _previous_range_measurement = range_measurements_to_use[0];
-            __FLAG_first_measurement = false;
-          }
+          CUSTOM_LOG_INFO("Workaround for range measurements");
+          // Workaround for issues in range measurements. Handles a bug in raw range measurement when sudden jumps are detected.
           range_to_use__ = range_measurements_to_use[0];
-          if(range_measurements_to_use[0] == 0.0 || abs(_previous_range_measurement-range_measurements_to_use[0]) > 3.0)
+          // Check if we have a previous measurement for this robot
+          if (_previous_range_measurement.find(other_robot_id__) == _previous_range_measurement.end())
           {
-          range_to_use__ = _previous_range_measurement; 
+            // This is the first measurement for this robot, so we store it.
+            _previous_range_measurement[other_robot_id__] = range_to_use__;
           }
           else
           {
-            _previous_range_measurement = range_to_use__;
+            // We have a previous measurement, check for outliers.
+            if (range_to_use__ == 0.0 || std::abs(_previous_range_measurement[other_robot_id__] - range_to_use__) > 3.0)
+            {
+              range_to_use__ = _previous_range_measurement[other_robot_id__];
+            }
+            else
+            {
+              // Valid measurement, update the stored previous measurement.
+              _previous_range_measurement[other_robot_id__] = range_to_use__;
+            }
           }
           
-          ROS_INFO("Measurement pose (x, y, heading): %.2f, %.2f, %.2f",
+          CUSTOM_LOG_INFO("Own pose when relative measurements obtained (x, y, heading): %.2f, %.2f, %.2f",
                   closest_robot_pose_at_csi_measurement.position.x,
                   closest_robot_pose_at_csi_measurement.position.y,
                   own_orientation_deg__);
-          ROS_INFO("Range (meter): %.2f, Raw AOA (degrees): %.2f, Adjusted AOA top peak (degrees): %.2f",
+          CUSTOM_LOG_INFO("Range (meter): %.2f, Raw AOA (degrees): %.2f, Adjusted AOA top peak (degrees): %.2f",
                   range_to_use__,
                   bearing_measurements_to_use[0] ,
                   bearing_angle_radians_vec__[0] * 180.0 / M_PI);
@@ -460,14 +487,14 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = robot_id_;
-          ROS_INFO("Own position (world): %.2f, %.2f (ID: %d)",
+          CUSTOM_LOG_INFO("Own position (world): %.2f, %.2f (ID: %d)",
                   closest_robot_pose_at_csi_measurement.position.x,
                   closest_robot_pose_at_csi_measurement.position.y,
                   msg.robot_id);
-          ROS_INFO("Own position (map): %d, %d", mx__, my__);
+          CUSTOM_LOG_INFO("Own position (map): %d, %d", mx__, my__);
           
           //Add own's position to enable estimating of quadmap fill and terminating.
-          quadmap::Node my_position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+          quadmap::Node my_position_node(mx__, my__, std::make_shared<int>(1), robot_id_,timestep__);
           base_quadmap_.insert_till_end(my_position_node);
           
           
@@ -477,7 +504,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           auto robot_it = robot_information__.find(other_robot_name);
           if(robot_it == robot_information__.end())
           {
-              ROS_INFO("Creating track for Robot ID %d", other_robot_id__);
+              CUSTOM_LOG_INFO("Creating track for Robot ID %d", other_robot_id__);
 
               double initial_x = closest_robot_pose_at_csi_measurement.position.x + range_to_use__ * std::cos(bearing_angle_radians_vec__[0]);
               double initial_y = closest_robot_pose_at_csi_measurement.position.y + range_to_use__ * std::sin(bearing_angle_radians_vec__[0]);
@@ -494,7 +521,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
               est_x_j = initial_x;
               est_y_j = initial_y;
-              ROS_INFO("First estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
+              CUSTOM_LOG_INFO("First estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
 
               ekf_robot_track__[other_robot_name].predict();            
               ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement);
@@ -504,19 +531,20 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
             
           } 
           else {                            
-              if(robot_information__[other_robot_name].robot_tau > 0){
+              if(*(robot_information__[other_robot_name].robot_tau) > 0){
                 //Perform state_estimation of robot j
-                ROS_INFO("Found Robot (robot id : %d) track", other_robot_id__);
+                CUSTOM_LOG_INFO("Found Robot (robot id : %d) track", other_robot_id__);
                 ekf_robot_track__[other_robot_name].predict();
                 ekf_robot_track__[other_robot_name].updatePDAF(range_to_use__, bearing_angle_radians_vec__, closest_robot_pose_at_csi_measurement); 
                 est_x_j = ekf_robot_track__[other_robot_name].x[0];
                 est_y_j = ekf_robot_track__[other_robot_name].x[1];
                 const auto& P = ekf_robot_track__[other_robot_name].P;
                 covariance_array = { P(0, 0), P(0, 1), P(1, 0), P(1, 1) };
-                ROS_INFO("Predicted estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
+                CUSTOM_LOG_INFO("Predicted estimate (world x_j, y_j) = %f, %f", est_x_j, est_y_j);
               }
               else{        
-                ROS_INFO("Neighbor robot ID: %d has failed.", other_robot_id__);
+                CUSTOM_LOG_INFO("Neighbor robot ID: %d has failed. Skipping update.", other_robot_id__);
+                continue; // Skip the rest of the loop for this failed robot
               }
           }
 
@@ -533,18 +561,17 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
 
           unsigned int sizeX = costmap->getSizeInCellsX();
           unsigned int sizeY = costmap->getSizeInCellsY();
-          ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
-          ROS_INFO("Estimate in map: (%d, %d)", ekf_robot_track__[other_robot_name].mx__, ekf_robot_track__[other_robot_name].my__); 
+          CUSTOM_LOG_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+          CUSTOM_LOG_INFO("Estimate in map: (%d, %d)", ekf_robot_track__[other_robot_name].mx__, ekf_robot_track__[other_robot_name].my__); 
     
           bool out_of_bounds = (
               ekf_robot_track__[other_robot_name].mx__ > x_env_map_max_limit__ || ekf_robot_track__[other_robot_name].my__ > y_env_map_max_limit__ ||
               ekf_robot_track__[other_robot_name].mx__ < x_env_map_min_limit__ || ekf_robot_track__[other_robot_name].my__ < y_env_map_min_limit__
           );
     
-
-          if(out_of_bounds or robot_information__[other_robot_name].robot_tau ==0) 
+          if(out_of_bounds or *(robot_information__[other_robot_name].robot_tau) == 0) 
           {
-              ROS_INFO("Estimate out of bounds, using previous estimate.");
+              CUSTOM_LOG_INFO("Estimate out of bounds, using previous estimate.");
               neighbor.true_map_position.x = 0;
               neighbor.true_map_position.y = 0;
               neighbor.estimated_map_position.x = ekf_robot_track__[other_robot_name].prev_mx__;
@@ -554,11 +581,12 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           {
               auto& robot_data = robot_information__[other_robot_name];
               quadmap::Node j_position_node(ekf_robot_track__[other_robot_name].mx__,
-              ekf_robot_track__[other_robot_name].my__, 
-              robot_data.robot_tau, robot_data.robot_id, timestep__);
+                                            ekf_robot_track__[other_robot_name].my__, 
+                                            robot_data.robot_tau, robot_data.robot_id, timestep__);
               j_position_node.updateOmega(covariance_array[0], covariance_array[3]);
               robot_data.node_information.push(j_position_node);
               base_quadmap_.insert_till_end(j_position_node);
+              CUSTOM_LOG_INFO("Inserted in Quadmap");
 
               neighbor.true_map_position.x = j_position_node.true_mx;
               neighbor.true_map_position.y = j_position_node.true_my;
@@ -578,10 +606,12 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
           neighbor.filter_residual_error_range_bearing = ekf_robot_track__[other_robot_name].residual_error__;
           msg.other_robots.push_back(neighbor);
           msg.own_measurement_pose = own_measurement_pose_vec;
+          CUSTOM_LOG_INFO("-----finished-----");
           //End for loop*****************
         }  
           
         msg.own_current_pose = own_current_pose_vec;
+        _measurement_iterator+=1;
         
         /*
         //Commeted out for Debugging
@@ -609,7 +639,7 @@ void Explore::modelStateCallbackFilter(const gazebo_msgs::ModelStates::ConstPtr&
         msg.header.frame_id = std::to_string(frame__++);
         quadmapPub_.publish(msg);
         
-        ROS_INFO("=== Exited SensingCallbackFilter ===");
+        CUSTOM_LOG_INFO("=== Exited SensingCallbackFilter ===");
       }
     }
 
@@ -639,8 +669,8 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
       {
         if(itr==robot_id_-1)
         {
-          ROS_INFO("itr: %d", itr);
-          ROS_INFO("robot_id_: %d", robot_id_);
+          CUSTOM_LOG_INFO("itr: %d", itr);
+          CUSTOM_LOG_INFO("robot_id_: %d", robot_id_);
           
           //For hardware implementation using global frame, we need to start at 0,0.
           //For this initialize the (0,0) origin of vicon reference frame close to the robot's starting point 
@@ -649,12 +679,12 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = robot_id_;
-          ROS_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_vicon_position.position.x,robot_i_vicon_position.position.y, msg.robot_id);
-          ROS_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
+          CUSTOM_LOG_INFO("Own position of robot(ID) in world = %f, %f, %d", robot_i_vicon_position.position.x,robot_i_vicon_position.position.y, msg.robot_id);
+          CUSTOM_LOG_INFO("Own position of robot(ID) in map = %d, %d, %d", mx__,my__, msg.robot_id);
 
 
           //Add own's position to enable estimating of quadmap fill and terminating.
-          quadmap::Node position_node(mx__, my__, my_tau__, robot_id_,timestep__);
+          quadmap::Node position_node(mx__, my__, std::make_shared<int>(1), robot_id_,timestep__);
           base_quadmap_.insert_till_end(position_node); 
           break;
         }
@@ -662,6 +692,12 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
       
       for(int itr=0; itr<pose_vec.size(); itr++)
       {
+          if (itr >= name_vicon_hardware.size()) {
+            CUSTOM_LOG_WARN("Vicon data has more poses (%zu) than configured robot names (%zu). Skipping pose index %d.",
+                     pose_vec.size(), name_vicon_hardware.size(), itr);
+            continue;
+          }
+
           wiserx_explore_lite::RelativeEstimate neighboring_robot;             
           double est_x_j=0,est_y_j=0, one_shot_position_x, one_shot_position_y;
         
@@ -676,17 +712,17 @@ void Explore::ViconCombinedStateCallbackTruePositionBaseline(const geometry_msgs
             
             if(mx__ > x_env_map_max_limit__ || my__ > y_env_map_max_limit__  || mx__ < x_env_map_min_limit__ || my__ < y_env_map_min_limit__) 
             {
-              ROS_INFO("Predicted estimate (map) beyond boundary= %d, %d", mx__, my__);
+              CUSTOM_LOG_INFO("Predicted estimate (map) beyond boundary= %d, %d", mx__, my__);
             }
             else
             {
-              ROS_INFO("Predicted estimate (map)= %d, %d", mx__, my__);
+              CUSTOM_LOG_INFO("Predicted estimate (map)= %d, %d", mx__, my__);
               neighboring_robot.true_map_position.x = position_node.true_mx;
               neighboring_robot.true_map_position.y = position_node.true_my; 
               neighboring_robot.estimated_map_position.x = position_node.est_mx;
               neighboring_robot.estimated_map_position.y = position_node.est_my;
 
-              ROS_INFO("Added neighbor info for visualization only");
+              CUSTOM_LOG_INFO("Added neighbor info for visualization only");
               //Publisher message      
               neighboring_robot.true_range_bearing = measurement_output__;
               neighboring_robot.est_range_bearing = measurement_output__;
@@ -758,7 +794,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           msg.own_position.x = mx__;
           msg.own_position.y = my__;
           msg.robot_id = itr;
-          ROS_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
+          CUSTOM_LOG_INFO("Own position of robot(ID) = %u, %u, %d", mx__,my__, msg.robot_id);
           break;
         }
       }
@@ -772,14 +808,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
             wiserx_explore_lite::RelativeEstimate neighboring_robot;
             unsigned int sizeX = costmap2d->getSizeInCellsX();
             unsigned int sizeY = costmap2d->getSizeInCellsY();
-            ROS_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
+            CUSTOM_LOG_INFO("**** getSizeInCellsX, getSizeInCellsY: %d, %d **** ", sizeX, sizeY);
             
             //Add true position
             costmap2d->worldToMap(pose_vec[itr].position.x, pose_vec[itr].position.y, mx__, my__);
             quadmap::Node position_node(mx__, my__, robot_information__[name[itr].c_str()].robot_tau, robot_information__[name[itr].c_str()].robot_id,timestep__);
 
             //Publisher message
-            ROS_INFO("Adding neighbor info");
+            CUSTOM_LOG_INFO("Adding neighbor info");
             neighboring_robot.true_map_position.x = position_node.true_mx;
             neighboring_robot.true_map_position.y = position_node.true_my;        
             neighboring_robot.estimated_map_position.x = position_node.est_mx;
@@ -789,7 +825,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
             neighboring_robot.status = 1;
             neighboring_robot.robot_id = position_node.getRobotID();
             msg.other_robots.push_back(neighboring_robot);
-            ROS_INFO("Added neighbor info");
+            CUSTOM_LOG_INFO("Added neighbor info");
           }
         }
       }
@@ -836,8 +872,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     else
     {
       auto search_val = robot_information__.find(msg->data);
-      search_val->second.robot_tau = 0;
-      ROS_INFO("Setting neighboring robot %s tau to zero", search_val->first.c_str());
+      if (search_val != robot_information__.end()) {
+        *(search_val->second.robot_tau) = 0;
+        CUSTOM_LOG_INFO("Setting neighboring robot %s tau to zero", search_val->first.c_str());
+      }
     }
   }
 
@@ -856,7 +894,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   * No need to collect pose at the same rate as mocap
   * */
   void Explore::TruePoseCB(const geometry_msgs::PoseArray::ConstPtr& msg){
-    ROS_INFO(" ========= True pose Deque size : %d ======== ", int(own_true_pose_deque_.size()));
+    CUSTOM_LOG_INFO(" ========= True pose Deque size : %d ======== ", int(own_true_pose_deque_.size()));
     std::time_t current_epoch_time;
     const auto now = std::chrono::system_clock::now();
     current_epoch_time = std::chrono::system_clock::to_time_t(now); 
@@ -909,7 +947,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     private_nh_.param("ymax", y_max__, 0.0);
     private_nh_.param("robot_initial_map_pose_x", robot_initial_map_pose_x__, 0);
     private_nh_.param("robot_initial_map_pose_y", robot_initial_map_pose_y__, 0);
- 
+    if (private_nh_.getParam("initial_AOA_angles", aoa_init_)) {
+        CUSTOM_LOG_INFO("Loaded %zu initial AOA angles from parameter server.", aoa_init_.size());
+    } else {
+        CUSTOM_LOG_WARN("Could not load initial_AOA_angles. Vector will be empty.");
+    }
+
     //Subscribers
     // modelStateSub_ = private_nh_.subscribe<gazebo_msgs::ModelStates> ("/gazebo/model_states", 10, &Explore::modelStateCallback, this);
     
@@ -948,8 +991,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     servo_output_file_reader_command_ = "stat "+homedir_+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement_final.csv | grep Change | awk ' {print $3} '";  
     __dim_object_name = "mailbox_blue_clone"; //Used in simulation
 
-    ROS_INFO("Sensor range = %f", sensor_range_);
-    ROS_INFO("min_frontier_size = %f", min_frontier_size);  
+    CUSTOM_LOG_INFO("Sensor range = %f", sensor_range_);
+    CUSTOM_LOG_INFO("min_frontier_size = %f", min_frontier_size);  
         
     /**
      * This change has been made for running hardware expperiments with gmapping that automatically expands the map beyond the actual physical limits
@@ -961,11 +1004,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       */
       Quadmap_width_ = ((x_max__ - x_min__) + (y_max__ - y_min__ ))/2 ;
       Quadmap_height = Quadmap_width_  ;
-      std::cout << "Quadmap_width (world), Quadmap_height (world): " << Quadmap_width_ << ", " << Quadmap_width_ << std::endl;
-      std::cout << "map_resolution__" << map_resolution__ << std::endl;
+      CUSTOM_LOG_INFO("Quadmap_width (world-meters), Quadmap_height (world-meters): %f, %f", Quadmap_width_, Quadmap_width_);
+      CUSTOM_LOG_INFO("map_resolution__ %f", map_resolution__);
 
-      ekf_velocity_x = 0.1;
-      ekf_velocity_y = 0.1;
+      ekf_velocity_x = robot_speed_;
+      ekf_velocity_y = robot_speed_;
       baseline_1_frontier_selection_threshold__ = 80; //Since our hardware environment is small and not many forntiers are generated
       
       unsigned int mx, my;
@@ -988,23 +1031,23 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       x_env_map_min_limit__ = mx + int(x_min__/map_resolution__);
       y_env_map_min_limit__ = my + int(y_min__/map_resolution__);
 
-      std::cout << "**********************Robot map coord: " << mx << ", " << my << std::endl;
-      std::cout << "**********************Map limits: " << x_env_map_min_limit__ << ", " << x_env_map_max_limit__ << ", " << y_env_map_min_limit__ << "," << y_env_map_max_limit__ << std::endl;
+      CUSTOM_LOG_INFO("**********************Robot map coord: %u, %u", mx, my);
+      CUSTOM_LOG_INFO("**********************Map limits: %u, %u, %u, %u", x_env_map_min_limit__, x_env_map_max_limit__, y_env_map_min_limit__, y_env_map_max_limit__);
     }
     //*****************************************************************
 
     //Since we insert in map coordinates
     float width = Quadmap_width_/map_resolution__;
     float height = Quadmap_height/map_resolution__;
-    std::cout << "width, height: " << width << ", " << height << std::endl;
+    CUSTOM_LOG_INFO("width, height: %f, %f", width, height);
     float map_center_x = (x_env_map_max_limit__ + x_env_map_min_limit__) / 2 ;
     float map_center_y = (y_env_map_max_limit__ + y_env_map_min_limit__ ) / 2 ;
 
-    std::cout << "map_center_x, map_center_y: " << map_center_x << ", " << map_center_y << std::endl;
+    CUSTOM_LOG_INFO("map_center_x, map_center_y: %f, %f", map_center_x, map_center_y);
     auto domain = quadmap::Rect(map_center_x, map_center_y, float(width), float(height));
     base_quadmap_ = quadmap::QuadMap(domain, sensor_range_, map_resolution__);
     cell_count__ = base_quadmap_.total_cells;
-    std::cout << "cell_count : " << cell_count__ << std::endl;
+    CUSTOM_LOG_INFO("cell_count : %f", cell_count__);
 
     if (visualize_) {
       marker_array_publisher_ = private_nh_.advertise<visualization_msgs::MarkerArray>("frontiers", 10);
@@ -1015,9 +1058,9 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                                                   min_frontier_size, sensor_range_,
                                                   utility_alpha_parameter_, utility_beta_parameter_);
     
-    ROS_INFO("Waiting to connect to move_base server");
+    CUSTOM_LOG_INFO("Waiting to connect to move_base server");
     move_base_client_.waitForServer();
-    ROS_INFO("Connected to move_base server");
+    CUSTOM_LOG_INFO("Connected to move_base server");
 
     last_progress_ = ros::Time::now();
     
@@ -1058,7 +1101,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     green.b = 0;
     green.a = 1.0;
 
-    ROS_DEBUG("visualising %lu frontiers", frontiers.size());
+    CUSTOM_LOG_DEBUG("visualising %lu frontiers", frontiers.size());
     visualization_msgs::MarkerArray markers_msg;
     std::vector<visualization_msgs::Marker>& markers = markers_msg.markers;
     visualization_msgs::Marker m;
@@ -1117,10 +1160,10 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
   void Explore::makePlan()
   {
     
-    ROS_INFO(" ========= Deque size : %d ======== ", int(own_pose_deque_.size()));
+    CUSTOM_LOG_INFO(" ========= Deque size : %d ======== ", int(own_pose_deque_.size()));
     if(int(own_pose_deque_.size()) >= pose_size_limit__) //Wait till a few AOA measurements are collected as we need good initial estimate.
     {
-      ROS_INFO("Got sufficient history");
+      CUSTOM_LOG_INFO("Got sufficient history");
       auto pose = costmap_client_.getRobotPose();
 
       if(!__Flag_set_home)
@@ -1132,7 +1175,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       
       for (int itr=0; itr<current_neighbor_pose_vec_.size(); itr++)
       {
-        ROS_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
+        CUSTOM_LOG_DEBUG("neighbor: %d pos: (%f, %f )", itr, current_neighbor_pose_vec_[itr].x, current_neighbor_pose_vec_[itr].y);
       }
 
       unsigned fmx, fmy, mx__, my__;
@@ -1148,7 +1191,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                                             y_env_map_min_limit__);
 
       
-      ROS_DEBUG("found %lu frontiers", frontiers__.size());
+      CUSTOM_LOG_DEBUG("found %lu frontiers", frontiers__.size());
 
       // Reevaulate all frontiers once 50% progress has been made towards the frontier to understand if worthwhile to continue
       // Reevaulate all frontiers once 85% For smaller area in hardware experiments; else corners remain with very small utility values
@@ -1156,7 +1199,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       if (ros::Time::now() - last_progress_ > half_duration) 
       {
         move_base_client_.cancelAllGoals();
-        ROS_INFO("******* REACHED 3/4th to goal ---  REVAULATING ALL FRONTIERS ******************");
+        CUSTOM_LOG_INFO("******* REACHED 3/4th to goal ---  REVAULATING ALL FRONTIERS ******************");
       }
 
       
@@ -1166,12 +1209,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       { 
         
         last_progress_ = ros::Time::now();
-        std::cout << last_progress_ << std::endl;
+        CUSTOM_LOG_INFO("Last progress time: %f", last_progress_.toSec());
         
         start__.pose = pose;
         for (size_t i = 0; i < frontiers__.size(); ++i) 
         {
-          ROS_INFO("frontier %zd centroid distance before: %f meters", i, frontiers__[i].centroid_distance);
+          CUSTOM_LOG_INFO("frontier %zd centroid distance before: %f meters", i, frontiers__[i].centroid_distance);
           
           goal__.pose.position.x = frontiers__[i].centroid.x;
           goal__.pose.position.y = frontiers__[i].centroid.y;
@@ -1180,7 +1223,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
 
           if(GetPlanPath(start__, goal__, tolerance__, frontier_centroid_path__))
           {
-            ROS_INFO("Path received with %ld poses", frontier_centroid_path__.poses.size());
+            CUSTOM_LOG_INFO("Path received with %ld poses", frontier_centroid_path__.poses.size());
             frontiers__[i].centroid_distance = calculatePathLength(frontier_centroid_path__);
           }
           else
@@ -1188,8 +1231,8 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
             //No reachable path, assign high cost
             frontiers__[i].centroid_distance = 1000;
           }
-          ROS_INFO("frontier %zd centroid distance after: %f meters", i, frontiers__[i].centroid_distance);
-          ROS_INFO("*****************************************************************************");
+          CUSTOM_LOG_INFO("frontier %zd centroid distance after: %f meters", i, frontiers__[i].centroid_distance);
+          CUSTOM_LOG_INFO("*****************************************************************************");
         }   
       
         final_sorted_frontiers = search_.getMaxUtilityFrontiers(frontiers__, base_quadmap_, 
@@ -1201,11 +1244,11 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                                                                 y_env_map_min_limit__); 
         frontier_temp__ = final_sorted_frontiers;
 
-        ROS_INFO("===============Sorted frontiers===================");
+        CUSTOM_LOG_INFO("===============Sorted frontiers===================");
         for (size_t i = 0; i < final_sorted_frontiers.size(); ++i) 
         {
-          ROS_INFO("frontier %zd utility: %f", i, final_sorted_frontiers[i].cost);
-          ROS_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
+          CUSTOM_LOG_INFO("frontier %zd utility: %f", i, final_sorted_frontiers[i].cost);
+          CUSTOM_LOG_INFO("frontier %zd position: (%f, %f )", i, final_sorted_frontiers[i].centroid.x, final_sorted_frontiers[i].centroid.y);
         }
 
         end_exploration = std::chrono::high_resolution_clock::now();
@@ -1295,12 +1338,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                         {
                           reachedGoal(status, result, target_position);
                       });
-        
+       
       if (ros::Time::now() - last_progress_ > progress_timeout_) 
       {
         move_base_client_.cancelAllGoals();
         last_progress_ = ros::Time::now();
-        ROS_INFO("******* Unable to find path to frontier. Discarding ******************");
+        CUSTOM_LOG_INFO("******* Unable to find path to frontier. Discarding ******************");
         frontier_blacklist_.push_back(target_position);
       }
       }
@@ -1310,14 +1353,14 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
       {
         filled_cell_count__ = 0;
         base_quadmap_.query_filled(filled_cell_count__);
-        ROS_INFO("******* Total cells = %f", cell_count__);
-        ROS_INFO("******* Filled cells = %f", filled_cell_count__);
-        ROS_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
+        CUSTOM_LOG_INFO("******* Total cells = %f", cell_count__);
+        CUSTOM_LOG_INFO("******* Filled cells = %f", filled_cell_count__);
+        CUSTOM_LOG_INFO("******* Estimated map fill percentage = %f", 100*filled_cell_count__/cell_count__);
 
         if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__-diff_between_termination_thresholds__)
         { 
           __FLAG_can_stop_now__ = true;
-          ROS_INFO("******* Exploration Termination condition satisfied - Soft Threshold ******************");
+          CUSTOM_LOG_INFO("******* Exploration Termination condition satisfied - Soft Threshold ******************");
 
           if(!__FLAG_publish_once)
           {
@@ -1326,19 +1369,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
           }
 
         }
-
-        if(100*filled_cell_count__/cell_count__ >= fill_percentage_threshold__)
-        { 
-          ROS_INFO("******* Hard Termination stop ******************");
-          final_sorted_frontiers.clear();
-          stop();
-        }
       }
 
     }
     else
     {
-      ROS_INFO("Not sufficient pose history");
+      CUSTOM_LOG_INFO("Not sufficient pose history");
     }
   }
 
@@ -1388,7 +1424,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     } 
     else 
     {
-      ROS_ERROR("Failed to call service.");
+      CUSTOM_LOG_ERROR("Failed to call service.");
       return false;
     }
   }
@@ -1443,12 +1479,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
                             const move_base_msgs::MoveBaseResultConstPtr&,
                             const geometry_msgs::Point& frontier_goal)
   {
-    ROS_DEBUG("Reached goal with status: %s", status.toString().c_str());
+    CUSTOM_LOG_DEBUG("Reached goal with status: %s", status.toString().c_str());
 
     if (status == actionlib::SimpleClientGoalState::ABORTED) 
     {
       frontier_blacklist_.push_back(frontier_goal);
-      ROS_DEBUG("Adding current goal to black list");
+      CUSTOM_LOG_DEBUG("Adding current goal to black list");
     }
 
     // find new goal immediatelly regardless of planning frequency.
@@ -1485,7 +1521,7 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     
     exploration_completed_ = true;
     sleep(3); //make sure that the exploration evaluation stops
-    ROS_INFO("Exploration stopped.");
+    CUSTOM_LOG_INFO("Exploration stopped.");
   }
 
 
@@ -1508,12 +1544,12 @@ void Explore::modelStateCallbackTruePositionForBaseline(const gazebo_msgs::Model
     // IF exploration ends, store all data into a file
     if(exploration_completed_)
     {
-      ROS_INFO("Saving exploration termination stats to file.");
-      std::cout.precision(10);
+      CUSTOM_LOG_INFO("Saving exploration termination stats to file.");
+      // std::cout.precision(10);
       const auto p1 = std::chrono::system_clock::now();
       std::string ts = std::to_string(std::chrono::duration_cast<std::chrono::seconds>(p1.time_since_epoch()).count());
       std::string fn1 = fn+"wsr_frontiers_stats_"+robot_name_+"_"+ts+".csv";
-      ROS_DEBUG("File location : %s", fn1);
+      CUSTOM_LOG_DEBUG("File location : %s", fn1.c_str());
       std::ofstream myfile_def (fn1);
       std::vector<double> temp;
       std::vector<std::string> details {"pos_id", "info_gain", "centroid_distance" , "j_relative_position_count", "frontier_index", "Elapsed time(sec)"}; //index 1 means the top most frontier at each iteration which will then be selected

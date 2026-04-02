@@ -26,6 +26,12 @@
             <param name="robot_name" value="tb3_2"/>
         </node>
     </group>
+
+    <group ns="tb3_3">
+        <node pkg="wiserx_explore_lite" type="visualize_aoa_profile.py" respawn="false" name="visualize_aoa_profile" output="screen">
+            <param name="robot_name" value="tb3_3"/>
+        </node>
+    </group>
   </group>
 
 

@@ -1,4 +1,5 @@
 #include "ros/ros.h"
+#include <explore/custom_logger.h>
 #include "geometry_msgs/Twist.h"
 #include "sensor_msgs/Imu.h"
 #include "sensor_msgs/JointState.h"
@@ -143,11 +144,11 @@ void CTRL_C(int sig)
 void writeTrajToFile(std::vector<std::vector<double>>& ori_vector, 
                      std::string fn)
 {
-    std::cout.precision(10);
+    // std::cout.precision(10);
     std::ofstream myfile (fn);
     std::vector<double> temp;
 
-    std::cout << "Trajectory size " << ori_vector.size() << std::endl;
+    CUSTOM_LOG_INFO("Trajectory size %zu", ori_vector.size());
     if (myfile.is_open())
     {
         for(size_t i = 0; i < ori_vector.size(); i++)
@@ -203,7 +204,7 @@ int main(int argc, char **argv)
     std::string csi_stop_cmd = homedir+"/catkin_ws/src/react-m_explore/explore/scripts/stop_csi.sh rx";
     std::string csi_backup_cmd = homedir+"/catkin_ws/src/react-m_explore/explore/scripts/backup_csi_local.sh rx ";
 
-    ROS_INFO("Initialized antenna rotation.");
+    CUSTOM_LOG_INFO("Initialized antenna rotation.");
 
     auto iteration_start = std::chrono::high_resolution_clock::now();
     auto starttime = std::chrono::high_resolution_clock::now();
@@ -221,7 +222,7 @@ int main(int argc, char **argv)
                 cmd_status = system(csi_start_local_cmd.c_str());
                 if (cmd_status < 0)
                 {
-                    std::cout << "Error: " << strerror(errno) << '\n';
+                    CUSTOM_LOG_ERROR("Error: %s", strerror(errno));
                     __Flag_start_motion = false;
                     break;
                 }
@@ -233,12 +234,12 @@ int main(int argc, char **argv)
                 }
                 
                 starttime = std::chrono::high_resolution_clock::now();
-                ROS_INFO("Starting CSI Data Collection");
+                CUSTOM_LOG_INFO("Starting CSI Data Collection");
             }
 
             if(joint_angle > 4.0 || joint_angle < -4.5)
             {
-                ROS_INFO("======= Limit exceeding. Force stop =====");
+                CUSTOM_LOG_INFO("======= Limit exceeding. Force stop =====");
                 for(i=0;i<60;i++)
                 {
                     vel_pub.publish(geometry_msgs::Twist());
@@ -273,8 +274,8 @@ int main(int argc, char **argv)
                 else
                     joint_threshold = 3.0; //2.75,  120 deg,false, rotate left
                 
-		ROS_INFO("Stopping CSI data collection");       
-                ROS_INFO("======= Saving antenna orientation data =====");
+		CUSTOM_LOG_INFO("Stopping CSI data collection");
+                CUSTOM_LOG_INFO("======= Saving antenna orientation data =====");
                 
                 //Stop before changing direction or next iteration
                 ros::spinOnce();
@@ -288,11 +289,11 @@ int main(int argc, char **argv)
                 std::string time_str(buffer);
 
                 //std::string joint_ori_gt = homedir+"/catkin_ws/src/react-m_explore/explore/data/gt_displacement_"+time_str+".csv";
-                //std::cout << "Mocap Orientation file " << std::endl;
+                //CUSTOM_LOG_INFO("Mocap Orientation file ");
                 //writeTrajToFile(__robot_ori_gt, joint_ori_gt);
                 
                 std::string joint_ori_fn = homedir+"/catkin_ws/src/react-m_explore/explore/data/motorjoint_displacement.csv";
-                std::cout << "Motor Joint Orientation File" << std::endl;
+                CUSTOM_LOG_INFO("Motor Joint Orientation File");
                 writeTrajToFile(__robot_ori_joint, joint_ori_fn);
 
                 __robot_ori_gt.clear();
@@ -301,7 +302,7 @@ int main(int argc, char **argv)
                  system(csi_stop_cmd.c_str());
                  system(csi_backup_cmd.c_str());
  
-		 ROS_INFO("======= Completed =====");
+		 CUSTOM_LOG_INFO("======= Completed =====");
 
             }
             else
@@ -317,7 +318,7 @@ int main(int argc, char **argv)
     }
 
     vel_pub.publish(geometry_msgs::Twist());
-    ROS_INFO("Exiting.");
+    CUSTOM_LOG_INFO("Exiting.");
     ros::shutdown();
     return 0;
 }

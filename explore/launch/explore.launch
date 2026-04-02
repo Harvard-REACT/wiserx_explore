@@ -5,7 +5,7 @@
 <arg name="use_WSR"  default="false"/>
 <arg name="robot_base_frame_for_gmapping"  default="base_link"/> 
 <arg name="use_sim"  default="true"/> 
-<arg name="diff_between_termination_thresholds"  default="40"/> 
+<arg name="diff_between_termination_thresholds"  default="15"/>  <!-- for two robots in all hardware testbeds-->
 <arg name="quadmap_fill_percentage"  default="90"/> 
 <arg name="sensor_range_val"  default="11.25"/>
 <arg name="min_frontier_size_val"  default="0.75"/>
@@ -25,6 +25,7 @@
 <arg name="robot_initial_map_pose_x" default="0"/>
 <arg name="robot_initial_map_pose_y" default="0"/>
 <arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/wiserx_data/"/>
+<arg name="aoa_init_array" default="[0.0, 0.0, 0.0]"/> <!-- This is only used for the first few iterations when using real sensors to handle the issue of getting incorrect AOA measurements due to inconsistencies in AOA with the intel 5300 Wifi card when more than two robots are present. The values are in degrees and should be in the order of robot ids. So for example, if there are three robots, then the first value is the initial AOA measurement for robot 1 to robot 2, the second value is the initial AOA measurement for robot 1 to robot 3, and the third value is the initial AOA measurement for robot 2 to robot 3.-->
 
  <group ns="$(arg ns)">
   <node pkg="wiserx_explore_lite" type="explore" respawn="false" name="explore" output="screen">
@@ -40,7 +41,7 @@
     <param name="potential_scale" value="2.0"/>
     <param name="orientation_scale" value="0.0"/>
     <param name="gain_scale" value="1.0"/>
-    <param name="transform_tolerance" value="0.3"/>
+    <param name="transform_tolerance" value="2.0"/>
     <param name="min_frontier_size" value="$(arg min_frontier_size_val)"/> <!-- meters default 0.75-->
     <param name="sensor_range" value="$(arg sensor_range_val)"/> <!--wsr_env_1: 10-->
     <param name="decay_rate" value="1"/>
@@ -67,6 +68,7 @@
     <param name="robot_initial_map_pose_x" value="$(arg robot_initial_map_pose_x)"/>
     <param name="robot_initial_map_pose_y" value="$(arg robot_initial_map_pose_y)"/>
     <param name="log_file_path" value="$(arg log_file_path)"/>
+    <rosparam param="initial_AOA_angles" subst_value="true">$(arg aoa_init_array)</rosparam> <!-- This is only used for the first few iterations when using real sensors to handle the issue of getting incorrect AOA measurements due to inconsistencies in AOA with the intel 5300 Wifi card when more than two robots are present. The values are in degrees and should be in the order of robot ids. So for example, if there are three robots, then the first value is the initial AOA measurement for robot 1 to robot 2, the second value is the initial AOA measurement for robot 1 to robot 3, and the third value is the initial AOA measurement for robot 2 to robot 3.-->
   </node>
 </group>
 

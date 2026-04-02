@@ -1,4 +1,5 @@
 #include <explore/frontier_search.h>
+#include <explore/custom_logger.h>
 
 #include <mutex>
 
@@ -335,7 +336,7 @@ namespace frontier_exploration
     unsigned int mx, my;
     if (!costmap_->worldToMap(position.x, position.y, mx, my)) 
     {
-      ROS_ERROR("Robot out of costmap bounds, cannot search for frontiers");
+      CUSTOM_LOG_ERROR("Robot out of costmap bounds, cannot search for frontiers");
       return frontier_list;
     }
 
@@ -361,7 +362,7 @@ namespace frontier_exploration
       bfs.push(clear);
     } else {
       bfs.push(pos);
-      ROS_WARN("Could not find nearby clear cell to start search");
+      CUSTOM_LOG_WARN("Could not find nearby clear cell to start search");
     }
     visited_flag[bfs.front()] = true;
 
@@ -403,7 +404,7 @@ namespace frontier_exploration
       }
     }
     
-    ROS_INFO("Total Frontiers before splitting = %d", int(frontier_list.size()));
+    CUSTOM_LOG_INFO("Total Frontiers before splitting = %d", int(frontier_list.size()));
     std::queue<Frontier> fq;
     for (int i=0; i<frontier_list.size(); i++)
     {
@@ -420,7 +421,7 @@ namespace frontier_exploration
     {
       Frontier frontier = fq.front();
       fq.pop();
-      if (frontier.size * costmap_->getResolution() * 0.95 >= max_frontier_size_*1.25)
+      if (frontier.size * costmap_->getResolution() >= max_frontier_size_*1.25)
       {
         //Split into two
         temp = splitFrontierPCA(frontier, pos);
@@ -442,7 +443,7 @@ namespace frontier_exploration
 
     }
     
-    ROS_INFO("Total Frontiers after splitting = %d", int(frontier_list.size()));
+    CUSTOM_LOG_INFO("Total Frontiers after splitting = %d", int(frontier_list.size()));
     return frontier_list;
   }
 
@@ -469,9 +470,9 @@ namespace frontier_exploration
     else
       res = (information_gain)/(frontier.centroid_distance);
 
-    ROS_INFO("Information gain based on unexplored cell count and beta parameter = %f", information_gain);
-    ROS_INFO("frontier centroid distance = %f", frontier.centroid_distance);
-    ROS_INFO("frontier Utility = %f", res);
+    CUSTOM_LOG_INFO("Information gain based on unexplored cell count and beta parameter = %f", information_gain);
+    CUSTOM_LOG_INFO("frontier centroid distance = %f", frontier.centroid_distance);
+    CUSTOM_LOG_INFO("frontier Utility = %f", res);
     return res;
   }
 
@@ -518,11 +519,12 @@ namespace frontier_exploration
     
     for(int i=0; i<frontier_list.size(); i++)
     {
+      CUSTOM_LOG_INFO("##############################################################");
       float info_gain_uexp_cell_count_max = -1;
       float info_used_at_frontier_percent_max = 0;
       Frontier frontier = frontier_list[i];
       std::vector<geometry_msgs::Point> start_vec{frontier.centroid};
-      std::vector<quadmap::Node> neighboring_robots_positions;
+      std::vector<const quadmap::Node*> neighboring_robots_positions;
       bool Flag_use_view_points = true;
       int max_neighbor_count = 0;
       double beta_parameter = 1;
@@ -540,7 +542,7 @@ namespace frontier_exploration
         itr+=1;
         // Leverage the latest relative position estimates and prefer forntiers that are further away form robots latest positions
         //Only use the distance to the closest robot to the frontier
-        ROS_INFO("***************************************************");
+        CUSTOM_LOG_INFO("***************************************************");
         if(use_relative_positions)
         {
           double dist_sum = (latest_relative_positions.size() > 0) ? 1000 : 10;
@@ -549,16 +551,16 @@ namespace frontier_exploration
             dist_sum = std::min(dist_sum, (pow((rel_val.x-start.x),2) + pow((rel_val.y-start.y),2)));
           }
           beta_parameter = log10(dist_sum);
-          ROS_INFO("BetaParam : %f", beta_parameter);
+          CUSTOM_LOG_INFO("BetaParam : %f", beta_parameter);
         }
         
         costmap_->worldToMap(start.x, start.y, fmx, fmy);
         unsigned int clear, frontier_pos  = costmap_->getIndex(fmx,fmy);
         
-        ROS_INFO("Frontier viewpoint world pos: %f, %f", start.x, start.y);
-        ROS_INFO("Frontier viewpoint map pos: %d, %d", fmx, fmy);
-        ROS_INFO("Frontier centroid index= %d", frontier_pos);
-        ROS_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
+        CUSTOM_LOG_INFO("Frontier viewpoint world pos: %f, %f", start.x, start.y);
+        CUSTOM_LOG_INFO("Frontier viewpoint map pos: %d, %d", fmx, fmy);
+        CUSTOM_LOG_INFO("Frontier centroid index= %d", frontier_pos);
+        CUSTOM_LOG_INFO("Size of frontier: %f meters ", frontier.size * costmap_->getResolution());
         
         if(fmx > x_env_map_max_limit || fmy > y_env_map_max_limit  || fmx < x_env_map_min_limit || fmy < y_env_map_min_limit)
         {
@@ -571,12 +573,19 @@ namespace frontier_exploration
           info_gain_uexp_cell_count = 0;
           neighboring_robots_positions.clear();
 
-          quadmap::Node FrontierViewpoint(fmx, fmy, robot_id, robot_id,ts); //Value of the 3rd parameter is meaningless here for the query
+          // The third parameter for robot_tau is a dummy value as it's not used in the query.
+          auto dummy_tau = std::make_shared<int>(1);
+          quadmap::Node FrontierViewpoint(fmx, fmy, dummy_tau, robot_id, ts);
           if(use_relative_positions)
           {
             base_quadmap.query_radius(FrontierViewpoint,2*sensor_range_,neighboring_robots_positions);
           }
-          ROS_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+          CUSTOM_LOG_INFO("Neighboring robot positions around the frontier = %ld", neighboring_robots_positions.size());
+          for (const auto* neighboring_robot_ptr : neighboring_robots_positions) 
+          {
+              CUSTOM_LOG_INFO("Neighbor (est_mx,est_my): (%u,%u), Omega(uncertainty trace): %f",
+                                (unsigned int)neighboring_robot_ptr->est_mx, (unsigned int)neighboring_robot_ptr->est_my, neighboring_robot_ptr->omega);          }
+
           bool val = InfoNearestCellsWithinRange(info_gain_uexp_cell_count, frontier_pos, 
                                                 NO_INFORMATION, *costmap_, sensor_range_,
                                                 neighboring_robots_positions, 
@@ -586,8 +595,8 @@ namespace frontier_exploration
                                                 x_env_map_min_limit,
                                                 y_env_map_min_limit);
         
-          ROS_INFO("Info gain = %f", info_gain_uexp_cell_count);
-          ROS_INFO("Info loss at the frontier (percent) = %f", info_used_at_frontier_percent);
+          CUSTOM_LOG_INFO("Info gain = %f", info_gain_uexp_cell_count);
+          CUSTOM_LOG_INFO("Info loss at the frontier (percent) = %f", info_used_at_frontier_percent);
         }
 
         if(beta_parameter*info_gain_uexp_cell_count > info_gain_uexp_cell_count_max)
@@ -595,7 +604,8 @@ namespace frontier_exploration
           info_gain_uexp_cell_count_max = beta_parameter*info_gain_uexp_cell_count;
           info_used_at_frontier_percent_max = info_used_at_frontier_percent;
           frontier.pos_id = frontier_pos;
-          ROS_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
+          CUSTOM_LOG_INFO("Info gain max updated = %f", info_gain_uexp_cell_count_max);
+          CUSTOM_LOG_INFO("Info used max percent = %f", info_used_at_frontier_percent_max);
           max_neighbor_count = neighboring_robots_positions.size();
           choice=itr;
           frontier.view_point_to_navigate_to = start;
@@ -604,18 +614,18 @@ namespace frontier_exploration
       }
 
       
-      ROS_INFO("======== Max Info gain around frontier: %f ========", info_gain_uexp_cell_count_max);
+      CUSTOM_LOG_INFO("======== Max Info gain around frontier: %f ========", info_gain_uexp_cell_count_max);
       if(choice == 1) 
       {
-        ROS_INFO("Navigating to centroid of frontier");
+        CUSTOM_LOG_INFO("Navigating to centroid of frontier");
       }
       else if(choice == 2) 
       {
-        ROS_INFO("Navigating to left extreme of the frontier");
+        CUSTOM_LOG_INFO("Navigating to left extreme of the frontier");
       }
       else if(choice == 3) 
       {
-        ROS_INFO("Navigating to right extreme of the frontier");
+        CUSTOM_LOG_INFO("Navigating to right extreme of the frontier");
       }
 
       frontier.cost = frontierUtility(frontier, info_gain_uexp_cell_count_max); //New cost function
@@ -626,9 +636,10 @@ namespace frontier_exploration
         frontier.info_used_percent = info_used_at_frontier_percent_max;
 
         // if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 90.0)
-        if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 50.0) //For hardware experiments in the flight lab
+        // if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 50.0) //For hardware experiments in the flight lab due to space constraints
+        if(__FLAG_can_stop_now__ && frontier.info_used_percent >= 10.0) //For hardware experiments in Shellspace
         {
-          ROS_INFO("Discarding frontier");
+          CUSTOM_LOG_INFO("Discarding frontier");
         }
         else
         {
@@ -636,7 +647,7 @@ namespace frontier_exploration
         }
       }
       else{
-        ROS_INFO("Invalid frontier");
+        CUSTOM_LOG_INFO("Invalid frontier");
       }
     }
 

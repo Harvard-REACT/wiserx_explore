@@ -1,4 +1,5 @@
 
+#include <explore/custom_logger.h>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -77,7 +78,7 @@ int main(int argc, char **argv)
     
     if(duration_aoa_check.count() > 5){
       //Publish once every 5 seconds
-      ROS_INFO("Pubishing data");
+      CUSTOM_LOG_INFO("Pubishing data");
       start_aoa_check = std::chrono::high_resolution_clock::now();
     }
     end_aoa_check = std::chrono::high_resolution_clock::now();
@@ -93,4 +94,3 @@ int main(int argc, char **argv)
   }
   return 0;
 }
-

@@ -19,7 +19,7 @@ class ExplorationEval:
         self.base_path = '/home/react-ws-1/catkin_ws/src/m-explore/explore/data/data_'+self.exp_type
         self.fail_threshold = 70
         self.robot_failed = False
-        self.fail_robot = rospy.get_param('~fail_robot', True)
+        self.fail_robot = rospy.get_param('~fail_robot', False)
         self.failed_robot = rospy.get_param('~failed_robot', 'tb3_2')
         self.fail_robot_pub = rospy.Publisher('/set_failed_neighboring_robot', String, queue_size=10)
         self.coverage_of_failed_robot = 0
@@ -29,7 +29,7 @@ class ExplorationEval:
         self.distance = []
         self.iteration = []
 
-        # MB ADDEED VARIABLES
+        # AuthorADDEED VARIABLES
         self.time_elapsed = []
         self.merged_map_coverage = []
         self.robot_1_coverage = []
@@ -42,6 +42,7 @@ class ExplorationEval:
         # Flags to check if stop time has been logged
         self.logged_stop_time_1 = False
         self.logged_stop_time_2 = False
+        self.logged_stop_time_3 = False
 
         self.got_world_map = False
         self.got_merged_map = False
@@ -50,15 +51,18 @@ class ExplorationEval:
         self.world_map_count = 0
         self.exploration_stats = []
         self.current_distance = 0
-        self.details = ['time_elapsed_sec','merged_coverage_percent','r_1_per','r1_stop_time','r_2_per','r2_stop_time']
+        self.details = ['time_elapsed_sec','merged_coverage_percent','r_1_per','r1_stop_time','r_2_per','r2_stop_time','r_3_per','r3_stop_time']
         self.auto_stop_evaluation = False
        
         self.stop_evaluation_1 = False
         self.stop_evaluation_2 = False
+        self.stop_evaluation_3 = False
         self.itr_1 = 0
         self.itr_2 = 0
         self.soft_threshold_evaluation_1 = False
         self.soft_threshold_evaluation_2 = False
+        self.soft_threshold_evaluation_3 = False
+
 
         rospy.loginfo("Exploration coverage threshold: " +str(self.exploration_threshold))
         rospy.loginfo("Connecting to topics")
@@ -67,10 +71,15 @@ class ExplorationEval:
         # rospy.Subscriber("/map", OccupancyGrid, self.merged_map_cb)
         rospy.Subscriber("/tb3_1/map", OccupancyGrid, self.map_1_cb)
         rospy.Subscriber("/tb3_2/map", OccupancyGrid, self.map_2_cb)
+        rospy.Subscriber("/tb3_3/map", OccupancyGrid, self.map_3_cb)
+        
         rospy.Subscriber("/tb3_1/stop_evaluation", Bool, self.eval_cb_r1)
         rospy.Subscriber("/tb3_2/stop_evaluation", Bool, self.eval_cb_r2)
+        rospy.Subscriber("/tb3_3/stop_evaluation", Bool, self.eval_cb_r3)
+        
         self.map_1_count =0
         self.map_2_count =0
+        self.map_3_count =0
 
     def world_map_cb(self, msg):
         if(not self.got_world_map):
@@ -94,6 +103,10 @@ class ExplorationEval:
         self.map_2 = np.array(msg.data)
         self.map_2_count = np.count_nonzero(self.map_2 > -1)
 
+    def map_3_cb(self, msg):
+        self.map_3 = np.array(msg.data)
+        self.map_3_count = np.count_nonzero(self.map_3 > -1)
+
     def eval_cb_r1(self, msg):
         self.stop_evaluation_1 = msg.data
         print("Got stopping flag for tb3-1")
@@ -101,6 +114,10 @@ class ExplorationEval:
     def eval_cb_r2(self, msg):
         self.stop_evaluation_2 = msg.data
         print("Got stopping flag for tb3-2")
+
+    def eval_cb_r3(self, msg):
+        self.stop_evaluation_3 = msg.data
+        print("Got stopping flag for tb3-3")
 
     # def modelState_cb(self, msg):
     #     self.total_iterations +=1
@@ -123,7 +140,7 @@ class ExplorationEval:
     #             n_count+=1
 
 
-    #         #DO we use average distance when testing with muliple robots?? -Yes- NJ
+    #         #DO we use average distance when testing with muliple robots?? -Yes-
     #         if len(robot_id_list) > 1:
     #             robot_1 = msg.pose[robot_id_list[0]].position
     #             robot_2 = msg.pose[robot_id_list[1]].position
@@ -151,7 +168,7 @@ class ExplorationEval:
     #         #     print("Current distance = {} %".format(self.current_distance))           
     #         #     self.distance.append(self.current_distance)
             
-    #         # MB added function
+    #         # Authoradded function
     #         if self.got_world_map: 
     #             self.world_map_count = np.count_nonzero(self.world_ogrid > -1)
     #             self.merged_map_count = np.count_nonzero(self.merged_ogrid > -1)
@@ -207,10 +224,13 @@ class ExplorationEval:
                 # REAL TIME MAP COVERAGE CALCULATION 
                 r_1_per = self.map_1_count*100/self.world_map_count
                 r_2_per = self.map_2_count*100/self.world_map_count
+                r_3_per = self.map_3_count*100/self.world_map_count
+
                 map_coverage_percentage = self.merged_map_count*100/self.world_map_count
                 
                 if(self.fail_robot and self.robot_failed):
-                    map_coverage_percentage = r_1_per #TODO make dynamic
+                    map_coverage_percentage = self.merged_map_count*100/self.world_map_count - self.coverage_of_failed_robot #We don't know the exact overlap here.
+              
                 
                 if(map_coverage_percentage <= 0 ): 
                     time.sleep(1)
@@ -221,26 +241,35 @@ class ExplorationEval:
                     print("*****************************************")
                     print("Map covered by robot 1 = {} %".format(r_1_per))
                     print("Map covered by robot 2 = {} %".format(r_2_per))
+                    print("Map covered by robot 3 = {} %".format(r_3_per))
                     print("*****************************************")
                     self.itr+=1
                 
-                current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,0]
+                current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,0,r_3_per,0]
                 self.exploration_stats.append(current_data)                
-                self.auto_stop_evaluation = self.stop_evaluation_1 and self.stop_evaluation_2
+                self.auto_stop_evaluation = self.stop_evaluation_1 and self.stop_evaluation_2 and self.stop_evaluation_3
 
                 # COVERAGE OVERLAP
-                total_robot_overlap = (r_1_per + r_2_per) - map_coverage_percentage
+                total_robot_overlap = (r_1_per + r_2_per + r_3_per) - map_coverage_percentage
                 self.coverage_overlap_data.append([exploration_time, total_robot_overlap])
 
                 if self.stop_evaluation_1 and not self.logged_stop_time_1:
-                    current_data = [exploration_time,map_coverage_percentage,r_1_per,exploration_time,r_2_per,0]
+                    current_data = [exploration_time,map_coverage_percentage,r_1_per,exploration_time,r_2_per,0,r_3_per,0]
                     self.exploration_stats.append(current_data)
+                    self.coverage_overlap_data.append([exploration_time, total_robot_overlap])
                     self.logged_stop_time_1 = True
 
                 if self.stop_evaluation_2 and not self.logged_stop_time_2:
-                    current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,exploration_time]
+                    current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,exploration_time,r_3_per,0]
                     self.exploration_stats.append(current_data)
+                    self.coverage_overlap_data.append([exploration_time, total_robot_overlap])
                     self.logged_stop_time_2 = True
+
+                if self.stop_evaluation_3 and not self.logged_stop_time_3:
+                    current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,0,r_3_per,exploration_time]
+                    self.exploration_stats.append(current_data)
+                    self.coverage_overlap_data.append([exploration_time, total_robot_overlap])
+                    self.logged_stop_time_3 = True
 
                 if self.fail_robot and not self.robot_failed and map_coverage_percentage >= self.fail_threshold:
                     failed_robot = self.failed_robot
@@ -249,11 +278,25 @@ class ExplorationEval:
                     self.robot_failed_map_perct = map_coverage_percentage
                     print(f"Failing {failed_robot} at {self.robot_failed_map_perct}% map coverage")
 
-                    #TODO: Make dynamic
-                    self.coverage_of_failed_robot = map_coverage_percentage - r_1_per
-                    current_data = [exploration_time,map_coverage_percentage,r_1_per,0,r_2_per,-1]
+                    # Dynamic calculation of failed robot coverage contribution
+                    robot_cov = {'tb3_1': r_1_per, 'tb3_2': r_2_per, 'tb3_3': r_3_per}
+                    other_robots_cov = sum([cov for name, cov in robot_cov.items() if name != failed_robot])
+
+                    # Estimate unique contribution. Clamp to 0 to avoid negative values if overlap is high.
+                    self.coverage_of_failed_robot = max(0, map_coverage_percentage - other_robots_cov)
+
+                    r1_stop = -1 if failed_robot == 'tb3_1' else 0
+                    r2_stop = -1 if failed_robot == 'tb3_2' else 0
+                    r3_stop = -1 if failed_robot == 'tb3_3' else 0
+
+                    current_data = [exploration_time,map_coverage_percentage,r_1_per,r1_stop,r_2_per,r2_stop,r_3_per,r3_stop]
                     self.exploration_stats.append(current_data)
-                    self.stop_evaluation_2 = True
+                    self.coverage_overlap_data.append([exploration_time, total_robot_overlap])
+                    
+                    if failed_robot == 'tb3_1': self.stop_evaluation_1 = True
+                    elif failed_robot == 'tb3_2': self.stop_evaluation_2 = True
+                    elif failed_robot == 'tb3_3': self.stop_evaluation_3 = True
+
                     print(f"Coverage reduced by {self.coverage_of_failed_robot}%")
 
                 if(self.auto_stop_evaluation or (map_coverage_percentage >= self.exploration_threshold)):

@@ -3,21 +3,21 @@ TebLocalPlannerROS:
  map_frame: tb3_2/map
     
  # Trajectory
-#  max_vel_x: 0.055 #NJ updated
-#  max_vel_x_backwards: 0.055 #NJ updated
- max_vel_x: 0.05 #NJ updated
- max_vel_x_backwards: 0.05 #NJ updated
- max_vel_theta: 0.5 #NJ updated
- acc_lim_x: 0.5 #NJ updated
- acc_lim_theta: 2.0 #NJ updated
- 
+#  max_vel_x: 0.055 #authorupdated
+#  max_vel_x_backwards: 0.055 #authorupdated
+ max_vel_x: 0.1 #authorupdated
+ max_vel_x_backwards: 0.1 #authorupdated
+ max_vel_theta: 0.1 #authorupdated
+ acc_lim_x: 1.0 #authorupdated
+ acc_lim_theta: 0.5 #authorupdated
+
  #Used during debugging exploration only
-#  max_vel_x: 0.5 #NJ updated
-#  max_vel_x_backwards: 0.5 #NJ updated
-#  max_vel_theta: 1.0 #NJ updated
-#  acc_lim_x: 2.0 #NJ updated
-#  acc_lim_theta: 2.0 #NJ updated
- 
+#  max_vel_x: 0.5 #authorupdated
+#  max_vel_x_backwards: 0.5 #authorupdated
+#  max_vel_theta: 1.0 #authorupdated
+#  acc_lim_x: 2.0 #authorupdated
+#  acc_lim_theta: 2.0 #authorupdated
+
  min_turning_radius: 0.0
  footprint_model: # types: "point", "circular", "two_circles", "line", "polygon"
   type: "polygon"
@@ -25,27 +25,29 @@ TebLocalPlannerROS:
 
 
 # GoalTolerance
- xy_goal_tolerance: 0.35 #NJ updated
+ xy_goal_tolerance: 0.5 #authorupdated
  yaw_goal_tolerance: 6.28319
  free_goal_vel: False
 
  #TrajConfig parameters
- dt_ref: 0.5
- dt_hysteresis: 0.05
- global_plan_overwrite_orientation: False
- max_global_plan_lookahead_dist: 1.5
- global_plan_viapoint_sep: 1.0
+ dt_ref: 0.3
+ dt_hysteresis: 0.03
+ global_plan_overwrite_orientation: True
+ max_global_plan_lookahead_dist: 0.6
+ global_plan_viapoint_sep: 0.15
 
  # Obstacles
- min_obstacle_dist: 0.5 #NJ updated
+ min_obstacle_dist: 1.5 # Flightlab : 0.5. Shell space: 1.0
  include_costmap_obstacles: True
- costmap_obstacles_behind_robot_dist: 1.5 #NJ updated
+ costmap_obstacles_behind_robot_dist: 1.5 #authorupdated
  obstacle_poses_affected: 30
  costmap_converter_plugin: ""
  costmap_converter_spin_thread: True
  costmap_converter_rate: 5
+ inflation_dist: 2.0
 
- # Optimization
+
+# Optimization
  no_inner_iterations: 5
  no_outer_iterations: 4
  optimization_activate: True
@@ -58,11 +60,11 @@ TebLocalPlannerROS:
  weight_kinematics_nh: 1000
  weight_kinematics_forward_drive: 260
  weight_kinematics_turning_radius: 1
- weight_optimaltime: 1
+ weight_optimaltime: 0.25
  weight_obstacle: 250
  weight_dynamic_obstacle: 10 # not in use yet
  selection_alternative_time_cost: False # not in use yet
- weight_viapoint: 1.0
+ weight_viapoint: 100.0
 
  # Homotopy Class Planner
  enable_homotopy_class_planning: False

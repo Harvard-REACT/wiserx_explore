@@ -3,14 +3,19 @@
   <group ns="tb3_1">
       <node pkg="wiserx_explore_lite" type="quadmap_viz_ros.py" respawn="false" name="quadmap_viz_ros" output="screen">
           <param name="robot_name" value="tb3_1"/>
-          <param name="viz_color" value="green"/>
       </node>
   </group>
 
   <group ns="tb3_2">
       <node pkg="wiserx_explore_lite" type="quadmap_viz_ros.py" respawn="false" name="quadmap_viz_ros" output="screen">
           <param name="robot_name" value="tb3_2"/>
-          <param name="viz_color" value="blue"/>
+      </node>
+  </group>
+
+
+  <group ns="tb3_3">
+      <node pkg="wiserx_explore_lite" type="quadmap_viz_ros.py" respawn="false" name="quadmap_viz_ros" output="screen">
+          <param name="robot_name" value="tb3_3"/>
       </node>
   </group>
 

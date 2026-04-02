@@ -22,6 +22,7 @@
   <arg name="hgrid_height" default="45"/>
   <arg name="measurement_interval" default="4"/>
   <arg name="log_file_path" default="/home/react-ws-1/catkin_ws/src/m-explore/explore/data/data_wiserx/"/>
+  <arg name="aoa_init_array" default="[0.0, 0.0, 0.0]"/>
 
     <!-- move_base -->
    <group ns="$(arg multi_robot_name)">
@@ -62,6 +63,7 @@
     <arg name="hgrid_height"  value="$(arg hgrid_height)"/>
     <arg name="measurement_interval"  value="$(arg measurement_interval)"/>
     <arg name="log_file_path" value="$(arg log_file_path)"/>
+    <arg name="aoa_init_array" value="$(arg aoa_init_array)"/>
   </include>
 
 </launch>

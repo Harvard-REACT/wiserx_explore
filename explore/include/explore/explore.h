@@ -242,7 +242,7 @@ private:
   int particle_threshold_ = 540;
   int init_angle_samples_ = 180;
   int frame__ = 0;
-  std::vector<int> aoa_init_;
+  std::vector<double> aoa_init_;
   std::vector<std::vector<std::pair<double,double>>> neighbor_best_position_esimtate_;
   bool same_goal__ = false, reached_goal__=true,__checked_for_new_frontiers=false;
   double robot_position_x_before_=0.0, robot_position_y_before_=0.0;
@@ -259,6 +259,7 @@ private:
   float current_angle__ = 0;
   bool __FLAG_first_measurement = true;
   geometry_msgs::Pose prev_neighboring_position;
+  int _measurement_iterator = 0;
 };
 }
 

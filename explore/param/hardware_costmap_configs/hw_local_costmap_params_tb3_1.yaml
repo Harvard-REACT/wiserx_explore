@@ -4,12 +4,12 @@ local_costmap:
   
   update_frequency: 10.0
   publish_frequency: 10.0
-  transform_tolerance: 1.0
+  transform_tolerance: 2.0
 
   static_map: false
   rolling_window: true
-  width: 2.0 #NJ modified default 3, then 2
-  height: 2.0 #NJ modified default 3, then 2
-  resolution: 0.20 #NJ modified default 0.05
+  width: 2.0 #authormodified default 3, then 2
+  height: 2.0 #authormodified default 3, then 2
+  resolution: 0.20 #authormodified default 0.05
   origin_x: 0.0
   origin_y: 0.0

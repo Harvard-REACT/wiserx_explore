@@ -1,14 +1,16 @@
 #include "csitoolbox/WSR_Module.h"
+#include <explore/custom_logger.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <unordered_map>
 #include <chrono>
+#include <iostream>
 
 int main(int argc, char *argv[]){
     
     WSR_Util utils;
     string traj_type = argv[1];
-    std::cout << "Processing trajectory type: " << traj_type << std::endl;
+    CUSTOM_LOG_INFO("Processing trajectory type: %s", traj_type.c_str());
     std::string config = "/home/jadhav/catkin_ws/src/m-explore/explore/config/WSR_param_config.json";
     WSR_Module run_module(config); // TODO: How can this be initialized only once without hardcoding config fn? maybe use if else?
 
@@ -80,7 +82,7 @@ int main(int argc, char *argv[]){
       std::string traj_fn_tx = utils.__homedir + trajectory_file_tx;
       trajectory_tx = utils.loadTrajFromCSV(traj_fn_tx);
     }
-    std::cout << "log [WSR_Module]: Preprocessing Displacement " << std::endl;
+    CUSTOM_LOG_INFO("log [WSR_Module]: Preprocessing Displacement ");
     
     std::vector<double> antenna_offset, antenna_offset_true;
     antenna_offset_true = run_module.__precompute_config["antenna_position_offset"]["mocap_offset"].get<std::vector<double>>(); 
@@ -93,7 +95,7 @@ int main(int argc, char *argv[]){
     antenna_offset = run_module.__precompute_config["antenna_position_offset"]["odom_offset"].get<std::vector<double>>();
     
 
-    std::cout << "log [WSR_Module]: Got offset " << std::endl;
+    CUSTOM_LOG_INFO("log [WSR_Module]: Got offset ");
     nc::NdArray<double> pos,true_pos;
     //Get relative trajectory if moving ends
     if(bool(run_module.__precompute_config["use_relative_trajectory"]["value"]))
@@ -115,7 +117,7 @@ int main(int argc, char *argv[]){
     nlohmann::json true_positions_tx = run_module.__precompute_config["true_tx_positions"];
     auto all_true_AOA = utils.get_true_aoa(trajectory_rx, true_positions_tx); //Fix this when using moving ends.
 
-    std::cout << "Size of displacement cols:" << nc::shape(displacement).cols << std::endl;
+    CUSTOM_LOG_INFO("Size of displacement cols: %d", nc::shape(displacement).cols);
     // run_module.calculate_AOA_profile(rx_robot_csi,tx_robot_csi,displacement,displacement_timestamp);
     run_module.calculate_AOA_using_csi_conjugate(rx_robot_csi,displacement,displacement_timestamp);
     auto all_aoa_profile = run_module.get_all_aoa_profile();
@@ -124,11 +126,11 @@ int main(int argc, char *argv[]){
     string trajType = run_module.__precompute_config["trajectory_type"]["value"];
     double true_phi, true_theta;
 
-    std::cout << "Getting AOA profile stats for TX Neighbor robots" << std::endl;
+    CUSTOM_LOG_INFO("Getting AOA profile stats for TX Neighbor robots");
     std::string viz_id = "";
     for(auto & itr : all_aoa_profile)
     {
-        std::cout << "-----------------------------" << std::endl;
+        CUSTOM_LOG_INFO("-----------------------------");
         
         std::string tx_id = itr.first;
         std::string ts = run_module.data_sample_ts[tx_id];
@@ -138,13 +140,13 @@ int main(int argc, char *argv[]){
         if(profile.shape().rows == 1) 
         {
             //Dummy profile, error in AOA calculation
-            std::cout << "Phi angle = 0" <<  std::endl;
-            std::cout << "Theta angle = 0" << std::endl;
+            CUSTOM_LOG_INFO("Phi angle = 0");
+            CUSTOM_LOG_INFO("Theta angle = 0");
         }
         else
         {
             string profile_op_fn = utils.__homedir+output+"/"+run_module.tx_name_list[tx_id]+"_aoa_profile_"+ts+".csv";
-            std::cout << profile_op_fn << std::endl;
+            CUSTOM_LOG_INFO("%s", profile_op_fn.c_str());
             utils.writeToFile(profile,profile_op_fn);
 
             true_phi = all_true_AOA[run_module.tx_name_list[tx_id]].first;
@@ -160,7 +162,7 @@ int main(int argc, char *argv[]){
                                                 tx_id, run_module.tx_name_list[tx_id],
                                                 pos,pos,true_positions_tx,1); // Only estimatd pos used here. True_pos is used only when compiling aggregate results.
             //Display output
-            std::cout << stats.dump(4) << std::endl;
+            CUSTOM_LOG_INFO("%s", stats.dump(4).c_str());
         }
         viz_id = viz_id + run_module.tx_name_list[tx_id] +" ";
     }
@@ -169,7 +171,7 @@ int main(int argc, char *argv[]){
     if(run_module.__precompute_config["debug"]["value"])
     {
         std::string viz_op = "/home/jadhav/WSR_Project/WSR-Toolbox-cpp/scripts/viz_data.sh ~/" + run_module.__precompute_config["debug_dir"]["value"].dump() + " '" + viz_id +"'";
-        std::cout << viz_op << std::endl;
+        CUSTOM_LOG_INFO("%s", viz_op.c_str());
         system(viz_op.c_str());
     }
 }

@@ -1,0 +1,7 @@
+image: trial_2_three_robots_tb3_1_map.pgm
+resolution: 0.150000
+origin: [-5.950000, -17.950000, 0.000000]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.196
+

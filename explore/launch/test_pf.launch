@@ -18,7 +18,7 @@
     <param name="potential_scale" value="3.0"/>
     <param name="orientation_scale" value="0.0"/>
     <param name="gain_scale" value="1.0"/>
-    <param name="transform_tolerance" value="0.3"/>
+    <param name="transform_tolerance" value="2.0"/>
     <param name="min_frontier_size" value="1.5"/> <!-- default 0.75-->
     <param name="sensor_range" value="3.2"/> <!--env1: 1.75, env2: 3.0, 2.0-->
     <param name="antenna_angular_offset" value="0.0"/> <!-- depends on how the antenns are mounted on the robot-->

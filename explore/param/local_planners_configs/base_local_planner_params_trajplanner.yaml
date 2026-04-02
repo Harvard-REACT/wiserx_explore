@@ -3,8 +3,8 @@ TrajectoryPlannerROS:
   acc_lim_x: 1.0 #m/s^2 default 2.5
   acc_lim_y: 0   #m/s^2 default 2.5, since we use a differential drive robot
   acc_lim_theta: 1.0 #rad/s^2 default 3.2
-  max_vel_x: 0.05 #m/sec, default 0.5
-  min_vel_x: -0.05 #m/sec, default 0.5
+  max_vel_x: 0.1 #m/sec, default 0.5
+  min_vel_x: -0.1 #m/sec, default 0.5
   max_vel_theta: 0.05 #rad/sec, default 1.0
   min_vel_theta: -0.05 #rad/sec, default -1.0
   escape_vel: -0.05
@@ -37,7 +37,7 @@ TrajectoryPlannerROS:
 
   #Oscillation prevention parameters
   oscillation_reset_dist: 0.3 #default 0.05
-  transform_tolerance: 0.3
+  transform_tolerance: 2.0
   prune_plan: true #default true
   goal_distance_bias: 20.0 #default 0.2
   path_distance_bias: 32.0 #default 0.9 #The robot will try to follow the path more closely for a higher value.

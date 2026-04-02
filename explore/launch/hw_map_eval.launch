@@ -3,7 +3,7 @@
   <!-- **************************************************** --> 
   <!-- Oracle to evaluate the percentage of completion-->
   <!-- **************************************************** -->
-  <arg name="true_map" default="$(find wiserx_explore_lite)/data/hw_groundtruth_map/gt_map_from_tb3.yaml" />
+  <arg name="true_map" default="$(find wiserx_explore_lite)/data/hw_groundtruth_map/two_robots_baseline_gt_merged_map.yaml" />
   <arg name="type" default="wiserx" />
 
  <!-- Publish a pre-recorded map on a map topic  -->
@@ -13,7 +13,7 @@
   </node>
 
   <node pkg="wiserx_explore_lite" type="hw_map_eval.py" name="hw_map_eval" output="screen" clear_params="true">
-    <param name="explore_threshold" type="double" value="97.0"/>
+    <param name="explore_threshold" type="double" value="120.0"/>
     <param name="exp_type" value="$(arg type)"/>
   </node>
 

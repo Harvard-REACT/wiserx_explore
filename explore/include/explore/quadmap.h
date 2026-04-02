@@ -1,7 +1,7 @@
 /*
 '''
 Original Python code: https://scipython.com/blog/quadtrees-2-implementation-in-python/
-Modified by : Ninad Jadhav
+Modified by :
 '''
 */
 
@@ -22,8 +22,8 @@ namespace quadmap
 {
     class Node 
     {
-        public:     
-            int* robot_j_node_tau; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
+        public:
+            std::shared_ptr<int> robot_j_node_tau; //Denotes robot is funcitonal or not. We assume all robots to be functional so tau = 1
             int robot_id_copy;   
             float true_mx=0;
             float true_my=0;
@@ -41,7 +41,7 @@ namespace quadmap
                         
             // Constructors
             //Note that map coordinates are in unsigned int, but here they are stored as float
-            Node(float x, float y, int& robot_tau, int robot_id, int timestep): true_mx(x), true_my(y), robot_j_node_tau(&robot_tau), robot_id_copy(robot_id), timestep(timestep) 
+            Node(float x, float y, std::shared_ptr<int> robot_tau, int robot_id, int timestep): true_mx(x), true_my(y), robot_j_node_tau(std::move(robot_tau)), robot_id_copy(robot_id), timestep(timestep)
             {
                 est_mx = true_mx;
                 est_my = true_my;
@@ -68,7 +68,10 @@ namespace quadmap
 
             void updateOmega(double cov_x, double cov_y) //Covariance is in world coordinates as are all distance measurements
             {
-                omega = std::min(1.0,1/(cov_x+cov_y)); //Inverse of the Trace of the covariance matrix
+                if (cov_x + cov_y > 1e-9)
+                    omega = std::min(1.0, 1.0 / (cov_x + cov_y)); //Inverse of the Trace of the covariance matrix
+                else
+                    omega = 1.0;
                 ROS_INFO("OMEGA = %f", omega);
             }
 
@@ -88,9 +91,11 @@ namespace quadmap
     class Robot
     {
         public:
-            int robot_tau = 1; // denotes if a robot is functional or not.
+            std::shared_ptr<int> robot_tau; // denotes if a robot is functional or not.
             int robot_id = 0; 
             std::queue<Node> node_information;
+
+            Robot() : robot_tau(std::make_shared<int>(1)) {}
     };
 
 
@@ -272,7 +277,7 @@ namespace quadmap
              * @param point The point to insert into the QuadMap.
              * @return True if the point is successfully inserted, False otherwise.
              */
-            bool insert_till_end(Node& point) 
+            bool insert_till_end(const Node& point) 
             {
                 // if (boundary.w < 2*sensor_range_map_res) 
                 // {
@@ -329,12 +334,19 @@ namespace quadmap
                         divide(); // Divide the node if it has not been divided yet.
                     }
 
-                    // Attempt to insert the point into one of the child nodes.
-                    if (nw->insert_till_end(point)) return true;
-                    if (ne->insert_till_end(point)) return true;
-                    if (se->insert_till_end(point)) return true;
-                    if (sw->insert_till_end(point)) return true;
-                    
+                    // Determine the correct quadrant and recurse.
+                    if (nw->boundary.contains(point)) {
+                        return nw->insert_till_end(point);
+                    }
+                    if (ne->boundary.contains(point)) {
+                        return ne->insert_till_end(point);
+                    }
+                    if (se->boundary.contains(point)) {
+                        return se->insert_till_end(point);
+                    }
+                    if (sw->boundary.contains(point)) {
+                        return sw->insert_till_end(point);
+                    }
                     return false; // Return false if the point could not be inserted into any child nodes.
                 }
             }
@@ -377,15 +389,13 @@ namespace quadmap
             } 
             else 
             {
-                // Still need to divide further to go all the way to the last node.
-                if (!divided) {
-                    divide(); // Divide the node if it has not been divided yet.
+                // Only recurse if already divided. If not divided and w > res, it means it's empty.
+                if (divided) {
+                    nw->query_filled(filled_cell_count);
+                    ne->query_filled(filled_cell_count);
+                    se->query_filled(filled_cell_count);
+                    sw->query_filled(filled_cell_count);
                 }
-
-                nw->query_filled(filled_cell_count);
-                ne->query_filled(filled_cell_count);
-                se->query_filled(filled_cell_count);
-                sw->query_filled(filled_cell_count);                
             }
         }
 
@@ -405,7 +415,7 @@ namespace quadmap
          * @param found_nodes A reference to a vector of Node objects where nodes found within the radius are added.
          * @return True if any nodes are found within the radius, False otherwise.
          */
-        bool query_circle(const Rect& query_boundary, const Node& centre, float radius, std::vector<Node>& found_nodes)
+        bool query_circle(const Rect& query_boundary, const Node& centre, float radius, std::vector<const Node*>& found_nodes)
         {
             if (!this->boundary.intersects(query_boundary)) 
             {
@@ -425,7 +435,7 @@ namespace quadmap
             }
 
             int it_v = 0;
-            for(auto point : points)
+            for(const auto& point : points)
             {
                 // const Node point = ref.get();
 
@@ -453,7 +463,7 @@ namespace quadmap
 
                 if (a && b<= radius && c!= centre.getRobotID()) {
                     // ROS_DEBUG("Success - Found node!!!");
-                    found_nodes.push_back(point); //Store pointer to the node data point.
+                    found_nodes.push_back(&point); //Store a pointer to the node to avoid copying.
                     // ROS_DEBUG("Node size: %ld", found_nodes.size());
                     found = true;
                 }
@@ -463,10 +473,10 @@ namespace quadmap
             // ROS_INFO("[query_circle before] Node size: %ld", found_nodes.size());
 
             if (divided) {
-                found |= nw->query_circle(boundary, centre, radius, found_nodes);
-                found |= ne->query_circle(boundary, centre, radius, found_nodes);
-                found |= se->query_circle(boundary, centre, radius, found_nodes);
-                found |= sw->query_circle(boundary, centre, radius, found_nodes);
+                found |= nw->query_circle(query_boundary, centre, radius, found_nodes);
+                found |= ne->query_circle(query_boundary, centre, radius, found_nodes);
+                found |= se->query_circle(query_boundary, centre, radius, found_nodes);
+                found |= sw->query_circle(query_boundary, centre, radius, found_nodes);
             }
 
             // ROS_INFO("[query_circle after] Node size: %ld", found_nodes.size());
@@ -481,7 +491,7 @@ namespace quadmap
          * @param found_nodes Reference to a vector where found nodes will be added.
          * @return True if any nodes are found within the radius, False otherwise.
          */
-        bool query_radius(const Node& centre, float radius, std::vector<Node>& found_nodes) 
+        bool query_radius(const Node& centre, float radius, std::vector<const Node*>& found_nodes) 
         {
             // Calculate the bounding box for the search circle centered on robot i's frontier.
             float centerX = centre.true_mx;

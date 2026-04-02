@@ -1,0 +1,18 @@
+obstacle_range: 2.5
+raytrace_range: 2.5
+# max_obstacle_height: 1 #authoradded default 2.0
+track_unknown_space: false #authormodified - default false
+
+footprint_clearing_enabled: true
+footprint: [[-0.215, -0.165], [-0.215, 0.165], [0.087, 0.165], [0.087, -0.165]]
+footprint_padding: 0.025
+inflation_radius: 0.6
+cost_scaling_factor: 5.0
+# lethal_cost_threshold: 90 #authormodified - default 100
+# unknown_cost_value: 255 #authoradded - global planning can fail more often when using this.
+
+map_type: costmap
+observation_sources: scan
+scan: {sensor_frame: base_scan, data_type: LaserScan, topic: scan, marking: true, clearing: true}
+
+

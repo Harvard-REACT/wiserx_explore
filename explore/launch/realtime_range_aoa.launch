@@ -6,6 +6,7 @@
     <arg name="aoa_peaks_file_path"  default="/home/explorer-1/catkin_ws/src/react-m_explore/explore/data/aoa_val.csv"/>
     <arg name="publish_aoa_profile"  default="false"/>
     <arg name="use_real_sensor"  default="false"/>
+    <arg name="visualize_aoa_timer"  default="180.0"/>
     <arg name="measurement_interval"  default="4.0"/>
     
     <group ns="$(arg robot_name)">
@@ -17,6 +18,7 @@
             <param name="own_robot_id" value="$(arg robot_id)"/>
             <param name="use_real_sensor" value="$(arg use_real_sensor)"/>
             <param name="measurement_interval" value="$(arg measurement_interval)"/>
+            <param name="visualize_aoa_timer" value="$(arg visualize_aoa_timer)"/>
         </node>
     </group>
 

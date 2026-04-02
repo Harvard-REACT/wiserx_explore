@@ -156,7 +156,7 @@ class QuadMap:
 
 
 class Viz:
-    def __init__(self,sensor_range=0.1, map_resolution=0.1, robot_viz_color="green"):
+    def __init__(self,sensor_range=0.1, map_resolution=0.1, robot_viz_color="green", robot_name="tb3"):
         DPI = 75
         self.fig , self.ax = plt.subplots(figsize=(450/DPI, 450/DPI), dpi=DPI)
         self.x_data, self.y_data = np.array([]) , np.array([])
@@ -167,13 +167,10 @@ class Viz:
         self.own_position_x, self.own_position_y = [], []
         self.neighboring_robot_x, self.neighboring_robot_y = [], []
         
-        other_robot_color = "blue"
-        self.plot_title = "Robot_1 (green)"
-        if(robot_viz_color == other_robot_color):
-            other_robot_color = "green"
-            self.plot_title = "Robot_2 (blue)"
+        self.color_palette = ['green', 'blue', 'purple', 'cyan', 'yellow', 'magenta', 'orange']
+        self.plot_title = robot_name + " (" + robot_viz_color + ")"
 
-        self.colors_list = [robot_viz_color,other_robot_color, "red", "black", 'orange']
+        self.colors_list = [robot_viz_color, "gray", "red", "black", 'orange']
         self.colors = []
         self.colors_true = []
         self.colors_fc = []
@@ -184,11 +181,15 @@ class Viz:
         self.sensor_range = float(sensor_range)
         factor_val = 2.2
         self.map_resolution = float(map_resolution)
-        self.width = 20 / self.map_resolution 
+        self.width = 32 / self.map_resolution 
         self.height = self.width
         domain =  Rect(self.width/2, self.height/2, self.width, self.height)
         max_points = 4
         self.qmap = QuadMap(domain, max_points, self.sensor_range/self.map_resolution)
+
+    def get_robot_color(self, robot_id):
+        idx = (robot_id - 1) % len(self.color_palette)
+        return self.color_palette[idx]
 
     def plot_init(self):
         self.ax.set_title(self.plot_title, fontsize=20)
@@ -232,7 +233,7 @@ class Viz:
             other_robot_cov_y_temp.append(msg.other_robots[i].covariance_meter_sq[3])
             other_robot_status_temp.append(msg.other_robots[i].status)
 
-            colors_temp.append(self.colors_list[1]) #Denotes Relative_position estimates    
+            colors_temp.append(self.get_robot_color(msg.other_robots[i].robot_id)) #Denotes Relative_position estimates    
             colors_temp_true.append(self.colors_list[3]) #Denotes true position of the other robot
             colors_temp_oshot.append(self.colors_list[4])
             
@@ -301,7 +302,14 @@ class Viz:
 if __name__ == "__main__":
     rospy.init_node('quadmap_viz_node', anonymous=True)
     robot_name = rospy.get_param('~robot_name', 'tb3')
-    robot_viz_color = rospy.get_param('~viz_color', 'green')
+    
+    color_palette = ['green', 'blue', 'purple', 'cyan', 'yellow', 'magenta', 'orange']
+    try:
+        rid = int(robot_name.split('_')[-1])
+    except:
+        rid = 1
+    robot_viz_color = color_palette[(rid - 1) % len(color_palette)]
+
     sensor_range= 0 
     map_resolution = 0
     
@@ -316,7 +324,7 @@ if __name__ == "__main__":
                 rospy.logwarn("Missing gmapping parameters for quadmap visualization.Waiting..")
                 time.sleep(5)
             
-        viz = Viz(sensor_range, map_resolution,robot_viz_color)
+        viz = Viz(sensor_range, map_resolution,robot_viz_color, robot_name)
         sub = rospy.Subscriber("/"+robot_name+"/explore/node_list", QuadmapViz, viz.Pose_callback)
         ani = FuncAnimation(viz.fig, viz.update_plot, init_func=viz.plot_init)
         plt.show(block=True) 
@@ -325,4 +333,3 @@ if __name__ == "__main__":
         rospy.loginfo("Exiting.")
 
         
-
